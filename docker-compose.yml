@@ -1,0 +1,123 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# FlinkSQL Studio — OSS docker-compose.yml
+#
+# ── Quick start (connect to existing cluster) ────────────────────────────────
+#   FLINK_GATEWAY_HOST=my-cluster.example.com \
+#   FLINK_GATEWAY_PORT=8083 \
+#   JOBMANAGER_HOST=my-cluster.example.com \
+#   docker compose up -d
+#
+# ── Local development (spin up a minimal Flink cluster) ──────────────────────
+#   docker compose --profile local-flink up -d
+#
+# ── Full stack (Studio + Flink + Kafka) ──────────────────────────────────────
+#   docker compose --profile full-stack up -d
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ══════════════════════════════════════════
+  #  FlinkSQL Studio  (always started)
+  # ══════════════════════════════════════════
+  flinksql-studio:
+    image: codedstreams/flinksql-studio:latest
+    # build: .    # uncomment to build from source
+    container_name: flinksql-studio
+    restart: unless-stopped
+    ports:
+      - "${STUDIO_PORT:-3030}:80"
+    environment:
+      FLINK_GATEWAY_HOST: "${FLINK_GATEWAY_HOST:-localhost}"
+      FLINK_GATEWAY_PORT: "${FLINK_GATEWAY_PORT:-8083}"
+      JOBMANAGER_HOST:    "${JOBMANAGER_HOST:-localhost}"
+      JOBMANAGER_PORT:    "${JOBMANAGER_PORT:-8081}"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  # ══════════════════════════════════════════
+  #  Local Flink Cluster  (profile: local-flink)
+  # ══════════════════════════════════════════
+  jobmanager:
+    image: flink:1.19.1-scala_2.12-java11
+    profiles: ["local-flink", "full-stack"]
+    container_name: flink-jobmanager
+    command: jobmanager
+    ports:
+      - "8081:8081"
+    environment:
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: jobmanager
+        rest.port: 8081
+        rest.bind-address: 0.0.0.0
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8081/v1/overview || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+
+  taskmanager:
+    image: flink:1.19.1-scala_2.12-java11
+    profiles: ["local-flink", "full-stack"]
+    container_name: flink-taskmanager
+    command: taskmanager
+    depends_on:
+      jobmanager:
+        condition: service_healthy
+    environment:
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: jobmanager
+        taskmanager.numberOfTaskSlots: 4
+
+  sql-gateway:
+    image: flink:1.19.1-scala_2.12-java11
+    profiles: ["local-flink", "full-stack"]
+    container_name: flink-sql-gateway
+    command: >
+      /bin/bash -c "
+        exec /opt/flink/bin/sql-gateway.sh start-foreground
+      "
+    depends_on:
+      jobmanager:
+        condition: service_healthy
+    expose:
+      - "8083"
+    environment:
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: jobmanager
+        sql-gateway.endpoint.rest.address: 0.0.0.0
+        sql-gateway.endpoint.rest.port: 8083
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8083/v1/info || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 45s
+
+  # ══════════════════════════════════════════
+  #  Kafka  (profile: full-stack)
+  # ══════════════════════════════════════════
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    profiles: ["full-stack"]
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    profiles: ["full-stack"]
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1

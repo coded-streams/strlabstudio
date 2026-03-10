@@ -1,0 +1,16 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Docker
+*.env
+.env.local
+
+# Build artifacts
+_site/
+docs-output.html

@@ -1,0 +1,122 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# k8s/manifests/deployment.yaml
+# Plain Kubernetes manifests (no Helm) for deploying FlinkSQL Studio.
+#
+# Usage:
+#   kubectl create namespace flinksql-studio
+#   # Edit the ConfigMap below with your cluster details, then:
+#   kubectl apply -f k8s/manifests/deployment.yaml
+# ─────────────────────────────────────────────────────────────────────────────
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: flinksql-studio
+
+---
+# ConfigMap — cluster connection details
+# Edit FLINK_GATEWAY_HOST and JOBMANAGER_HOST to match your cluster.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: flinksql-studio-config
+  namespace: flinksql-studio
+data:
+  FLINK_GATEWAY_HOST: "flink-sql-gateway.flink.svc.cluster.local"
+  FLINK_GATEWAY_PORT: "8083"
+  JOBMANAGER_HOST:    "flink-jobmanager.flink.svc.cluster.local"
+  JOBMANAGER_PORT:    "8081"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flinksql-studio
+  namespace: flinksql-studio
+  labels:
+    app: flinksql-studio
+    version: "1.0.0"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: flinksql-studio
+  template:
+    metadata:
+      labels:
+        app: flinksql-studio
+    spec:
+      containers:
+        - name: studio
+          image: codedstreams/flinksql-studio:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+              name: http
+          envFrom:
+            - configMapRef:
+                name: flinksql-studio-config
+          resources:
+            requests:
+              cpu:    "50m"
+              memory: "64Mi"
+            limits:
+              cpu:    "200m"
+              memory: "128Mi"
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 30
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: flinksql-studio
+  namespace: flinksql-studio
+  labels:
+    app: flinksql-studio
+spec:
+  selector:
+    app: flinksql-studio
+  ports:
+    - port: 80
+      targetPort: 80
+      name: http
+  type: ClusterIP
+
+---
+# Optional: expose externally via NodePort
+# Change type to NodePort and add nodePort: 30030
+# Or use an Ingress (see below).
+
+---
+# Optional Ingress — expose at http://flinksql-studio.your-domain.com
+# Requires an Ingress controller (e.g. nginx-ingress) to be installed.
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   name: flinksql-studio
+#   namespace: flinksql-studio
+#   annotations:
+#     kubernetes.io/ingress.class: nginx
+# spec:
+#   rules:
+#     - host: flinksql-studio.your-domain.com
+#       http:
+#         paths:
+#           - path: /
+#             pathType: Prefix
+#             backend:
+#               service:
+#                 name: flinksql-studio
+#                 port:
+#                   number: 80

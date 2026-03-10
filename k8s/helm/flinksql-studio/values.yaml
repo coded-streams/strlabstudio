@@ -1,0 +1,55 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# k8s/helm/flinksql-studio/values.yaml
+# Default values for the FlinkSQL Studio Helm chart.
+# Override with: helm install ... --set key=value
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Docker image
+image:
+  repository: codedstreams/flinksql-studio
+  tag: latest
+  pullPolicy: Always
+
+# Number of replicas (usually 1 — IDE is stateless per-browser)
+replicaCount: 1
+
+# Flink SQL Gateway connection
+gateway:
+  host: "flink-sql-gateway.flink.svc.cluster.local"
+  port: 8083
+
+# Flink JobManager connection (for Performance tab metrics)
+jobmanager:
+  host: "flink-jobmanager.flink.svc.cluster.local"
+  port: 8081
+
+# Kubernetes Service
+service:
+  type: ClusterIP      # ClusterIP | NodePort | LoadBalancer
+  port: 80
+  nodePort: ""         # only used when type=NodePort (e.g. 30030)
+
+# Ingress
+ingress:
+  enabled: false
+  className: nginx
+  host: "flinksql-studio.example.com"
+  tls: false
+  tlsSecretName: ""
+  annotations: {}
+
+# Resource limits
+resources:
+  requests:
+    cpu: "50m"
+    memory: "64Mi"
+  limits:
+    cpu: "200m"
+    memory: "128Mi"
+
+# Pod annotations and labels
+podAnnotations: {}
+podLabels: {}
+
+# Namespace (chart installs into the release namespace by default)
+# Override with: helm install ... --namespace my-ns --create-namespace

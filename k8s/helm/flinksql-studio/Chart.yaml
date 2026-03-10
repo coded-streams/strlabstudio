@@ -1,0 +1,17 @@
+apiVersion: v2
+name: flinksql-studio
+description: Browser-based SQL IDE for Apache Flink
+type: application
+version: "1.0.0"
+appVersion: "1.0.0"
+keywords:
+  - flink
+  - sql
+  - ide
+  - streaming
+home: https://github.com/coded-streams/flinksql-studio
+sources:
+  - https://github.com/coded-streams/flinksql-studio
+maintainers:
+  - name: Nestor A. A
+    email: nestorabiawuh@gmail.com
