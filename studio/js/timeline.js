@@ -340,6 +340,30 @@ async function updateJobCompare() {
       }
     } else if (metric === 'duration') {
       val = Math.round((job.duration || 0) / 1000);
+    } else if (metric === 'cpuLoad') {
+      // CPU load from taskmanager metrics aggregated across job vertices
+      const det = await jmApi(`/jobs/${job.jid}`);
+      if (det && det.vertices) {
+        let cpuSum = 0, cpuCount = 0;
+        for (const v of det.vertices.slice(0, 4)) {
+          const vm = await jmApi(`/jobs/${job.jid}/vertices/${v.id}/metrics?get=Status.JVM.CPU.Load`);
+          if (vm) vm.forEach(m => { if (m.id === 'Status.JVM.CPU.Load') { cpuSum += parseFloat(m.value||0)*100; cpuCount++; } });
+        }
+        val = cpuCount > 0 ? Math.round(cpuSum / cpuCount) : 0;
+      }
+    } else if (metric === 'heapUsed') {
+      const det = await jmApi(`/jobs/${job.jid}`);
+      if (det && det.vertices && det.vertices.length > 0) {
+        const v = det.vertices[0];
+        const vm = await jmApi(`/jobs/${job.jid}/vertices/${v.id}/metrics?get=Status.JVM.Memory.Heap.Used`);
+        if (vm) vm.forEach(m => { if (m.id === 'Status.JVM.Memory.Heap.Used') val = Math.round(parseFloat(m.value||0)/(1024*1024)); });
+      }
+    } else if (metric === 'cpBytes') {
+      // Latest checkpoint state size in MB
+      const cp = await jmApi(`/jobs/${job.jid}/checkpoints`);
+      if (cp && cp.latest && cp.latest.completed) {
+        val = Math.round((cp.latest.completed.state_size || 0) / (1024*1024));
+      }
     } else if (metric === 'backpressure') {
       const detail = await jmApi(`/jobs/${job.jid}`);
       if (detail && detail.vertices) {
@@ -398,7 +422,10 @@ function renderJobCompare() {
     ctx.fillStyle = labelColor;
     ctx.font = '8px monospace';
     const label = globalMax * f;
-    ctx.fillText(label > 999 ? (label/1000).toFixed(1)+'k' : Math.round(label), 2, y + 3);
+    const metricSel = document.getElementById('job-compare-metric')?.value || 'recIn';
+    const unit = metricSel === 'heapUsed' ? 'MB' : metricSel === 'cpuLoad' ? '%' : metricSel === 'cpBytes' ? 'MB' : '';
+    const labelStr = label > 999 ? (label/1000).toFixed(1)+'k'+unit : Math.round(label)+unit;
+    ctx.fillText(labelStr, 2, y + 3);
   });
 
   // X axis

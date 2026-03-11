@@ -248,14 +248,16 @@ SHOW CATALOGS;"
               Operations <span class="badge" id="ops-badge">0</span>
             </button>
             <button class="result-tab" onclick="switchResultTab('perf',this)" id="perf-tab-btn">
-              ⚡ Performance
+              Performance
             </button>
             <button class="result-tab" onclick="switchResultTab('jobgraph',this)" id="jobgraph-tab-btn">
-              ◈ Job Graph
+              Job Graph
             </button>
             <div class="results-actions">
-              <button class="topbar-btn" onclick="exportCSV()" title="Export results, logs and performance timings">↓ Export</button>
-              <button class="topbar-btn" onclick="clearResults()" title="Clear results">✕</button>
+              <button class="topbar-btn" id="results-toggle-btn" onclick="toggleResultsPanel()" title="Minimize/restore panel" style="padding:0 8px;min-width:26px;">▼</button>
+              <button class="topbar-btn" id="results-max-btn" onclick="maximiseResultsPanel()" title="Maximize panel" style="padding:0 8px;min-width:26px;">⊞</button>
+              <button class="topbar-btn" onclick="exportCSV()" title="Export">Export</button>
+              <button class="topbar-btn" onclick="clearResults()" title="Clear">✕</button>
             </div>
           </div>
           <div class="results-content">
@@ -282,103 +284,87 @@ SHOW CATALOGS;"
             <div id="perf-panel">
               <!-- Toolbar -->
               <div class="perf-toolbar">
-                <span class="perf-toolbar-label">Performance Monitor</span>
-                <span id="perf-last-refresh" style="font-size:10px;color:var(--text3);margin-left:8px;"></span>
-                <button class="perf-refresh-btn" id="perf-live-btn" onclick="togglePerfLive()">
+                <span class="perf-toolbar-label">Performance</span>
+                <span id="perf-last-refresh" style="font-size:10px;color:var(--text3);margin-left:6px;"></span>
+                <div class="perf-subtabs">
+                  <button class="perf-subtab-btn active" data-tab="overview"  onclick="switchPerfTab('overview')">Overview</button>
+                  <button class="perf-subtab-btn"        data-tab="throughput" onclick="switchPerfTab('throughput')">Throughput</button>
+                  <button class="perf-subtab-btn"        data-tab="jobs"      onclick="switchPerfTab('jobs')">Jobs</button>
+                  <button class="perf-subtab-btn"        data-tab="checkpoints" onclick="switchPerfTab('checkpoints')">Checkpoints</button>
+                  <button class="perf-subtab-btn"        data-tab="cluster"   onclick="switchPerfTab('cluster')">Cluster</button>
+                  <button class="perf-subtab-btn"        data-tab="report"    onclick="switchPerfTab('report')">Report</button>
+                </div>
+                <button class="perf-refresh-btn" id="perf-live-btn" onclick="togglePerfLive()" style="margin-left:auto;">
                   <span id="perf-live-dot-el" class="perf-live-dot" style="display:none;"></span>
-                  <span id="perf-live-label">▶ Start Live</span>
+                  <span id="perf-live-label">▶ Live</span>
                 </button>
-                <button class="perf-refresh-btn" onclick="refreshPerf()" style="margin-left:4px;">⟳ Refresh</button>
-                <button class="perf-refresh-btn" onclick="exportPerfCSV()" style="margin-left:4px;" title="Export performance metrics as CSV">⬇ Export CSV</button>
-                <input id="perf-query-filter" type="text" placeholder="&#128269; Filter queries..." onkeyup="filterPerfQueries(this.value)" style="background:var(--bg1);border:1px solid var(--border2);color:var(--text0);font-family:var(--mono);font-size:11px;padding:4px 9px;border-radius:var(--radius);width:200px;outline:none;margin-left:8px;">
+                <button class="perf-refresh-btn" onclick="refreshPerf()" style="margin-left:4px;">Refresh</button>
+                <button class="perf-refresh-btn" onclick="exportPerfCSV()" style="margin-left:4px;">Export CSV</button>
+                <input id="perf-query-filter" type="text" placeholder="Filter queries..." onkeyup="filterPerfQueries(this.value)" style="background:var(--bg1);border:1px solid var(--border2);color:var(--text0);font-family:var(--mono);font-size:11px;padding:4px 9px;border-radius:var(--radius);width:160px;outline:none;margin-left:6px;">
               </div>
-              <!-- Cluster stats row -->
+              <!-- ═══ CLUSTER STATS ROW (always visible) ═══ -->
               <div class="cluster-row" id="perf-cluster-row">
-                <div class="cluster-stat"><span class="cluster-stat-icon">🖥</span><div><div class="cluster-stat-val" id="cs-tms">—</div><div class="cluster-stat-lbl">Task Managers</div></div></div>
-                <div class="cluster-stat"><span class="cluster-stat-icon">⚙</span><div><div class="cluster-stat-val" id="cs-slots-free">—</div><div class="cluster-stat-lbl">Slots Used</div></div></div>
-                <div class="cluster-stat"><span class="cluster-stat-icon">▦</span><div><div class="cluster-stat-val" id="cs-slots-total">—</div><div class="cluster-stat-lbl">Total Slots</div></div></div>
-                <div class="cluster-stat"><span class="cluster-stat-icon">⚡</span><div><div class="cluster-stat-val" id="cs-jobs-running">—</div><div class="cluster-stat-lbl">Running Jobs</div></div></div>
-                <div class="cluster-stat"><span class="cluster-stat-icon">✓</span><div><div class="cluster-stat-val" id="cs-jobs-finished">—</div><div class="cluster-stat-lbl">Finished Jobs</div></div></div>
-                <div class="cluster-stat"><span class="cluster-stat-icon">💾</span><div><div class="cluster-stat-val" id="cs-slots-free-count">—</div><div class="cluster-stat-lbl">Free Slots</div></div></div>
+                <div class="cluster-stat"><div><div class="cluster-stat-val" id="cs-tms">—</div><div class="cluster-stat-lbl">Task Managers</div></div></div>
+                <div class="cluster-stat"><div><div class="cluster-stat-val" id="cs-slots-free">—</div><div class="cluster-stat-lbl">Slots Used</div></div></div>
+                <div class="cluster-stat"><div><div class="cluster-stat-val" id="cs-slots-total">—</div><div class="cluster-stat-lbl">Total Slots</div></div></div>
+                <div class="cluster-stat"><div><div class="cluster-stat-val" id="cs-jobs-running">—</div><div class="cluster-stat-lbl">Running Jobs</div></div></div>
+                <div class="cluster-stat"><div><div class="cluster-stat-val" id="cs-jobs-finished">—</div><div class="cluster-stat-lbl">Finished Jobs</div></div></div>
+                <div class="cluster-stat"><div><div class="cluster-stat-val" id="cs-slots-free-count">—</div><div class="cluster-stat-lbl">Free Slots</div></div></div>
               </div>
-              <!-- KPI row -->
-              <div class="perf-grid" id="perf-kpi-row">
-                <div class="perf-kpi" style="--kpi-color:var(--accent)">
-                  <div class="perf-kpi-label">Last Query Time</div>
-                  <div class="perf-kpi-value" id="kpi-query-time">—</div>
-                  <div class="perf-kpi-unit">ms</div>
-                  <div class="perf-kpi-delta neu" id="kpi-query-delta">no previous</div>
-                </div>
-                <div class="perf-kpi" style="--kpi-color:var(--green)">
-                  <div class="perf-kpi-label">Rows / Second</div>
-                  <div class="perf-kpi-value" id="kpi-rows-sec">—</div>
-                  <div class="perf-kpi-unit">rows/s</div>
-                  <div class="perf-kpi-delta neu" id="kpi-rows-delta">—</div>
-                </div>
-                <div class="perf-kpi" style="--kpi-color:var(--blue)">
-                  <div class="perf-kpi-label">Records In/s</div>
-                  <div class="perf-kpi-value" id="kpi-rec-in">—</div>
-                  <div class="perf-kpi-unit">rec/s (cluster)</div>
-                  <div class="perf-kpi-delta neu" id="kpi-rec-in-delta">—</div>
-                </div>
-                <div class="perf-kpi" style="--kpi-color:var(--accent3)">
-                  <div class="perf-kpi-label">Records Out/s</div>
-                  <div class="perf-kpi-value" id="kpi-rec-out">—</div>
-                  <div class="perf-kpi-unit">rec/s (cluster)</div>
-                  <div class="perf-kpi-delta neu" id="kpi-rec-out-delta">—</div>
-                </div>
-                <div class="perf-kpi" style="--kpi-color:var(--yellow)">
-                  <div class="perf-kpi-label">Last Checkpoint</div>
-                  <div class="perf-kpi-value" id="kpi-checkpoint-dur">—</div>
-                  <div class="perf-kpi-unit">ms</div>
-                  <div class="perf-kpi-delta" id="kpi-checkpoint-delta"></div>
-                </div>
-                <div class="perf-kpi" style="--kpi-color:var(--blue)">
-                  <div class="perf-kpi-label">State Size</div>
-                  <div class="perf-kpi-value" id="kpi-state-size">—</div>
-                  <div class="perf-kpi-unit">MB</div>
-                  <div class="perf-kpi-delta" id="kpi-state-delta"></div>
-                </div>
-              </div>
-              <!-- Charts body — each card is a collapsible section -->
-              <div class="perf-body" id="perf-body">
 
-                <!-- Section: Throughput sparklines -->
-                <div class="perf-section" id="ps-throughput">
-                  <button class="perf-section-hdr" onclick="togglePerfSection('ps-throughput')">
-                    <span class="perf-section-arrow" id="ps-throughput-arrow">▾</span>
-                    <span class="dot" style="background:var(--blue)"></span>
-                    Throughput
-                    <span class="perf-section-badge" id="ps-throughput-badge"></span>
-                  </button>
-                  <div class="perf-section-body" id="ps-throughput-body">
-                    <div class="perf-section-grid">
-                      <div class="perf-card">
-                        <div class="perf-card-title"><span class="dot" style="background:var(--blue)"></span>Records In / Second</div>
-                        <div class="sparkline-wrap"><svg id="spark-rec-in" viewBox="0 0 300 52" preserveAspectRatio="none"></svg></div>
-                        <div class="spark-label-row"><span id="spark-rec-in-min">min —</span><span id="spark-rec-in-max">max —</span></div>
-                      </div>
-                      <div class="perf-card">
-                        <div class="perf-card-title"><span class="dot" style="background:var(--accent3)"></span>Records Out / Second</div>
-                        <div class="sparkline-wrap"><svg id="spark-rec-out" viewBox="0 0 300 52" preserveAspectRatio="none"></svg></div>
-                        <div class="spark-label-row"><span id="spark-rec-out-min">min —</span><span id="spark-rec-out-max">max —</span></div>
-                      </div>
+              <!-- ═══ SUB-TAB PANELS ═══ -->
+              <div class="perf-subtab-content">
+
+                <!-- ── SUB-TAB: OVERVIEW ── -->
+                <div class="perf-subtab-panel active" id="perf-st-overview">
+                  <!-- KPI row -->
+                  <div class="perf-grid" id="perf-kpi-row">
+                    <div class="perf-kpi" style="--kpi-color:var(--accent)">
+                      <div class="perf-kpi-label">Last Query Time</div>
+                      <div class="perf-kpi-value" id="kpi-query-time">—</div>
+                      <div class="perf-kpi-unit">ms</div>
+                      <div class="perf-kpi-delta neu" id="kpi-query-delta">no previous</div>
+                    </div>
+                    <div class="perf-kpi" style="--kpi-color:var(--green)">
+                      <div class="perf-kpi-label">Rows / Second</div>
+                      <div class="perf-kpi-value" id="kpi-rows-sec">—</div>
+                      <div class="perf-kpi-unit">rows/s</div>
+                      <div class="perf-kpi-delta neu" id="kpi-rows-delta">—</div>
+                    </div>
+                    <div class="perf-kpi" style="--kpi-color:var(--blue)">
+                      <div class="perf-kpi-label">Records In/s</div>
+                      <div class="perf-kpi-value" id="kpi-rec-in">—</div>
+                      <div class="perf-kpi-unit">rec/s (cluster)</div>
+                      <div class="perf-kpi-delta neu" id="kpi-rec-in-delta">—</div>
+                    </div>
+                    <div class="perf-kpi" style="--kpi-color:var(--accent3)">
+                      <div class="perf-kpi-label">Records Out/s</div>
+                      <div class="perf-kpi-value" id="kpi-rec-out">—</div>
+                      <div class="perf-kpi-unit">rec/s (cluster)</div>
+                      <div class="perf-kpi-delta neu" id="kpi-rec-out-delta">—</div>
+                    </div>
+                    <div class="perf-kpi" style="--kpi-color:var(--yellow)">
+                      <div class="perf-kpi-label">Last Checkpoint</div>
+                      <div class="perf-kpi-value" id="kpi-checkpoint-dur">—</div>
+                      <div class="perf-kpi-unit">ms</div>
+                      <div class="perf-kpi-delta" id="kpi-checkpoint-delta"></div>
+                    </div>
+                    <div class="perf-kpi" style="--kpi-color:var(--blue)">
+                      <div class="perf-kpi-label">State Size</div>
+                      <div class="perf-kpi-value" id="kpi-state-size">—</div>
+                      <div class="perf-kpi-unit">MB</div>
+                      <div class="perf-kpi-delta" id="kpi-state-delta"></div>
                     </div>
                   </div>
-                </div>
-
-                <!-- Section: Backpressure & Slots -->
-                <div class="perf-section" id="ps-health">
-                  <button class="perf-section-hdr" onclick="togglePerfSection('ps-health')">
-                    <span class="perf-section-arrow" id="ps-health-arrow">▾</span>
-                    <span class="dot" style="background:var(--red)"></span>
-                    Backpressure &amp; Slot Health
-                    <span class="perf-section-badge" id="ps-health-badge"></span>
-                  </button>
-                  <div class="perf-section-body" id="ps-health-body">
-                    <div class="perf-section-grid">
-                      <div class="perf-card">
-                        <div class="perf-card-title"><span class="dot" style="background:var(--red)"></span>Backpressure &amp; Task Slots</div>
+                  <!-- Overview sections: backpressure + query history -->
+                  <div class="perf-body-single">
+                    <div class="perf-section" id="ps-health">
+                      <button class="perf-section-hdr" onclick="togglePerfSection('ps-health')">
+                        <span class="perf-section-arrow" id="ps-health-arrow">▾</span>
+                        Backpressure &amp; Slot Health
+                        <span class="perf-section-badge" id="ps-health-badge"></span>
+                      </button>
+                      <div class="perf-section-body" id="ps-health-body">
                         <div class="gauge-row" id="gauge-row">
                           <div class="gauge-wrap">
                             <svg class="gauge-svg" width="90" height="58" viewBox="0 0 90 58">
@@ -387,7 +373,7 @@ SHOW CATALOGS;"
                               <text class="gauge-val" id="gauge-bp-val" x="45" y="44" text-anchor="middle">—</text>
                               <text class="gauge-sub" x="45" y="54" text-anchor="middle">BACKPRESSURE</text>
                             </svg>
-                            <div class="gauge-name" style="font-size:9px;color:var(--text3);">0% = healthy</div>
+                            <div class="gauge-name">0% = healthy</div>
                           </div>
                           <div class="gauge-wrap">
                             <svg class="gauge-svg" width="90" height="58" viewBox="0 0 90 58">
@@ -396,7 +382,138 @@ SHOW CATALOGS;"
                               <text class="gauge-val" id="gauge-slots-val" x="45" y="44" text-anchor="middle">—</text>
                               <text class="gauge-sub" x="45" y="54" text-anchor="middle">SLOT USAGE</text>
                             </svg>
-                            <div class="gauge-name" style="font-size:9px;color:var(--text3);">% slots in use</div>
+                            <div class="gauge-name">% slots in use</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="perf-section" id="ps-queries">
+                      <button class="perf-section-hdr" onclick="togglePerfSection('ps-queries')">
+                        <span class="perf-section-arrow" id="ps-queries-arrow">▾</span>
+                        Query Execution History
+                        <span class="perf-section-badge" id="ps-queries-badge"></span>
+                      </button>
+                      <div class="perf-section-body" id="ps-queries-body">
+                        <div class="timing-list" id="timing-list">
+                          <div style="font-size:11px;color:var(--text3);text-align:center;padding:12px;">Run queries to see timing comparison</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- ── SUB-TAB: THROUGHPUT ── -->
+                <div class="perf-subtab-panel" id="perf-st-throughput">
+                  <div class="perf-body-single">
+                    <div class="perf-section" id="ps-throughput">
+                      <button class="perf-section-hdr" onclick="togglePerfSection('ps-throughput')">
+                        <span class="perf-section-arrow" id="ps-throughput-arrow">▾</span>
+                        Throughput — Records In / Out per Second
+                        <span class="perf-section-badge" id="ps-throughput-badge"></span>
+                      </button>
+                      <div class="perf-section-body" id="ps-throughput-body">
+                        <div class="perf-section-grid">
+                          <div class="perf-card">
+                            <div class="perf-card-title">Records In / Second</div>
+                            <div class="sparkline-wrap"><svg id="spark-rec-in" viewBox="0 0 300 52" preserveAspectRatio="none"></svg></div>
+                            <div class="spark-label-row"><span id="spark-rec-in-min">min —</span><span id="spark-rec-in-max">max —</span></div>
+                          </div>
+                          <div class="perf-card">
+                            <div class="perf-card-title">Records Out / Second</div>
+                            <div class="sparkline-wrap"><svg id="spark-rec-out" viewBox="0 0 300 52" preserveAspectRatio="none"></svg></div>
+                            <div class="spark-label-row"><span id="spark-rec-out-min">min —</span><span id="spark-rec-out-max">max —</span></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Job Resource Comparison (multi-line animated graph) -->
+                    <div class="perf-section" id="ps-jobgraph">
+                      <button class="perf-section-hdr" onclick="togglePerfSection('ps-jobgraph')">
+                        <span class="perf-section-arrow" id="ps-jobgraph-arrow">▾</span>
+                        Job Resource Comparison
+                        <span class="perf-section-badge" id="ps-jobgraph-badge"></span>
+                      </button>
+                      <div class="perf-section-body" id="ps-jobgraph-body">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+                          <span style="font-size:10px;color:var(--text2);">Metric:</span>
+                          <select id="job-compare-metric" onchange="redrawJobCompare()" style="font-size:10px;background:var(--bg3);border:1px solid var(--border);color:var(--text1);padding:3px 6px;border-radius:2px;">
+                            <option value="recIn">Records In/s</option>
+                            <option value="recOut">Records Out/s</option>
+                            <option value="duration">Running Time (s)</option>
+                            <option value="backpressure">Backpressure %</option>
+                            <option value="cpuLoad">CPU Load %</option>
+                            <option value="heapUsed">JVM Heap Used</option>
+                            <option value="cpBytes">Checkpoint Size (MB)</option>
+                          </select>
+                          <div id="job-compare-legend" style="display:flex;gap:10px;flex-wrap:wrap;margin-left:auto;"></div>
+                        </div>
+                        <div style="position:relative;height:180px;background:var(--bg0);border:1px solid var(--border);border-radius:3px;">
+                          <canvas id="job-compare-canvas" style="width:100%;height:180px;display:block;"></canvas>
+                          <div id="job-compare-empty" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--text3);">No running jobs — start a pipeline to see live comparison</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- ── SUB-TAB: JOBS ── -->
+                <div class="perf-subtab-panel" id="perf-st-jobs">
+                  <div class="perf-body-single">
+                    <div class="perf-section" id="ps-jobs">
+                      <button class="perf-section-hdr" onclick="togglePerfSection('ps-jobs')">
+                        <span class="perf-section-arrow" id="ps-jobs-arrow">▾</span>
+                        Running &amp; Recent Jobs
+                        <span class="perf-section-badge" id="ps-jobs-badge"></span>
+                      </button>
+                      <div class="perf-section-body" id="ps-jobs-body">
+                        <div class="job-list" id="perf-job-list">
+                          <div style="font-size:11px;color:var(--text3);">Click Refresh to load jobs</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- ── SUB-TAB: CHECKPOINTS ── -->
+                <div class="perf-subtab-panel" id="perf-st-checkpoints">
+                  <div class="perf-body-single">
+                    <div class="perf-section" id="ps-checkpoints">
+                      <button class="perf-section-hdr" onclick="togglePerfSection('ps-checkpoints')">
+                        <span class="perf-section-arrow" id="ps-checkpoints-arrow">▾</span>
+                        Checkpoint Metrics
+                        <span id="cp-status-badge" class="cp-badge cp-badge-none" style="margin-left:auto;margin-right:0;">NO JOB</span>
+                      </button>
+                      <div class="perf-section-body" id="ps-checkpoints-body">
+                        <div id="checkpoint-card">
+                          <div class="cp-summary-row">
+                            <div class="cp-stat"><div class="cp-stat-val" id="cp-total">—</div><div class="cp-stat-lbl">Total</div></div>
+                            <div class="cp-stat"><div class="cp-stat-val" id="cp-completed" style="color:var(--green)">—</div><div class="cp-stat-lbl">Completed</div></div>
+                            <div class="cp-stat"><div class="cp-stat-val" id="cp-failed" style="color:var(--red)">—</div><div class="cp-stat-lbl">Failed</div></div>
+                            <div class="cp-stat"><div class="cp-stat-val" id="cp-in-progress" style="color:var(--yellow)">—</div><div class="cp-stat-lbl">In Progress</div></div>
+                            <div class="cp-stat"><div class="cp-stat-val" id="cp-duration">—</div><div class="cp-stat-lbl">Last Duration</div></div>
+                            <div class="cp-stat"><div class="cp-stat-val" id="cp-size">—</div><div class="cp-stat-lbl">State Size</div></div>
+                          </div>
+                          <div id="cp-latest-wrap" style="display:none;">
+                            <div class="cp-section-label">LATEST COMPLETED</div>
+                            <div class="cp-detail-grid" id="cp-detail-grid"></div>
+                          </div>
+                          <div id="cp-history-wrap" style="display:none;">
+                            <div class="cp-section-label" style="display:flex;align-items:center;justify-content:space-between;">
+                              <span>CHECKPOINT DURATION HISTORY</span>
+                              <span id="cp-avg-label" style="color:var(--text2);font-size:9px;"></span>
+                            </div>
+                            <div class="sparkline-wrap" style="margin-top:4px;">
+                              <svg id="spark-cp-dur" viewBox="0 0 300 52" preserveAspectRatio="none"></svg>
+                            </div>
+                            <div class="spark-label-row">
+                              <span id="spark-cp-min">min —</span>
+                              <span id="spark-cp-max">max —</span>
+                            </div>
+                          </div>
+                          <div id="cp-empty-msg" style="font-size:11px;color:var(--text3);text-align:center;padding:14px 0;">
+                            No checkpoints recorded yet.
                           </div>
                         </div>
                       </div>
@@ -404,144 +521,49 @@ SHOW CATALOGS;"
                   </div>
                 </div>
 
-                <!-- Section: Query History -->
-                <div class="perf-section" id="ps-queries">
-                  <button class="perf-section-hdr" onclick="togglePerfSection('ps-queries')">
-                    <span class="perf-section-arrow" id="ps-queries-arrow">▾</span>
-                    <span class="dot" style="background:var(--accent)"></span>
-                    Query Execution History
-                    <span class="perf-section-badge" id="ps-queries-badge"></span>
-                  </button>
-                  <div class="perf-section-body" id="ps-queries-body">
-                    <div class="perf-card" style="border:none;padding:8px 0 0;">
-                      <div class="timing-list" id="timing-list">
-                        <div style="font-size:11px;color:var(--text3);text-align:center;padding:12px;">Run queries to see timing comparison</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Section: Checkpoints -->
-                <div class="perf-section" id="ps-checkpoints">
-                  <button class="perf-section-hdr" onclick="togglePerfSection('ps-checkpoints')">
-                    <span class="perf-section-arrow" id="ps-checkpoints-arrow">▾</span>
-                    <span class="dot" style="background:var(--yellow)"></span>
-                    Checkpoint Metrics
-                    <span id="cp-status-badge" class="cp-badge cp-badge-none" style="margin-left:auto;margin-right:0;">NO JOB</span>
-                  </button>
-                  <div class="perf-section-body" id="ps-checkpoints-body">
-                    <div id="checkpoint-card">
-                      <div class="cp-summary-row">
-                        <div class="cp-stat"><div class="cp-stat-val" id="cp-total">—</div><div class="cp-stat-lbl">Total</div></div>
-                        <div class="cp-stat"><div class="cp-stat-val" id="cp-completed" style="color:var(--green)">—</div><div class="cp-stat-lbl">Completed</div></div>
-                        <div class="cp-stat"><div class="cp-stat-val" id="cp-failed" style="color:var(--red)">—</div><div class="cp-stat-lbl">Failed</div></div>
-                        <div class="cp-stat"><div class="cp-stat-val" id="cp-in-progress" style="color:var(--yellow)">—</div><div class="cp-stat-lbl">In Progress</div></div>
-                        <div class="cp-stat"><div class="cp-stat-val" id="cp-duration">—</div><div class="cp-stat-lbl">Last Duration</div></div>
-                        <div class="cp-stat"><div class="cp-stat-val" id="cp-size">—</div><div class="cp-stat-lbl">State Size</div></div>
-                      </div>
-                      <div id="cp-latest-wrap" style="display:none;">
-                        <div class="cp-section-label">LATEST COMPLETED</div>
-                        <div class="cp-detail-grid" id="cp-detail-grid"></div>
-                      </div>
-                      <div id="cp-history-wrap" style="display:none;">
-                        <div class="cp-section-label" style="display:flex;align-items:center;justify-content:space-between;">
-                          <span>CHECKPOINT DURATION HISTORY</span>
-                          <span id="cp-avg-label" style="color:var(--text2);font-size:9px;"></span>
-                        </div>
-                        <div class="sparkline-wrap" style="margin-top:4px;">
-                          <svg id="spark-cp-dur" viewBox="0 0 300 52" preserveAspectRatio="none"></svg>
-                        </div>
-                        <div class="spark-label-row">
-                          <span id="spark-cp-min">min —</span>
-                          <span id="spark-cp-max">max —</span>
+                <!-- ── SUB-TAB: CLUSTER ── -->
+                <div class="perf-subtab-panel" id="perf-st-cluster">
+                  <div class="perf-body-single">
+                    <div class="perf-section" id="ps-cluster">
+                      <button class="perf-section-hdr" onclick="togglePerfSection('ps-cluster')">
+                        <span class="perf-section-arrow" id="ps-cluster-arrow">▾</span>
+                        Cluster Resources
+                        <span class="perf-section-badge" id="ps-cluster-badge"></span>
+                      </button>
+                      <div class="perf-section-body" id="ps-cluster-body">
+                        <div class="perf-section-grid" style="grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;">
+                          <div class="perf-card res-card"><div class="res-card-label">CPU Cores</div><div class="res-card-val" id="rc-cpu">—</div><div class="res-card-sub" id="rc-cpu-sub"></div></div>
+                          <div class="perf-card res-card"><div class="res-card-label">Physical Memory</div><div class="res-card-val" id="rc-mem">—</div><div class="res-card-sub" id="rc-mem-sub">total available</div></div>
+                          <div class="perf-card res-card"><div class="res-card-label">JVM Heap</div><div class="res-card-val" id="rc-heap">—</div><div class="res-card-sub" id="rc-heap-sub">used / max</div></div>
+                          <div class="perf-card res-card"><div class="res-card-label">Cluster Host</div><div class="res-card-val" id="rc-host" style="font-size:11px;word-break:break-all;">—</div><div class="res-card-sub" id="rc-host-sub"></div></div>
+                          <div class="perf-card res-card"><div class="res-card-label">Task Managers</div><div class="res-card-val" id="rc-tms">—</div><div class="res-card-sub" id="rc-tms-sub">active workers</div></div>
+                          <div class="perf-card res-card"><div class="res-card-label">Flink Version</div><div class="res-card-val" id="rc-version" style="font-size:12px;">—</div><div class="res-card-sub" id="rc-version-sub"></div></div>
+                          <div class="perf-card res-card"><div class="res-card-label">Cluster IP / Endpoint</div><div class="res-card-val" id="rc-ip" style="font-size:11px;word-break:break-all;">—</div><div class="res-card-sub" id="rc-ip-sub">gateway address</div></div>
                         </div>
                       </div>
-                      <div id="cp-empty-msg" style="font-size:11px;color:var(--text3);text-align:center;padding:14px 0;">
-                        No checkpoints recorded yet. Checkpoints appear once a streaming job has been running and checkpointing is enabled.
+                    </div>
+                  </div>
+                </div>
+
+                <!-- ── SUB-TAB: REPORT ── -->
+                <div class="perf-subtab-panel" id="perf-st-report">
+                  <div class="perf-body-single">
+                    <div class="perf-section" id="ps-report">
+                      <button class="perf-section-hdr" onclick="togglePerfSection('ps-report')">
+                        <span class="perf-section-arrow" id="ps-report-arrow">▾</span>
+                        Session Report
+                      </button>
+                      <div class="perf-section-body" id="ps-report-body">
+                        <div class="perf-card" style="display:flex;flex-direction:column;gap:12px;">
+                          <p style="font-size:11px;color:var(--text2);line-height:1.6;">Generate a professional PDF report of your entire session — queries, job metrics, cluster info, checkpoints, and performance history.</p>
+                          <div style="display:flex;align-items:center;gap:8px;">
+                            <span style="font-size:11px;color:var(--text2);white-space:nowrap;">Report name:</span>
+                            <input id="report-name-input" placeholder="flinksql-session-report" style="flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text0);padding:5px 8px;border-radius:2px;font-size:11px;font-family:var(--mono);" />
+                            <button onclick="generateSessionReport()" style="background:rgba(0,212,170,0.12);border:1px solid rgba(0,212,170,0.35);color:var(--accent);font-size:11px;padding:5px 12px;border-radius:2px;cursor:pointer;white-space:nowrap;font-family:var(--mono);">Generate PDF</button>
+                          </div>
+                          <div id="report-status" style="font-size:10px;color:var(--text3);"></div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Section: Jobs -->
-                <div class="perf-section" id="ps-jobs">
-                  <button class="perf-section-hdr" onclick="togglePerfSection('ps-jobs')">
-                    <span class="perf-section-arrow" id="ps-jobs-arrow">▾</span>
-                    <span class="dot" style="background:var(--green)"></span>
-                    Running &amp; Recent Jobs
-                    <span class="perf-section-badge" id="ps-jobs-badge"></span>
-                  </button>
-                  <div class="perf-section-body" id="ps-jobs-body">
-                    <div class="job-list" id="perf-job-list">
-                      <div style="font-size:11px;color:var(--text3);">Click Refresh to load jobs from JobManager</div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Section: Cluster Resources (CPU, Memory, JVM, IP) -->
-                <div class="perf-section" id="ps-cluster">
-                  <button class="perf-section-hdr" onclick="togglePerfSection('ps-cluster')">
-                    <span class="perf-section-arrow" id="ps-cluster-arrow">▾</span>
-                    <span class="dot" style="background:var(--accent2)"></span>
-                    Cluster Resources
-                    <span class="perf-section-badge" id="ps-cluster-badge"></span>
-                  </button>
-                  <div class="perf-section-body" id="ps-cluster-body">
-                    <div class="perf-section-grid" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;">
-                      <div class="perf-card res-card"><div class="res-card-label">🖥 CPU Cores</div><div class="res-card-val" id="rc-cpu">—</div><div class="res-card-sub" id="rc-cpu-sub"></div></div>
-                      <div class="perf-card res-card"><div class="res-card-label">🧠 Physical Memory</div><div class="res-card-val" id="rc-mem">—</div><div class="res-card-sub" id="rc-mem-sub">total available</div></div>
-                      <div class="perf-card res-card"><div class="res-card-label">☕ JVM Heap</div><div class="res-card-val" id="rc-heap">—</div><div class="res-card-sub" id="rc-heap-sub">used / max</div></div>
-                      <div class="perf-card res-card"><div class="res-card-label">🌐 Cluster Host</div><div class="res-card-val" id="rc-host" style="font-size:11px;word-break:break-all;">—</div><div class="res-card-sub" id="rc-host-sub"></div></div>
-                      <div class="perf-card res-card"><div class="res-card-label">🗄 Task Managers</div><div class="res-card-val" id="rc-tms">—</div><div class="res-card-sub" id="rc-tms-sub">active workers</div></div>
-                      <div class="perf-card res-card"><div class="res-card-label">⚡ Flink Version</div><div class="res-card-val" id="rc-version" style="font-size:12px;">—</div><div class="res-card-sub" id="rc-version-sub"></div></div>
-                      <div class="perf-card res-card"><div class="res-card-label">🔌 Cluster IP / Host</div><div class="res-card-val" id="rc-ip" style="font-size:11px;word-break:break-all;">—</div><div class="res-card-sub" id="rc-ip-sub">cluster endpoint</div></div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Section: Job Resource Comparison (multi-line real-time graph) -->
-                <div class="perf-section" id="ps-jobgraph">
-                  <button class="perf-section-hdr" onclick="togglePerfSection('ps-jobgraph')">
-                    <span class="perf-section-arrow" id="ps-jobgraph-arrow">▾</span>
-                    <span class="dot" style="background:var(--accent)"></span>
-                    Job Resource Comparison
-                    <span class="perf-section-badge" id="ps-jobgraph-badge"></span>
-                  </button>
-                  <div class="perf-section-body" id="ps-jobgraph-body">
-                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
-                      <span style="font-size:10px;color:var(--text2);">Metric:</span>
-                      <select id="job-compare-metric" onchange="redrawJobCompare()" style="font-size:10px;background:var(--bg3);border:1px solid var(--border);color:var(--text1);padding:3px 6px;border-radius:2px;">
-                        <option value="recIn">Records In/s</option>
-                        <option value="recOut">Records Out/s</option>
-                        <option value="duration">Running Time (s)</option>
-                        <option value="backpressure">Backpressure %</option>
-                      </select>
-                      <div id="job-compare-legend" style="display:flex;gap:10px;flex-wrap:wrap;margin-left:auto;"></div>
-                    </div>
-                    <div style="position:relative;height:160px;background:var(--bg3);border-radius:3px;border:1px solid var(--border);">
-                      <canvas id="job-compare-canvas" style="width:100%;height:160px;display:block;background:var(--bg1);border-radius:2px;"></canvas>
-                      <div id="job-compare-empty" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--text3);">No running jobs — start a pipeline to see live comparison</div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Section: Generate Report -->
-                <div class="perf-section" id="ps-report">
-                  <button class="perf-section-hdr" onclick="togglePerfSection('ps-report')">
-                    <span class="perf-section-arrow" id="ps-report-arrow">▾</span>
-                    <span class="dot" style="background:var(--accent3)"></span>
-                    Session Report
-                    <span class="perf-section-badge" id="ps-report-badge"></span>
-                  </button>
-                  <div class="perf-section-body" id="ps-report-body">
-                    <div class="perf-card" style="display:flex;flex-direction:column;gap:12px;">
-                      <p style="font-size:11px;color:var(--text2);line-height:1.6;">Generate a professional PDF report of your entire session — queries, job metrics, cluster info, checkpoints, and performance history.</p>
-                      <div style="display:flex;align-items:center;gap:8px;">
-                        <span style="font-size:11px;color:var(--text2);white-space:nowrap;">Report name:</span>
-                        <input id="report-name-input" placeholder="flinksql-session-report" style="flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text0);padding:5px 8px;border-radius:2px;font-size:11px;font-family:var(--mono);" />
-                        <button onclick="generateSessionReport()" style="background:rgba(0,212,170,0.12);border:1px solid rgba(0,212,170,0.35);color:var(--accent);font-size:11px;padding:5px 12px;border-radius:2px;cursor:pointer;white-space:nowrap;font-family:var(--mono);">📄 Generate PDF</button>
-                      </div>
-                      <div id="report-status" style="font-size:10px;color:var(--text3);"></div>
                     </div>
                   </div>
                 </div>
@@ -562,9 +584,9 @@ SHOW CATALOGS;"
                 </div>
                 <button class="jg-refresh-btn" onclick="refreshJobGraphList()" style="margin-left:6px;">⟳ Refresh Jobs</button>
                 <button class="jg-refresh-btn" onclick="reloadCurrentJgView()" style="margin-left:2px;">↺ Reload</button>
-                <button class="jg-refresh-btn danger" id="jg-cancel-btn" onclick="cancelSelectedJob()" style="margin-left:2px;display:none;background:rgba(255,80,80,0.12);color:#ff5050;border-color:rgba(255,80,80,0.3);">✕ Cancel Job</button>
+                <button class="jg-refresh-btn danger" id="jg-cancel-btn" onclick="cancelSelectedJob()" style="margin-left:2px;display:none;background:rgba(255,80,80,0.12);color:#ff5050;border-color:rgba(255,80,80,0.3);">Cancel Job</button>
                 <span id="jg-job-status-badge" style="font-size:10px;padding:2px 8px;border-radius:2px;margin-left:4px;display:none;"></span>
-                <button class="jg-refresh-btn" onclick="generateSessionReport()" style="margin-left:auto;background:rgba(0,212,170,0.1);color:var(--accent);border-color:rgba(0,212,170,0.3);" title="Generate PDF session report">📄 Report</button>
+                <button class="jg-refresh-btn" onclick="generateSessionReport()" style="margin-left:auto;background:rgba(0,212,170,0.1);color:var(--accent);border-color:rgba(0,212,170,0.3);" title="Generate PDF session report">Report</button>
                 <span style="font-size:10px;color:var(--text3);margin-left:8px;" id="jg-hint">Double-click a node to inspect</span>
               </div>
               <!-- DAG view -->
@@ -832,13 +854,13 @@ SHOW CATALOGS;"
       <!-- Tab bar -->
       <div id="nd-modal-tabs">
         <button class="nd-tab-btn active" onclick="switchNodeTab(this,'nd-pane-metrics')">
-          📊 Metrics
+          Metrics
         </button>
         <button class="nd-tab-btn" onclick="switchNodeTab(this,'nd-pane-all')">
-          🗂 All Metrics
+          All Metrics
         </button>
         <button class="nd-tab-btn" id="nd-tab-events" onclick="switchNodeTab(this,'nd-pane-events')" style="display:none;">
-          ⚡ Live Events <span class="nd-tab-badge" id="nd-events-badge">0</span>
+          Live Events <span class="nd-tab-badge" id="nd-events-badge">0</span>
         </button>
       </div>
 
@@ -870,8 +892,8 @@ SHOW CATALOGS;"
           <!-- Mini throughput chart -->
           <div style="padding:10px 20px 0;display:flex;gap:10px;align-items:flex-end;">
             <div style="flex:1;background:var(--bg0);border:1px solid var(--border);border-radius:5px;padding:6px 8px;">
-              <div style="font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:4px;">
-                <span style="color:var(--blue);">— In</span>&nbsp;&nbsp;<span style="color:var(--accent3);">— Out</span>&nbsp;&nbsp;Records/s
+              <div style="font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:4px;" id="nd-chart-legend">
+                <span style="color:var(--blue);" id="nd-legend-in">— In</span>&nbsp;&nbsp;<span style="color:var(--accent);" id="nd-legend-out">— Out</span>&nbsp;&nbsp;Records/s
               </div>
               <canvas id="nd-throughput-canvas" width="600" height="52" style="width:100%;height:52px;display:block;"></canvas>
             </div>

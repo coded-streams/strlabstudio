@@ -271,7 +271,11 @@ function switchResultTab(tab, el) {
   document.querySelectorAll('.result-tab').forEach(t => t.classList.remove('active'));
   if (el) el.classList.add('active');
   if (tab === 'log')  state.logBadge = 0;
-  if (tab === 'perf') refreshPerf();
+  if (tab === 'perf') {
+    refreshPerf();
+    // activate default perf sub-tab
+    if (typeof switchPerfTab === 'function') switchPerfTab('overview');
+  }
   if (tab === 'jobgraph') refreshJobGraphList();
 }
 

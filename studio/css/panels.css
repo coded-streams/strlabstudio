@@ -779,3 +779,116 @@ body.theme-light .perf-section-hdr:hover { background: var(--bg3); color: var(--
   from { opacity: 0.5; }
   to   { opacity: 1.0; }
 }
+
+
+/* ── Perf sub-tab navigation ────────────────────────────────── */
+.perf-subtabs {
+  display: flex;
+  gap: 1px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+.perf-subtab-btn {
+  height: 26px;
+  padding: 0 11px;
+  background: var(--bg2);
+  border: none;
+  color: var(--text2);
+  font-family: var(--mono);
+  font-size: 10px;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+  white-space: nowrap;
+  letter-spacing: 0.3px;
+}
+.perf-subtab-btn:hover  { background: var(--bg3); color: var(--text1); }
+.perf-subtab-btn.active { background: var(--bg0); color: var(--accent); }
+body.theme-light .perf-subtab-btn        { background: var(--bg2); }
+body.theme-light .perf-subtab-btn.active { background: var(--bg1); }
+
+/* Sub-tab content wrapper */
+.perf-subtab-content {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.perf-subtab-panel {
+  display: none;
+  flex: 1;
+  overflow-y: auto;
+  flex-direction: column;
+}
+.perf-subtab-panel.active { display: flex; }
+
+/* Single-column body within a sub-tab */
+.perf-body-single {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px;
+}
+
+/* ── Panel minimise / maximise ──────────────────────────────── */
+#results-panel.panel-minimised .results-content { display: none; }
+#results-panel.panel-minimised { overflow: hidden; }
+
+/* ── Idle node — grey/dim color when no throughput ──────────── */
+.jg-node-rect.source.idle  {
+  stroke: #4a5568;
+  fill:   rgba(74, 85, 104, 0.07);
+  opacity: 0.75;
+}
+.jg-node-rect.sink.idle    {
+  stroke: #4a5568;
+  fill:   rgba(74, 85, 104, 0.07);
+  opacity: 0.75;
+}
+.jg-node-rect.process.idle {
+  stroke: #4a5568;
+  fill:   rgba(74, 85, 104, 0.07);
+  opacity: 0.75;
+}
+
+/* ── Animated active edge (data is flowing) ─────────────────── */
+.jg-edge.active {
+  stroke: var(--accent);
+  stroke-dasharray: 6 4;
+  animation: dash-flow 1.2s linear infinite;
+}
+@keyframes dash-flow {
+  to { stroke-dashoffset: -20; }
+}
+
+/* ── Button padding normalisation ───────────────────────────── */
+.jg-refresh-btn {
+  padding: 0 10px !important;
+  height: 26px !important;
+  font-size: 10px !important;
+}
+.perf-refresh-btn {
+  height: 24px !important;
+  padding: 0 9px !important;
+}
+.topbar-btn {
+  padding: 0 8px !important;
+  height: 24px !important;
+  font-size: 10px !important;
+}
+
+/* ── Fix perf-toolbar overflow / wrapping ───────────────────── */
+.perf-toolbar {
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+
+/* ── Perf section in single-col layout ──────────────────────── */
+.perf-body-single .perf-section { margin-bottom: 2px; }
+.perf-body-single .perf-section-body { max-height: 500px; overflow-y: auto; }
+
+/* ── Job compare canvas — animated glow on active lines ─────── */
+#job-compare-canvas { display: block; }

@@ -28,6 +28,20 @@ async function refreshJobGraphList() {
   }
 }
 
+// ── Live job graph auto-refresh ───────────────────────────────────────────────
+let _jgLiveTimer = null;
+function startJgLiveRefresh(jid) {
+  stopJgLiveRefresh();
+  _jgLiveTimer = setInterval(() => {
+    if (document.getElementById('job-graph-panel')?.classList.contains('active')) {
+      loadJobGraph(jid);
+    }
+  }, 4000);
+}
+function stopJgLiveRefresh() {
+  if (_jgLiveTimer) { clearInterval(_jgLiveTimer); _jgLiveTimer = null; }
+}
+
 async function cancelSelectedJob() {
   const sel = document.getElementById('jg-job-select');
   const jid = sel ? sel.value : '';
@@ -93,6 +107,9 @@ async function loadJobGraph(jid) {
     badge.style.display = 'inline-block';
     // Show cancel button only for cancellable states
     if (cancelBtn) cancelBtn.style.display = ['RUNNING','RESTARTING','CREATED','INITIALIZING'].includes(st) ? 'inline-block' : 'none';
+    // Auto-live color refresh for running jobs
+    if (st === 'RUNNING') startJgLiveRefresh(jid);
+    else stopJgLiveRefresh();
 
     // Fetch vertex metrics for running jobs
     let vertexMetrics = {};
@@ -220,11 +237,16 @@ function renderJobGraph(plan, jobDetail, vertexMetrics) {
     const isSink   = !nodes.some(other => (other.inputs || []).some(inp => inp.id === n.id));
 
     // Node rect class: fault overrides all topology colours
+    // Idle detection: RUNNING node with zero throughput gets 'idle' modifier
+    const hasMetrics = (recIn !== null || recOut !== null);
+    const isIdle = hasMetrics && (recIn === 0 || recIn === null) && (recOut === 0 || recOut === null)
+                   && vStatus === 'RUNNING';
+
     let rectClass = 'jg-node-rect ';
-    if (isFault)       rectClass += 'fault fault-pulse';
-    else if (isSource) rectClass += 'source';
-    else if (isSink)   rectClass += 'sink';
-    else               rectClass += 'process';
+    if (isFault)            rectClass += 'fault fault-pulse';
+    else if (isSource)      rectClass += 'source' + (isIdle ? ' idle' : '');
+    else if (isSink)        rectClass += 'sink'   + (isIdle ? ' idle' : '');
+    else                    rectClass += 'process' + (isIdle ? ' idle' : '');
 
     const vm = vertexMetrics[n.id] || {};
     const recIn  = vm['numRecordsInPerSecond']  ? Math.round(parseFloat(vm['numRecordsInPerSecond']))  : null;
@@ -243,10 +265,10 @@ function renderJobGraph(plan, jobDetail, vertexMetrics) {
       .replace(/\s+/g, ' ').trim();
 
     const shortName = cleanDesc(n.description || n.id || '').slice(0, 34);
-    const opLabel     = isFault  ? '⚠ ERROR'
-                      : isSource ? '▶ SOURCE'
-                      : isSink   ? '⬛ SINK'
-                      : '⚙ PROCESS';
+    const opLabel     = isFault  ? 'ERROR'
+                      : isSource ? (isIdle ? 'SOURCE  IDLE' : 'SOURCE')
+                      : isSink   ? (isIdle ? 'SINK  IDLE'   : 'SINK')
+                      : (isIdle  ? 'PROCESS  IDLE' : 'PROCESS');
     const opLabelColor = isFault ? 'var(--red)' : isSource ? 'var(--blue)' : isSink ? 'var(--accent3)' : 'var(--green)';
 
     // Error message in node (truncated)
@@ -481,17 +503,10 @@ async function showJobGraphNodeDetail(nid, nodes, vertices, vertexMetrics) {
   const par = node.parallelism || vertex.parallelism;
   el('nd-modal-parallelism-label').textContent = par ? 'Parallelism: ' + par : '';
 
-  // ── Show / hide Live Events tab (only for source and sink nodes) ──
+  // ── Show Live Events tab for ALL running nodes ──────────────────────────────
+  // Previously hidden for process nodes — but process nodes DO emit metrics.
   const evTab = el('nd-tab-events');
-  if (isSource || isSink) {
-    evTab.style.display = 'flex';
-  } else {
-    evTab.style.display = 'none';
-    // If on events tab, switch back to metrics
-    if (el('nd-pane-events').classList.contains('active')) {
-      switchNodeTab(document.querySelector('.nd-tab-btn'), 'nd-pane-metrics');
-    }
-  }
+  if (evTab) evTab.style.display = 'flex';
 
   // Reset tab to Metrics
   document.querySelectorAll('.nd-tab-btn').forEach(b => b.classList.remove('active'));
@@ -580,8 +595,30 @@ async function showJobGraphNodeDetail(nid, nodes, vertices, vertexMetrics) {
   el('nd-modal-backdrop').classList.add('open');
   selectJobGraphNode(nid);
 
-  // Auto-start event stream if node is RUNNING and is source/sink
-  if (st === 'RUNNING' && (isSource || isSink)) {
+  // Update chart legend to reflect node type
+  const legendIn  = el('nd-legend-in');
+  const legendOut = el('nd-legend-out');
+  if (legendIn && legendOut) {
+    if (isSource) {
+      legendIn.textContent  = '— (n/a)';
+      legendIn.style.color  = 'var(--text3)';
+      legendOut.textContent = '— Emitted';
+      legendOut.style.color = 'var(--accent)';
+    } else if (isSink) {
+      legendIn.textContent  = '— Received';
+      legendIn.style.color  = 'var(--blue)';
+      legendOut.textContent = '— (n/a)';
+      legendOut.style.color = 'var(--text3)';
+    } else {
+      legendIn.textContent  = '— In';
+      legendIn.style.color  = 'var(--blue)';
+      legendOut.textContent = '— Out';
+      legendOut.style.color = 'var(--accent)';
+    }
+  }
+
+  // Auto-start event stream if node is RUNNING (show for all node types now)
+  if (st === 'RUNNING') {
     _ndState.streamRunning = false; // reset
     _startEventStream();
   } else {
@@ -779,8 +816,9 @@ async function _pollEventStream() {
       const busy     = Math.round(get('busyTimeMsPerSecond') / 10);
 
       // Accumulate chart data
-      _ndChartData.recIn.push(recInPs);
-      _ndChartData.recOut.push(recOutPs);
+      // For SOURCE: primary metric is OUT (records emitted). For SINK: primary is IN.
+      _ndChartData.recIn.push(isSource ? recOutPs : recInPs);
+      _ndChartData.recOut.push(isSource ? recInPs  : recOutPs);
       if (_ndChartData.recIn.length > 60) { _ndChartData.recIn.shift(); _ndChartData.recOut.shift(); }
       _drawNdChart();
 
@@ -814,40 +852,137 @@ async function _pollEventStream() {
   }
 }
 
-function _addEventRow({ recInPs, recOutPs, bytInPs, bytOutPs, totalIn, totalOut, bp, busy, allMetrics }) {
+function _addEventRow({ recInPs, recOutPs, bytInPs, bytOutPs, totalIn, totalOut,
+                        bp, busy, idle, isSink, isSource, kafkaLag, kafkaRate, kafkaTotal, allMetrics }) {
   const stream = document.getElementById('nd-events-stream');
   if (!stream) return;
-
-  // Remove placeholder if present
   if (stream.querySelector('.nd-event-empty')) stream.innerHTML = '';
 
   _ndState.eventCount++;
-  const ts = new Date().toLocaleTimeString('en-US', { hour12: false, hour:'2-digit', minute:'2-digit', second:'2-digit' });
-  const fmtBytes = b => b > 1048576 ? (b/1048576).toFixed(1)+'MB/s' : b > 1024 ? (b/1024).toFixed(1)+'KB/s' : b+'B/s';
+  const ts = new Date().toLocaleTimeString('en-US', { hour12:false, hour:'2-digit', minute:'2-digit', second:'2-digit' });
+
+  const fmtN    = n => n > 999999 ? (n/1000000).toFixed(1)+'M' : n > 999 ? (n/1000).toFixed(1)+'K' : String(n);
+  const fmtBps  = b => b > 1048576 ? (b/1048576).toFixed(1)+' MB/s' : b > 1024 ? (b/1024).toFixed(1)+' KB/s' : b+' B/s';
 
   const parts = [];
-  if (recInPs > 0 || totalIn > 0)
-    parts.push(`<span class="nd-event-dir in">← IN</span><span class="nd-event-val">${recInPs}/s  ${fmtBytes(bytInPs)}  total:${totalIn.toLocaleString()}</span>`);
-  if (recOutPs > 0 || totalOut > 0)
-    parts.push(`<span class="nd-event-dir out">→ OUT</span><span class="nd-event-val">${recOutPs}/s  ${fmtBytes(bytOutPs)}  total:${totalOut.toLocaleString()}</span>`);
-  if (bp > 0)
-    parts.push(`<span class="nd-event-dir" style="color:var(--red)">⚠ BP</span><span class="nd-event-val" style="color:var(--red)">${bp}% backpressure  busy:${busy}%</span>`);
 
-  // Even if no throughput, show a heartbeat tick so user knows streaming is active
-  if (parts.length === 0) {
-    parts.push(`<span class="nd-event-dir" style="color:var(--text3);">●</span><span class="nd-event-val" style="color:var(--text3);">idle — waiting for records</span>`);
+  // ── SOURCE node: only OUT direction matters ──────────────────────────────
+  if (isSource) {
+    if (recOutPs > 0) {
+      // Data IS flowing — show clearly
+      parts.push(
+        `<span class="nd-event-dir out" style="color:var(--accent);">OUT</span>` +
+        `<span class="nd-event-val" style="color:var(--text0);">` +
+        `<strong>${fmtN(recOutPs)}/s</strong>` +
+        `${bytOutPs > 0 ? '  ' + fmtBps(bytOutPs) : ''}` +
+        `  |  total emitted: <strong>${fmtN(totalOut)}</strong>` +
+        (busy > 0 ? `  |  busy: ${busy}%` : '') +
+        `</span>`
+      );
+    } else if (totalOut > 0) {
+      // Had records historically but not this second — paused/slow source
+      parts.push(
+        `<span class="nd-event-dir" style="color:var(--yellow);">PAUSED</span>` +
+        `<span class="nd-event-val" style="color:var(--text2);">` +
+        `0 records/s this interval  |  lifetime total emitted: ${fmtN(totalOut)}` +
+        `${idle > 0 ? `  |  idle: ${idle}%` : ''}` +
+        `</span>`
+      );
+    } else {
+      // No records at all — source waiting (e.g. Kafka topic empty)
+      const kafkaHint = kafkaLag !== null
+        ? `  |  consumer lag: ${fmtN(kafkaLag)} msgs`
+        : '';
+      const kafkaTotalHint = kafkaTotal !== null && kafkaTotal > 0
+        ? `  |  Kafka consumed total: ${fmtN(kafkaTotal)}`
+        : '';
+      parts.push(
+        `<span class="nd-event-dir" style="color:var(--text3);">WAITING</span>` +
+        `<span class="nd-event-val" style="color:var(--text3);">` +
+        `Source operator waiting for upstream data${kafkaHint}${kafkaTotalHint}` +
+        (idle > 0 ? `  |  idle: ${idle}%` : '') +
+        `</span>`
+      );
+    }
+  }
+
+  // ── SINK node: only IN direction matters ─────────────────────────────────
+  else if (isSink) {
+    if (recInPs > 0) {
+      parts.push(
+        `<span class="nd-event-dir in" style="color:var(--blue);">IN</span>` +
+        `<span class="nd-event-val" style="color:var(--text0);">` +
+        `<strong>${fmtN(recInPs)}/s</strong>` +
+        `${bytInPs > 0 ? '  ' + fmtBps(bytInPs) : ''}` +
+        `  |  total written: <strong>${fmtN(totalIn)}</strong>` +
+        (busy > 0 ? `  |  busy: ${busy}%` : '') +
+        `</span>`
+      );
+    } else if (totalIn > 0) {
+      parts.push(
+        `<span class="nd-event-dir" style="color:var(--yellow);">PAUSED</span>` +
+        `<span class="nd-event-val" style="color:var(--text2);">` +
+        `0 records/s this interval  |  lifetime total written: ${fmtN(totalIn)}` +
+        `${idle > 0 ? `  |  idle: ${idle}%` : ''}` +
+        `</span>`
+      );
+    } else {
+      parts.push(
+        `<span class="nd-event-dir" style="color:var(--text3);">WAITING</span>` +
+        `<span class="nd-event-val" style="color:var(--text3);">` +
+        `Sink waiting for upstream records${idle > 0 ? `  |  idle: ${idle}%` : ''}` +
+        `</span>`
+      );
+    }
+  }
+
+  // ── PROCESS node: both directions ────────────────────────────────────────
+  else {
+    if (recInPs > 0 || totalIn > 0) {
+      parts.push(
+        `<span class="nd-event-dir in" style="color:var(--blue);">IN</span>` +
+        `<span class="nd-event-val">${fmtN(recInPs)}/s` +
+        `${bytInPs > 0 ? '  ' + fmtBps(bytInPs) : ''}` +
+        `  total: ${fmtN(totalIn)}</span>`
+      );
+    }
+    if (recOutPs > 0 || totalOut > 0) {
+      parts.push(
+        `<span class="nd-event-dir out" style="color:var(--accent);">OUT</span>` +
+        `<span class="nd-event-val">${fmtN(recOutPs)}/s` +
+        `${bytOutPs > 0 ? '  ' + fmtBps(bytOutPs) : ''}` +
+        `  total: ${fmtN(totalOut)}</span>`
+      );
+    }
+    if (parts.length === 0) {
+      parts.push(
+        `<span class="nd-event-dir" style="color:var(--text3);">IDLE</span>` +
+        `<span class="nd-event-val" style="color:var(--text3);">` +
+        `No data flowing${idle > 0 ? `  —  idle ${idle}%  busy ${busy}%` : ''}` +
+        `</span>`
+      );
+    }
+  }
+
+  // ── Backpressure alert ───────────────────────────────────────────────────
+  if (bp > 20) {
+    parts.push(
+      `<span class="nd-event-dir" style="color:var(--red);">BP</span>` +
+      `<span class="nd-event-val" style="color:var(--red);">${bp}% backpressure  busy: ${busy}%</span>`
+    );
   }
 
   const row = document.createElement('div');
   row.className = 'nd-event-row';
-  row.innerHTML = `<span class="nd-event-ts">${ts}</span>${parts.join('<span style="color:var(--border2);margin:0 6px;">|</span>')}`;
+  row.innerHTML = `<span class="nd-event-ts">${ts}</span>` +
+    parts.join('<span style="color:var(--border2);margin:0 8px;">|</span>');
   stream.insertBefore(row, stream.firstChild);
   while (stream.children.length > 200) stream.removeChild(stream.lastChild);
 
-  const count = document.getElementById('nd-events-count');
-  const badge = document.getElementById('nd-events-badge');
-  if (count) count.textContent = _ndState.eventCount + ' events';
-  if (badge) badge.textContent = _ndState.eventCount;
+  const countEl = document.getElementById('nd-events-count');
+  const badgeEl = document.getElementById('nd-events-badge');
+  if (countEl) countEl.textContent = _ndState.eventCount + ' events';
+  if (badgeEl) badgeEl.textContent = _ndState.eventCount;
 }
 
 // ──────────────────────────────────────────────
