@@ -118,226 +118,212 @@ async function runSQL(sql) {
 async function submitStatement(sql) {
   const cleanSql = sql.trim().replace(/;+$/, '');
   const sessionHandle = state.activeSession;
+
   const resp = await api('POST', `/v1/sessions/${sessionHandle}/statements`, {
     statement: cleanSql,
     executionTimeout: 0,
   });
+
   const opHandle = resp.operationHandle;
+
   addToHistory(sql, 'running', opHandle);
   addOperation(opHandle, sql);
+
   await pollOperation(opHandle, sql, sessionHandle);
 }
 
-// ── Poll loop — decoupled status + result fetch ───────────────────────────────
+// ── Poll loop ────────────────────────────────────────────────────────────────
 async function pollOperation(opHandle, sql, sessionHandle) {
+
   const mySession = sessionHandle || state.activeSession;
   let token = 0;
-  const maxPolls = 3600;          // 30 min @ 500ms = 30 min
+  const maxPolls = 3600;
   let polls = 0;
   let firstRows = true;
-  let emptyRunningPolls = 0;      // track consecutive empty polls on RUNNING
+  let emptyRunningPolls = 0;
+
   state.currentOp = { opHandle, sessionHandle: mySession };
   state._maxRowsWarned = false;
 
   const stopBtn = document.getElementById('stop-btn');
   if (stopBtn) stopBtn.style.display = 'flex';
 
-  // helper: switch to results tab robustly
   function showResultsTab() {
-    const btn = document.getElementById('results-tab-btn')
-             || document.querySelector('[data-tab="data"]')
-             || document.querySelector('.result-tab');
+    const btn =
+        document.getElementById('results-tab-btn') ||
+        document.querySelector('[data-tab="data"]') ||
+        document.querySelector('.result-tab');
+
     if (btn) switchResultTab('data', btn);
   }
 
   while (polls < maxPolls) {
+
     if (!state.currentOp || state.currentOp.opHandle !== opHandle) break;
 
     await sleep(500);
 
-    // ── 1. Get operation status ───────────────────────────────────────────
+    // ── status ─────────────────────────────────────────────
     let status;
+
     try {
-      status = await api('GET', `/v1/sessions/${mySession}/operations/${opHandle}/status`);
+      status = await api('GET',
+          `/v1/sessions/${mySession}/operations/${opHandle}/status`);
     } catch (e) {
-      addLog('ERR', `Status check failed: ${parseFlinkError(e.message)}`, e.message);
+      addLog('ERR', `Status check failed: ${parseFlinkError(e.message)}`);
       break;
     }
 
     const opStatus = (status.operationStatus || status.status || '').toUpperCase();
+
     updateOperationStatus(opHandle, opStatus);
 
-    // ── 2. Terminal states ────────────────────────────────────────────────
+    // ── terminal error ─────────────────────────────────────
     if (opStatus === 'ERROR') {
-      // Flink SQL Gateway /status only returns {"status":"ERROR"} — no message.
-      // The REAL error text is at the result endpoint (token 0). Fetch it first.
-      let rawError = status.errorMessage || status.error || status.message
-                     || (status.errors && status.errors[0]) || null;
 
-      if (!rawError || rawError === JSON.stringify(status)) {
-        // Try fetching the actual error from result/0
+      let rawError = status.errorMessage || status.message || null;
+
+      if (!rawError) {
         try {
           const errResult = await api('GET',
-            `/v1/sessions/${mySession}/operations/${opHandle}/result/0?rowFormat=JSON`);
-          // Flink puts the Java exception in errors[] or in the result data itself
-          if (errResult.errors && errResult.errors.length > 0) {
-            rawError = errResult.errors.join('\n');
-          } else if (errResult.message) {
-            rawError = errResult.message;
-          } else if (errResult.results?.data?.length > 0) {
-            // Some versions embed the error as a row
-            const row = errResult.results.data[0];
-            rawError = (row.fields || row)[0] || rawError;
-          }
-        } catch (fetchErr) {
-          // result fetch failed — try the error field from the fetch exception itself
-          // which the api() wrapper packs as "HTTP NNN: <body>"
-          const m = fetchErr.message?.match(/HTTP \d+: ([\s\S]+)/);
-          if (m) rawError = m[1];
-        }
+              `/v1/sessions/${mySession}/operations/${opHandle}/result/0?rowFormat=JSON`);
+
+          rawError =
+              errResult.errors?.join('\n') ||
+              errResult.message ||
+              errResult.results?.data?.[0]?.fields?.[0] ||
+              JSON.stringify(errResult);
+
+        } catch {}
       }
 
-      // Last resort: stringify whatever the status object has
-      if (!rawError) rawError = JSON.stringify(status, null, 2);
+      const friendly = parseFlinkError(rawError);
 
-      state.lastErrorRaw = typeof rawError === 'string' ? rawError : JSON.stringify(rawError, null, 2);
-      const friendly = parseFlinkError(state.lastErrorRaw);
-      addLog('ERR', friendly, state.lastErrorRaw);
+      addLog('ERR', friendly, rawError);
+
       updateHistoryStatus(opHandle, 'err');
-      toast(friendly.slice(0, 90), 'err');
-      const logBtn = document.getElementById('log-tab-btn')
-                  || document.querySelector('[data-tab="log"]');
-      if (logBtn) switchResultTab('log', logBtn);
-      perfQueryEnd(0);
+
+      toast(friendly.slice(0,90),'err');
+
       break;
     }
 
-    if (opStatus === 'CANCELED') {
-      addLog('WARN', 'Operation was cancelled');
-      updateHistoryStatus(opHandle, 'err');
-      break;
-    }
-
-    // ── 3. NOT_READY / initialising — wait silently ───────────────────────
-    if (['NOT_READY','PENDING','INITIALIZED','ACCEPTED'].includes(opStatus)) {
+    if (['NOT_READY','PENDING','INITIALIZED','ACCEPTED'].includes(opStatus))
       continue;
-    }
 
-    // ── 4. Fetch results — fires for RUNNING and FINISHED ─────────────────
+    // ── fetch results ──────────────────────────────────────
     if (opStatus === 'RUNNING' || opStatus === 'FINISHED') {
+
       let result;
+
       try {
+
         result = await api('GET',
-          `/v1/sessions/${mySession}/operations/${opHandle}/result/${token}?rowFormat=JSON&maxFetchSize=1000`);
+            `/v1/sessions/${mySession}/operations/${opHandle}/result/${token}?rowFormat=JSON&maxFetchSize=1000`);
+
       } catch (e) {
-        // 404 means the stream has ended naturally
-        if (e.message && (e.message.includes('404') || e.message.includes('Not Found'))) {
+
+        if (e.message.includes('404')) {
           const rowCount = state.results.length;
-          addLog('OK', `Stream ended — ${rowCount} row${rowCount !== 1 ? 's' : ''}.`);
-          updateHistoryStatus(opHandle, 'ok');
-          perfQueryEnd(rowCount);
+          addLog('OK',`Stream ended — ${rowCount} rows`);
           break;
         }
-        addLog('ERR', parseFlinkError(e.message), e.message);
+
+        addLog('ERR', parseFlinkError(e.message));
         break;
       }
 
-      // ── 4a. Advance token from nextResultUri or increment ─────────────
+      // token advance
       if (result.nextResultUri) {
         const parsed = extractToken(result.nextResultUri);
         if (parsed !== null) token = parsed;
-      } else {
-        token++;
-      }
+      } else token++;
 
-      // ── 4b. EOS — always check before reading data ────────────────────
+      // ── EOS ──────────────────────────────────────────────
       if (result.resultType === 'EOS' || result.resultType === 'PAYLOAD_EOS') {
+
         const rowCount = state.results.length;
-        addLog('OK', `Query complete — ${rowCount} row${rowCount !== 1 ? 's' : ''}.`);
-        updateHistoryStatus(opHandle, 'ok');
+
+        addLog('OK',`Query complete — ${rowCount} rows`);
+
+        updateHistoryStatus(opHandle,'ok');
+
         perfQueryEnd(rowCount);
-        toast(`Done — ${rowCount} rows`, 'ok');
+
         break;
       }
 
-      // ── 4c. Capture column schema on first result page ─────────────────
-      if (result.results?.columns && result.results.columns.length > 0) {
+      // ── schema capture (FIX) ─────────────────────────────
+      if (result.results?.columns?.length) {
         state.resultColumns = result.results.columns;
+
+      } else if (result.schema?.columns?.length) {
+        state.resultColumns = result.schema.columns;
       }
 
-      // ── 4d. Normalise rows — handle both {fields:[]} and [] formats ────
+      // ── rows ─────────────────────────────────────────────
       const rawData = result.results?.data || [];
+
       const newRows = rawData.map(row => {
-        if (row && typeof row === 'object' && !Array.isArray(row) && row.fields !== undefined) {
-          // Standard format: {kind: "INSERT", fields: [...]}
+
+        if (row?.fields !== undefined) {
           return { fields: Array.isArray(row.fields) ? row.fields : Object.values(row.fields) };
         }
-        // Compact array format
+
         return { fields: Array.isArray(row) ? row : Object.values(row) };
       });
 
       if (newRows.length > 0) {
-        // ── 4e. Detect INSERT INTO — single "JOB ID" column ──────────────
-        const isJobIdResult = state.resultColumns.length === 1 &&
-          ['JOB ID','job id','jobId'].includes(state.resultColumns[0]?.name);
 
-        if (isJobIdResult) {
-          const jobId = newRows[0]?.fields?.[0] ?? '';
-          addLog('OK', `INSERT job submitted — Job ID: ${jobId}`);
-          addLog('INFO', 'Switching to Job Graph…');
-          const jgBtn = document.getElementById('jobgraph-tab-btn')
-                      || document.querySelector('[data-tab="jobgraph"]');
-          if (jgBtn) switchResultTab('jobgraph', jgBtn);
-          setTimeout(async () => {
-            await refreshJobGraphList();
-            if (jobId) {
-              const sel = document.getElementById('jg-job-select');
-              if (sel) { sel.value = jobId; loadJobGraph(jobId); }
-            }
-          }, 800);
-          updateHistoryStatus(opHandle, 'ok');
-          perfQueryEnd(0);
-          break;
-        }
-
-        // ── 4f. Regular SELECT — stream rows into results table ───────────
         if (firstRows) {
+
           firstRows = false;
+
           showResultsTab();
-          addLog('INFO', 'Data arriving — streaming rows into Results tab…');
+
+          addLog('INFO','Data arriving — streaming rows…');
         }
+
         emptyRunningPolls = 0;
+
         const remaining = MAX_ROWS - state.results.length;
+
         if (remaining > 0) {
-          state.results.push(...newRows.slice(0, remaining));
-          renderResults();
+
+          state.results.push(...newRows.slice(0,remaining));
+
+          // PERF improvement
+          if (state.resultColumns?.length) {
+            renderResults();
+          }
+
           const badge = document.getElementById('result-row-badge');
-          if (badge) badge.textContent = state.results.length > 999 ? '999+' : state.results.length;
-        }
-        if (state.results.length >= MAX_ROWS && !state._maxRowsWarned) {
-          state._maxRowsWarned = true;
-          addLog('WARN', `Display capped at ${MAX_ROWS.toLocaleString()} rows. Press Stop to export.`);
+
+          if (badge) badge.textContent = state.results.length;
         }
 
       } else {
-        // No data this poll
+
         if (opStatus === 'RUNNING') {
+
           emptyRunningPolls++;
-          // Log a heartbeat every 10s of empty polls (20 × 500ms)
-          if (emptyRunningPolls > 0 && emptyRunningPolls % 20 === 0) {
-            addLog('INFO', `Streaming… ${state.results.length} row${state.results.length !== 1 ? 's' : ''} so far. Press Stop to end.`);
+
+          if (emptyRunningPolls % 20 === 0) {
+            addLog('INFO',`Streaming… ${state.results.length} rows so far`);
           }
         }
       }
 
-      // ── 4g. FINISHED with no more data → done ────────────────────────
       if (opStatus === 'FINISHED') {
+
         const rowCount = state.results.length;
-        const elapsed = Date.now() - (perf.queryStart || Date.now());
-        addLog('OK', `Query finished — ${rowCount} row${rowCount !== 1 ? 's' : ''} in ${elapsed}ms`);
-        updateHistoryStatus(opHandle, 'ok');
+
+        addLog('OK',`Query finished — ${rowCount} rows`);
+
+        updateHistoryStatus(opHandle,'ok');
+
         perfQueryEnd(rowCount);
-        toast(`Done — ${rowCount} rows`, 'ok');
+
         break;
       }
     }
@@ -346,59 +332,96 @@ async function pollOperation(opHandle, sql, sessionHandle) {
   }
 
   state.currentOp = null;
+
   if (stopBtn) stopBtn.style.display = 'none';
 }
 
-// ── Token extraction ──────────────────────────────────────────────────────────
+// ── token extraction ─────────────────────────────────────────────────────────
 function extractToken(uri) {
   if (!uri) return null;
   const m = uri.match(/\/result\/(\d+)/);
-  return m ? parseInt(m[1], 10) : null;
+  return m ? parseInt(m[1],10) : null;
 }
 
-// ── Cancel ────────────────────────────────────────────────────────────────────
+// ── cancel ───────────────────────────────────────────────────────────────────
 async function cancelOperation() {
+
   if (!state.currentOp) return;
+
   const { opHandle } = state.currentOp;
+
   state.currentOp = null;
+
   try {
-    await api('DELETE', `/v1/sessions/${state.activeSession}/operations/${opHandle}/cancel`);
-    addLog('WARN', `Operation ${shortHandle(opHandle)} cancelled`);
-    toast('Operation cancelled', 'info');
+
+    await api('DELETE',
+        `/v1/sessions/${state.activeSession}/operations/${opHandle}/cancel`);
+
+    addLog('WARN',`Operation ${shortHandle(opHandle)} cancelled`);
+
+    toast('Operation cancelled','info');
+
   } catch (e) {
-    addLog('WARN', `Cancel request sent (${e.message})`);
+
+    addLog('WARN',`Cancel request sent (${e.message})`);
   }
+
   const stopBtn = document.getElementById('stop-btn');
-  if (stopBtn) stopBtn.style.display = 'none';
+
+  if (stopBtn) stopBtn.style.display='none';
+
   setExecuting(false);
 }
 
 function setExecuting(val) {
   const el = document.getElementById('status-exec');
-  if (el) el.style.display = val ? 'flex' : 'none';
+  if (el) el.style.display = val ? 'flex':'none';
 }
 
-// ── executeForData — used by catalog browser for internal queries ──────────────
+// ── internal data fetch ──────────────────────────────────────────────────────
 async function executeForData(sql) {
-  const resp = await api('POST', `/v1/sessions/${state.activeSession}/statements`, { statement: sql });
+
+  const resp = await api('POST',
+      `/v1/sessions/${state.activeSession}/statements`,
+      { statement: sql });
+
   const opHandle = resp.operationHandle;
+
   let retries = 60;
+
   while (retries-- > 0) {
+
     await sleep(400);
-    const status = await api('GET', `/v1/sessions/${state.activeSession}/operations/${opHandle}/status`);
+
+    const status = await api('GET',
+        `/v1/sessions/${state.activeSession}/operations/${opHandle}/status`);
+
     const s = (status.operationStatus || status.status || '').toUpperCase();
-    if (s === 'ERROR') throw new Error(status.errorMessage || 'Query error');
-    if (['NOT_READY','PENDING','INITIALIZED','ACCEPTED'].includes(s)) continue;
+
+    if (s === 'ERROR')
+      throw new Error(status.errorMessage || 'Query error');
+
+    if (['NOT_READY','PENDING','INITIALIZED','ACCEPTED'].includes(s))
+      continue;
+
     if (s === 'FINISHED' || s === 'RUNNING') {
+
       const result = await api('GET',
-        `/v1/sessions/${state.activeSession}/operations/${opHandle}/result/0?rowFormat=JSON&maxFetchSize=200`);
-      const cols = (result.results?.columns || []).map(c => c.name);
+          `/v1/sessions/${state.activeSession}/operations/${opHandle}/result/0?rowFormat=JSON`);
+
+      const cols = (result.results?.columns || result.schema?.columns || [])
+          .map(c => c.name);
+
       const rows = (result.results?.data || []).map(r => {
+
         const f = r?.fields ?? r;
+
         return Array.isArray(f) ? f : Object.values(f);
       });
+
       return { cols, rows };
     }
   }
+
   return { cols: [], rows: [] };
 }
