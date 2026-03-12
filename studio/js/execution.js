@@ -119,24 +119,29 @@ async function submitStatement(sql) {
   let sessionHandle = state.activeSession;
 
   // ── Session validation before submit ──────────────────────────────────
-  // Verify session is still alive. If not, auto-renew before attempting submit.
-  try {
-    await api('GET', `/v1/sessions/${sessionHandle}`);
-  } catch(e) {
-    const msg = e.message || '';
-    const isSessionGone = msg.includes('does not exist') || msg.includes('404') || msg.includes('Session');
-    if (isSessionGone) {
-      addLog('WARN', 'Session expired — auto-creating new session…');
-      try {
-        await renewSession();
-        sessionHandle = state.activeSession;
-        addLog('OK', `New session ready: ${shortHandle(sessionHandle)} — retrying statement…`);
-        toast('Session auto-renewed — retrying', 'info');
-      } catch(renewErr) {
-        throw new Error('Session expired and auto-renewal failed: ' + renewErr.message);
+  // Use POST /v1/sessions/{id}/heartbeat to verify session is alive.
+  // NOTE: GET /v1/sessions/{id} does NOT exist in Flink SQL Gateway — do not use it.
+  if (sessionHandle && state.gateway) {
+    try {
+      await api('POST', `/v1/sessions/${sessionHandle}/heartbeat`);
+    } catch(e) {
+      const msg = e.message || '';
+      // Only auto-renew on definitive session-not-found errors
+      const isSessionGone = msg.includes('does not exist') || msg.includes('Session')
+                         || msg.includes('404') || msg.includes('500');
+      if (isSessionGone) {
+        addLog('WARN', 'Session no longer alive — auto-creating new session…');
+        try {
+          await renewSession();
+          sessionHandle = state.activeSession;
+          addLog('OK', `New session ready: ${shortHandle(sessionHandle)} — retrying statement…`);
+          toast('Session auto-renewed — retrying', 'info');
+        } catch(renewErr) {
+          throw new Error('Session expired and auto-renewal failed: ' + renewErr.message);
+        }
       }
+      // Network/timeout errors: proceed anyway, submit will surface the real error
     }
-    // If it's a different error (network etc), proceed anyway — submit may still work
   }
 
   let resp;

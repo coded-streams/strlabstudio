@@ -97,6 +97,28 @@ async function testConnection() {
   }
 }
 
+// ── Connect screen session mode toggle ───────────────────────────────────────
+let _sessionMode = 'new'; // 'new' | 'existing'
+function setSessionMode(mode) {
+  _sessionMode = mode;
+  const newArea   = document.getElementById('sess-new-area');
+  const exArea    = document.getElementById('sess-existing-area');
+  const newBtn    = document.getElementById('sess-mode-new');
+  const existBtn  = document.getElementById('sess-mode-existing');
+  if (!newArea || !exArea) return;
+  if (mode === 'new') {
+    newArea.style.display  = '';
+    exArea.style.display   = 'none';
+    if (newBtn) { newBtn.style.background = 'var(--accent)'; newBtn.style.color = '#000'; newBtn.style.fontWeight = '700'; }
+    if (existBtn) { existBtn.style.background = 'var(--bg3)'; existBtn.style.color = 'var(--text2)'; existBtn.style.fontWeight = ''; }
+  } else {
+    newArea.style.display  = 'none';
+    exArea.style.display   = '';
+    if (newBtn) { newBtn.style.background = 'var(--bg3)'; newBtn.style.color = 'var(--text2)'; newBtn.style.fontWeight = ''; }
+    if (existBtn) { existBtn.style.background = 'var(--accent)'; existBtn.style.color = '#000'; existBtn.style.fontWeight = '700'; }
+  }
+}
+
 async function doConnect() {
   const baseUrl = getBaseUrl();
   const host = connMode === 'proxy' ? window.location.hostname : (document.getElementById('inp-host')?.value.trim() || 'localhost');
@@ -114,18 +136,38 @@ async function doConnect() {
     const verifyResp = await fetchWithTimeout(`${baseUrl}/v1/info`, { headers: { Accept: 'application/json' } }, 8000);
     if (!verifyResp.ok) throw new Error(`Gateway returned HTTP ${verifyResp.status} — is it fully started?`);
 
-    // Create session
-    const props = parseProps(propsRaw);
-    const sessionBody = {};
-    if (sessionName) sessionBody.sessionName = sessionName;
-    if (Object.keys(props).length) sessionBody.properties = props;
+    if (_sessionMode === 'existing') {
+      // ── Reconnect to existing session ──────────────────────────────────────
+      const existingHandle = (document.getElementById('inp-session-handle')?.value || '').trim();
+      if (!existingHandle || !existingHandle.includes('-')) {
+        throw new Error('Please paste a valid session UUID handle (e.g. xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)');
+      }
+      // Verify the session is still alive with a heartbeat
+      setConnectStatus('loading', 'Verifying existing session…');
+      try {
+        await api('POST', `/v1/sessions/${existingHandle}/heartbeat`);
+      } catch(e) {
+        throw new Error(`Session '${existingHandle.slice(0,8)}…' does not exist or has expired. Create a new session instead.`);
+      }
+      state.activeSession = existingHandle;
+      state.sessions = [{ handle: existingHandle, name: 'reconnected', created: new Date() }];
+      launchApp(host, port);
+      toast('Reconnected to existing session', 'ok');
+      addLog('OK', `Reconnected to session ${existingHandle.slice(0,8)}… — your TEMPORARY tables are still available.`);
+    } else {
+      // ── Create new session (default) ───────────────────────────────────────
+      const props = parseProps(propsRaw);
+      const sessionBody = {};
+      if (sessionName) sessionBody.sessionName = sessionName;
+      if (Object.keys(props).length) sessionBody.properties = props;
 
-    const sessResp = await api('POST', '/v1/sessions', sessionBody);
-    state.activeSession = sessResp.sessionHandle;
-    state.sessions = [{ handle: sessResp.sessionHandle, name: sessionName || 'default', created: new Date() }];
+      const sessResp = await api('POST', '/v1/sessions', sessionBody);
+      state.activeSession = sessResp.sessionHandle;
+      state.sessions = [{ handle: sessResp.sessionHandle, name: sessionName || 'default', created: new Date() }];
 
-    launchApp(host, port);
-    toast('Session created successfully', 'ok');
+      launchApp(host, port);
+      toast(`Session '${sessionName || sessResp.sessionHandle.slice(0,8)}' created`, 'ok');
+    }
   } catch (e) {
     setConnectStatus('err', `Failed: ${e.message}`);
     document.getElementById('connect-btn').disabled = false;
@@ -155,6 +197,7 @@ function launchApp(host, port) {
 
   // Update topbar/statusbar
   document.getElementById('topbar-session-id').textContent = shortHandle(state.activeSession);
+  state._lastSessionHandle = state.activeSession; // remember for reconnect
   document.getElementById('topbar-host-label').textContent = `${host}:${port}`;
   document.getElementById('sb-host').textContent = `${host}:${port}`;
   document.getElementById('sb-session').textContent = shortHandle(state.activeSession);
@@ -249,6 +292,13 @@ function disconnectAll(silent = false, prefillName = '') {
     try { return localStorage.getItem('flinksql_last_session_name') || ''; } catch(_) { return ''; }
   })();
   if (nameInput && savedName) nameInput.value = savedName;
+  // Also offer the last session handle in "Use Existing" field for quick reconnect
+  const handleInput = document.getElementById('inp-session-handle');
+  if (handleInput && state._lastSessionHandle) {
+    handleInput.value = state._lastSessionHandle;
+  }
+  // Reset mode to 'new' (safe default)
+  if (typeof setSessionMode === 'function') setSessionMode('new');
   setConnectStatus('ok', silent
     ? 'Auto-disconnected after 30min idle. Your tabs are preserved — reconnect to continue.'
     : 'Disconnected. You can reconnect.');
@@ -341,6 +391,17 @@ async function renewSession() {
   // Create a fresh session and keep current tabs intact
   const banner = document.getElementById('session-expired-banner');
   if (banner) banner.remove();
+
+  // Guard: if gateway is not set we cannot create a session — show connect screen instead
+  if (!state.gateway) {
+    addLog('WARN', 'Cannot renew session — not connected to gateway. Please reconnect.');
+    toast('Not connected — please reconnect', 'err');
+    // Pre-fill session name and show connect screen
+    const sname = (() => { try { return localStorage.getItem('flinksql_last_session_name') || ''; } catch(_) { return ''; } })();
+    disconnectAll(true, sname);
+    throw new Error('Not connected to Flink SQL Gateway');
+  }
+
   try {
     const sessResp = await api('POST', '/v1/sessions', { sessionName: 'renewed-' + Date.now() });
     state.activeSession = sessResp.sessionHandle;
