@@ -314,6 +314,21 @@ async function pollOperation(opHandle, sql, sessionHandle) {
         break;
       }
 
+      // Filter out DDL/SET statement result rows (single column "OK")
+      // These are status responses from SET, CREATE TABLE, USE, etc.
+      // Display as log toast instead of polluting the results table.
+      const isStatusOk = state.resultColumns.length <= 1 && newRows.length > 0 &&
+        newRows.every(r => {
+          const v = String(r?.fields?.[0] ?? '').trim().toUpperCase();
+          return v === 'OK' || v === 'TRUE' || v === '';
+        });
+      if (isStatusOk) {
+        addLog('OK', `Statement executed successfully (${sql.trim().split(/\s+/)[0].toUpperCase()})`);
+        updateHistoryStatus(opHandle, 'ok');
+        perfQueryEnd(0);
+        break;
+      }
+
       // Regular SELECT / SHOW / DESCRIBE — stream into results table
       if (firstRows) {
         firstRows = false;

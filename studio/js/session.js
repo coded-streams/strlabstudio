@@ -270,10 +270,22 @@ function switchResultTab(tab, el) {
   if (jgEl) jgEl.classList.toggle('active', tab === 'jobgraph');
   document.querySelectorAll('.result-tab').forEach(t => t.classList.remove('active'));
   if (el) el.classList.add('active');
-  if (tab === 'log')  state.logBadge = 0;
+  if (tab === 'log') {
+    state.logBadge = 0;
+    document.getElementById('log-badge').textContent = '0';
+    // Show export log button, hide export results button
+    const logBtn = document.getElementById('export-log-btn');
+    const resBtn = document.getElementById('export-results-btn');
+    if (logBtn) logBtn.style.display = 'inline-flex';
+    if (resBtn) resBtn.style.display = 'none';
+  } else {
+    const logBtn = document.getElementById('export-log-btn');
+    const resBtn = document.getElementById('export-results-btn');
+    if (logBtn) logBtn.style.display = 'none';
+    if (resBtn) resBtn.style.display = 'inline-flex';
+  }
   if (tab === 'perf') {
     refreshPerf();
-    // activate default perf sub-tab
     if (typeof switchPerfTab === 'function') switchPerfTab('overview');
   }
   if (tab === 'jobgraph') refreshJobGraphList();

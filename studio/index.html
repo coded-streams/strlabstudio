@@ -256,7 +256,8 @@ SHOW CATALOGS;"
             <div class="results-actions">
               <button class="topbar-btn" id="results-toggle-btn" onclick="toggleResultsPanel()" title="Minimize/restore panel" style="padding:0 8px;min-width:26px;">▼</button>
               <button class="topbar-btn" id="results-max-btn" onclick="maximiseResultsPanel()" title="Maximize panel" style="padding:0 8px;min-width:26px;">⊞</button>
-              <button class="topbar-btn" onclick="exportCSV()" title="Export">Export</button>
+              <button class="topbar-btn" onclick="exportCSV()" title="Export results as CSV" id="export-results-btn">Export</button>
+              <button class="topbar-btn" onclick="exportSessionLog()" title="Export session log as .txt" id="export-log-btn" style="display:none;">Log</button>
               <button class="topbar-btn" onclick="clearResults()" title="Clear">✕</button>
             </div>
           </div>
@@ -586,7 +587,7 @@ SHOW CATALOGS;"
                 <button class="jg-refresh-btn" onclick="reloadCurrentJgView()" style="margin-left:2px;">↺ Reload</button>
                 <button class="jg-refresh-btn danger" id="jg-cancel-btn" onclick="cancelSelectedJob()" style="margin-left:2px;display:none;background:rgba(255,80,80,0.12);color:#ff5050;border-color:rgba(255,80,80,0.3);">Cancel Job</button>
                 <span id="jg-job-status-badge" style="font-size:10px;padding:2px 8px;border-radius:2px;margin-left:4px;display:none;"></span>
-                <button class="jg-refresh-btn" onclick="generateSessionReport()" style="margin-left:auto;background:rgba(0,212,170,0.1);color:var(--accent);border-color:rgba(0,212,170,0.3);" title="Generate PDF session report">Report</button>
+                <button class="jg-refresh-btn" onclick="generateJobGraphReport()" style="margin-left:auto;background:rgba(0,212,170,0.1);color:var(--accent);border-color:rgba(0,212,170,0.3);" title="Generate PDF report for selected job (or all jobs if none selected)">Report</button>
                 <span style="font-size:10px;color:var(--text3);margin-left:8px;" id="jg-hint">Double-click a node to inspect</span>
               </div>
               <!-- DAG view -->

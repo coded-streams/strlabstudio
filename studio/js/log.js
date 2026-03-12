@@ -162,3 +162,37 @@ function loadHistoryItem(idx) {
 }
 
 // ──────────────────────────────────────────────
+
+
+// ──────────────────────────────────────────────
+// LOG EXPORT
+// ──────────────────────────────────────────────
+function exportSessionLog() {
+  if (!state.logLines || state.logLines.length === 0) {
+    toast('No log entries to export', 'info');
+    return;
+  }
+  const lines = state.logLines.map(e => {
+    const raw = e.raw ? '\n  DETAIL: ' + e.raw.replace(/\n/g, '\n    ') : '';
+    return `[${e.time}] ${e.level.padEnd(4)} ${e.msg}${raw}`;
+  }).join('\n');
+
+  const header = [
+    '═══════════════════════════════════════════════════════',
+    '  FlinkSQL Studio — Session Log Export',
+    `  Session : ${state.activeSession || '—'}`,
+    `  Exported: ${new Date().toLocaleString()}`,
+    `  Entries : ${state.logLines.length}`,
+    '═══════════════════════════════════════════════════════',
+    '',
+  ].join('\n');
+
+  const blob = new Blob([header + lines], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  const ts = new Date().toISOString().slice(0,16).replace('T','-').replace(':','-');
+  a.download = `flinksql-log-${ts}.txt`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast(`Log exported — ${state.logLines.length} entries`, 'ok');
+}

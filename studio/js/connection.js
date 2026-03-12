@@ -170,19 +170,42 @@ function launchApp(host, port) {
   } catch(_) {}
   applyTheme();
 
-  // Restore workspace (tabs + query history from localStorage)
-  // Only restore once per page load. If user disconnects and reconnects,
-  // keep the current in-memory tabs — don't re-restore from disk.
-  if (!window._workspaceRestored) {
-    restoreWorkspace();
-    window._workspaceRestored = true;
+  // ── Workspace restore / isolation logic ────────────────────────────────
+  // Rule: if a session name was explicitly typed AND it differs from the
+  // previously saved session name → treat this as a fresh workspace.
+  // If no name was given or same name → restore saved tabs.
+  const savedSessionName = (() => { try { return localStorage.getItem('flinksql_last_session_name') || ''; } catch(_) { return ''; } })();
+  const isNewNamedSession = sessionName && sessionName !== savedSessionName;
+
+  if (isNewNamedSession) {
+    // Named session that differs from last → fresh workspace
+    // Clear in-memory state but save current tabs first so user doesn't lose them permanently
     if (state.tabs.length > 0) {
-      const count = state.tabs.length;
-      // Show a dismissible notice so user knows these are their saved scripts
-      setTimeout(() => toast(
-        `${count} tab${count>1?'s':''} restored from your last session — your local scripts are always preserved`,
-        'info'
-      ), 800);
+      try { localStorage.setItem('flinksql_workspace_backup', JSON.stringify({ tabs: state.tabs, savedAt: Date.now() })); } catch(_) {}
+    }
+    state.tabs       = [];
+    state.activeTab  = null;
+    state.history    = [];
+    state.logLines   = [];
+    state.operations = [];
+    state.results    = [];
+    state.resultColumns = [];
+    window._workspaceRestored = true; // mark so we don't also restore from disk
+    addTab('Query 1');
+    setTimeout(() => toast(`New session "${sessionName}" — fresh workspace started`, 'ok'), 500);
+    try { localStorage.setItem('flinksql_last_session_name', sessionName); } catch(_) {}
+  } else {
+    // Same or unnamed session → restore saved workspace
+    if (!window._workspaceRestored) {
+      restoreWorkspace();
+      window._workspaceRestored = true;
+      if (state.tabs.length > 0) {
+        const count = state.tabs.length;
+        setTimeout(() => toast(`${count} tab${count>1?'s':''} restored — your scripts are preserved across sessions`, 'info'), 800);
+      }
+    }
+    if (sessionName) {
+      try { localStorage.setItem('flinksql_last_session_name', sessionName); } catch(_) {}
     }
   }
 

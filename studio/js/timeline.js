@@ -255,37 +255,53 @@ async function refreshClusterResources() {
   const tmData = await jmApi('/taskmanagers');
   if (tmData && tmData.taskmanagers && tmData.taskmanagers.length > 0) {
     const tms = tmData.taskmanagers;
-    let totalHeapUsed = 0, totalHeapMax = 0, totalPhysMem = 0, cpuCores = 0;
+    const fmtMB = b => b > 1073741824 ? (b/1073741824).toFixed(2)+' GB' : b > 1048576 ? (b/1048576).toFixed(0)+' MB' : b > 0 ? Math.round(b/1024)+' KB' : '—';
+
+    let cpuCores = 0, totalPhysMem = 0;
     let hostList = [], ipList = [];
+
     tms.forEach(tm => {
-      const mc = tm.memoryConfiguration || {};
-      totalHeapUsed += (mc.jvmHeapUsed || mc['jvm-heap-size'] || 0);
-      totalHeapMax  += (mc.jvmHeapMax  || mc['managed-memory-size'] || 0);
-      totalPhysMem  += (mc.physicalMemory || mc['physical-memory'] || mc['total-flink-memory'] || 0);
-      cpuCores += (tm.hardware?.cpuCores || tm.hardware?.['cpu-cores'] || 0);
-      if (tm.id) {
-        const parts = tm.id.split(':');
-        hostList.push(parts[0]);
-        // id format is often host:dataPort — use as IP/host indicator
-        if (parts[0] && !ipList.includes(parts[0])) ipList.push(parts[0]);
-      }
+      // Flink 1.17-1.19: hardware block
+      cpuCores    += (tm.hardware?.cpuCores || tm.hardware?.['cpu-cores'] || 0);
+      totalPhysMem += (tm.hardware?.physicalMemory || tm.hardware?.['physical-memory'] || 0);
+      const tmId = tm.id || '';
+      const host = tmId.split(':')[0];
+      if (host && !hostList.includes(host)) hostList.push(host);
+      if (host && !ipList.includes(host)) ipList.push(host);
     });
 
-    const fmtMB = b => b > 1073741824 ? (b/1073741824).toFixed(1)+' GB' : b > 1048576 ? (b/1048576).toFixed(0)+' MB' : b > 0 ? b+' B' : '—';
-    set('rc-cpu',      cpuCores > 0 ? cpuCores : tms.length * 4 + ' (est)');
+    set('rc-cpu',      cpuCores > 0 ? cpuCores : (tms.length * 4) + ' (est)');
     set('rc-cpu-sub',  `across ${tms.length} task manager${tms.length!==1?'s':''}`);
-    set('rc-mem',      fmtMB(totalPhysMem));
-    set('rc-heap',     totalHeapUsed > 0 ? fmtMB(totalHeapUsed) + ' / ' + fmtMB(totalHeapMax) : fmtMB(totalHeapMax));
-    set('rc-heap-sub', 'used / max');
+    set('rc-mem',      totalPhysMem > 0 ? fmtMB(totalPhysMem) : '—');
+    set('rc-mem-sub',  'total physical memory');
+
+    // Fetch live JVM heap from TM metrics endpoint (Flink 1.19 correct path)
+    let heapUsed = 0, heapMax = 0;
+    for (const tm of tms.slice(0, 4)) {
+      if (!tm.id) continue;
+      // URL-encode the TM id (it contains colons)
+      const tmId = encodeURIComponent(tm.id);
+      const m = await jmApi(`/taskmanagers/${tmId}/metrics?get=Status.JVM.Memory.Heap.Used,Status.JVM.Memory.Heap.Max,Status.JVM.Memory.NonHeap.Used`);
+      if (m && Array.isArray(m)) {
+        m.forEach(x => {
+          if (x.id === 'Status.JVM.Memory.Heap.Used') heapUsed += parseFloat(x.value||0);
+          if (x.id === 'Status.JVM.Memory.Heap.Max')  heapMax  += parseFloat(x.value||0);
+        });
+      }
+    }
+    const heapStr = heapUsed > 0
+      ? fmtMB(heapUsed) + ' / ' + fmtMB(heapMax > 0 ? heapMax : tms.length * 1073741824)
+      : fmtMB(heapMax > 0 ? heapMax : 0);
+    set('rc-heap',     heapStr || '—');
+    set('rc-heap-sub', 'JVM heap used / max');
+
     if (hostList.length) {
-      set('rc-host',    hostList[0]);
+      set('rc-host',     hostList[0]);
       set('rc-host-sub', hostList.length > 1 ? '+' + (hostList.length-1) + ' more TMs' : 'task manager host');
     }
-    // Cluster IP / endpoint
     const gwUrl = state?.gateway?.baseUrl || window.location.host;
     set('rc-ip', ipList.length ? ipList.join(', ') : gwUrl);
     set('rc-ip-sub', 'cluster endpoint');
-    // Badge update
     const badge = document.getElementById('ps-cluster-badge');
     if (badge) badge.textContent = tms.length + ' TM · ' + (cpuCores||tms.length*4) + ' cores';
   }
@@ -341,22 +357,40 @@ async function updateJobCompare() {
     } else if (metric === 'duration') {
       val = Math.round((job.duration || 0) / 1000);
     } else if (metric === 'cpuLoad') {
-      // CPU load from taskmanager metrics aggregated across job vertices
-      const det = await jmApi(`/jobs/${job.jid}`);
-      if (det && det.vertices) {
+      // Status.JVM.CPU.Load is a TM-level metric, NOT vertex-level.
+      // Fetch from /taskmanagers/{tmId}/metrics — average across all TMs.
+      // Note: This is cluster-wide CPU, not per-job CPU (Flink 1.19 doesn't expose per-job CPU).
+      const tmData = await jmApi('/taskmanagers');
+      if (tmData && tmData.taskmanagers) {
         let cpuSum = 0, cpuCount = 0;
-        for (const v of det.vertices.slice(0, 4)) {
-          const vm = await jmApi(`/jobs/${job.jid}/vertices/${v.id}/metrics?get=Status.JVM.CPU.Load`);
-          if (vm) vm.forEach(m => { if (m.id === 'Status.JVM.CPU.Load') { cpuSum += parseFloat(m.value||0)*100; cpuCount++; } });
+        for (const tm of tmData.taskmanagers.slice(0, 4)) {
+          if (!tm.id) continue;
+          const tmId = encodeURIComponent(tm.id);
+          const vm = await jmApi(`/taskmanagers/${tmId}/metrics?get=Status.JVM.CPU.Load`);
+          if (vm && Array.isArray(vm)) {
+            vm.forEach(m => {
+              if (m.id === 'Status.JVM.CPU.Load') { cpuSum += parseFloat(m.value||0)*100; cpuCount++; }
+            });
+          }
         }
         val = cpuCount > 0 ? Math.round(cpuSum / cpuCount) : 0;
       }
     } else if (metric === 'heapUsed') {
-      const det = await jmApi(`/jobs/${job.jid}`);
-      if (det && det.vertices && det.vertices.length > 0) {
-        const v = det.vertices[0];
-        const vm = await jmApi(`/jobs/${job.jid}/vertices/${v.id}/metrics?get=Status.JVM.Memory.Heap.Used`);
-        if (vm) vm.forEach(m => { if (m.id === 'Status.JVM.Memory.Heap.Used') val = Math.round(parseFloat(m.value||0)/(1024*1024)); });
+      // JVM Heap is also TM-level in Flink 1.19, not vertex-level
+      const tmData = await jmApi('/taskmanagers');
+      if (tmData && tmData.taskmanagers) {
+        let heapTotal = 0;
+        for (const tm of tmData.taskmanagers.slice(0, 4)) {
+          if (!tm.id) continue;
+          const tmId = encodeURIComponent(tm.id);
+          const vm = await jmApi(`/taskmanagers/${tmId}/metrics?get=Status.JVM.Memory.Heap.Used`);
+          if (vm && Array.isArray(vm)) {
+            vm.forEach(m => {
+              if (m.id === 'Status.JVM.Memory.Heap.Used') heapTotal += Math.round(parseFloat(m.value||0)/(1024*1024));
+            });
+          }
+        }
+        val = heapTotal;
       }
     } else if (metric === 'cpBytes') {
       // Latest checkpoint state size in MB
@@ -484,45 +518,94 @@ function updateJobCompareLegend() {
 // ════════════════════════════════════════════════════════════════════════════
 // SESSION PDF REPORT
 // ════════════════════════════════════════════════════════════════════════════
-async function generateSessionReport() {
+async function generateSessionReport(focusJid) {
   const statusEl = document.getElementById('report-status');
   if (statusEl) statusEl.textContent = '⏳ Gathering session data…';
 
   try {
-    // Collect all data
-    const sessionId  = state.activeSession  || '—';
+    const sessionId  = state.activeSession || '—';
     const catalog    = document.getElementById('sb-catalog')?.textContent  || 'default_catalog';
     const database   = document.getElementById('sb-database')?.textContent || 'default';
-    const connStatus = document.getElementById('conn-status-text')?.textContent || 'Connected';
 
     const overview  = await jmApi('/overview') || {};
     const jobsData  = await jmApi('/jobs/overview') || {};
-    const jobs      = jobsData.jobs || [];
+    const allJobs   = jobsData.jobs || [];
 
-    // Fetch detail for each job (up to 10)
+    // If focusJid is set, report on that job only; otherwise all jobs
+    const targetJobs = focusJid
+      ? allJobs.filter(j => j.jid === focusJid)
+      : allJobs.slice(0, 15);
+
+    if (statusEl) statusEl.textContent = '⏳ Fetching job details and metrics…';
+
     const jobDetails = [];
-    for (const j of jobs.slice(0, 10)) {
-      const detail = await jmApi(`/jobs/${j.jid}`);
-      jobDetails.push({ ...j, detail });
+    for (const j of targetJobs) {
+      const [detail, checkpoints] = await Promise.all([
+        jmApi(`/jobs/${j.jid}`),
+        jmApi(`/jobs/${j.jid}/checkpoints`),
+      ]);
+
+      // Fetch vertex-level metrics for each vertex
+      const vertexMetrics = {};
+      if (detail && detail.vertices) {
+        for (const v of detail.vertices.slice(0, 20)) {
+          const vm = await jmApi(
+            `/jobs/${j.jid}/vertices/${v.id}/metrics?get=numRecordsIn,numRecordsOut,numRecordsInPerSecond,numRecordsOutPerSecond,numBytesIn,numBytesOut,backPressuredTimeMsPerSecond,idleTimeMsPerSecond,busyTimeMsPerSecond,currentOutputWatermark&agg=sum`
+          );
+          if (vm && Array.isArray(vm)) {
+            vertexMetrics[v.id] = {};
+            vm.forEach(m => {
+              // Handle subtask-prefixed names
+              const key = m.id.includes('.') ? m.id.split('.').pop() : m.id;
+              vertexMetrics[v.id][key] = parseFloat(m.value || 0);
+            });
+          }
+        }
+      }
+
+      // TM-level metrics (CPU, heap)
+      let tmCpu = null, tmHeap = null, tmHeapMax = null;
+      const tmData = await jmApi('/taskmanagers');
+      if (tmData && tmData.taskmanagers && tmData.taskmanagers.length > 0) {
+        let cpuSum = 0, heapSum = 0, heapMaxSum = 0, count = 0;
+        for (const tm of tmData.taskmanagers.slice(0, 4)) {
+          if (!tm.id) continue;
+          const tmId = encodeURIComponent(tm.id);
+          const m = await jmApi(`/taskmanagers/${tmId}/metrics?get=Status.JVM.CPU.Load,Status.JVM.Memory.Heap.Used,Status.JVM.Memory.Heap.Max`);
+          if (m && Array.isArray(m)) {
+            m.forEach(x => {
+              if (x.id === 'Status.JVM.CPU.Load')            cpuSum     += parseFloat(x.value||0)*100;
+              if (x.id === 'Status.JVM.Memory.Heap.Used')    heapSum    += parseFloat(x.value||0);
+              if (x.id === 'Status.JVM.Memory.Heap.Max')     heapMaxSum += parseFloat(x.value||0);
+            });
+            count++;
+          }
+        }
+        if (count > 0) {
+          tmCpu     = Math.round(cpuSum / count);
+          tmHeap    = heapSum;
+          tmHeapMax = heapMaxSum;
+        }
+      }
+
+      jobDetails.push({ ...j, detail, checkpoints, vertexMetrics, tmCpu, tmHeap, tmHeapMax });
     }
 
-    // Build report name
     const nameInput = document.getElementById('report-name-input');
-    const reportName = (nameInput?.value?.trim() || 'flinksql-session-report').replace(/[^a-zA-Z0-9_-]/g, '-');
+    const reportName = (nameInput?.value?.trim() || (focusJid ? `job-report-${focusJid.slice(0,8)}` : 'flinksql-session-report')).replace(/[^a-zA-Z0-9_-]/g, '-');
 
-    if (statusEl) statusEl.textContent = '⏳ Generating PDF…';
+    if (statusEl) statusEl.textContent = '⏳ Rendering report…';
 
-    // Build HTML report (rendered via browser print API)
     const reportHtml = buildReportHtml({
-      sessionId, catalog, database, connStatus,
+      sessionId, catalog, database,
       overview, jobs: jobDetails,
       timings: perf.timings || [],
       generatedAt: new Date().toLocaleString(),
       reportName,
+      isSingleJob: !!focusJid,
     });
 
-    // Open in new window and trigger print-to-PDF
-    const win = window.open('', '_blank', 'width=900,height=700');
+    const win = window.open('', '_blank', 'width=1000,height=800');
     if (!win) {
       if (statusEl) statusEl.textContent = '✗ Pop-up blocked — allow pop-ups and try again.';
       toast('Pop-up blocked — allow pop-ups and retry', 'err');
@@ -531,8 +614,7 @@ async function generateSessionReport() {
     win.document.write(reportHtml);
     win.document.close();
     win.focus();
-    // Auto-trigger print after render
-    setTimeout(() => { win.print(); }, 600);
+    setTimeout(() => { win.print(); }, 800);
 
     if (statusEl) statusEl.textContent = `✓ Report opened — use "Save as PDF" in the print dialog.`;
     toast('Report ready — save as PDF from print dialog', 'ok');
@@ -542,43 +624,176 @@ async function generateSessionReport() {
   }
 }
 
-function buildReportHtml({ sessionId, catalog, database, connStatus, overview, jobs, timings, generatedAt, reportName }) {
+// Generate report for the currently selected job in Job Graph tab
+async function generateJobGraphReport() {
+  const sel = document.getElementById('jg-job-select');
+  const jid = sel?.value || null;
+  await generateSessionReport(jid);   // null = all jobs
+}
+
+function buildReportHtml({ sessionId, catalog, database, overview, jobs, timings, generatedAt, reportName, isSingleJob }) {
   const fmtDur = ms => {
     if (!ms || ms <= 0) return '—';
-    if (ms < 1000)  return ms + 'ms';
-    if (ms < 60000) return (ms/1000).toFixed(1) + 's';
-    return Math.floor(ms/60000) + 'm ' + Math.round((ms%60000)/1000) + 's';
+    if (ms < 1000)      return ms + 'ms';
+    if (ms < 60000)     return (ms/1000).toFixed(1) + 's';
+    if (ms < 3600000)   return Math.floor(ms/60000) + 'm ' + Math.round((ms%60000)/1000) + 's';
+    return Math.floor(ms/3600000) + 'h ' + Math.floor((ms%3600000)/60000) + 'm';
   };
-
+  const fmtBytes = b => {
+    if (!b || b <= 0) return '—';
+    if (b > 1073741824) return (b/1073741824).toFixed(2) + ' GB';
+    if (b > 1048576)    return (b/1048576).toFixed(1) + ' MB';
+    if (b > 1024)       return (b/1024).toFixed(0) + ' KB';
+    return b + ' B';
+  };
+  const fmtN = n => {
+    if (!n || n <= 0) return '0';
+    if (n > 1000000) return (n/1000000).toFixed(2) + 'M';
+    if (n > 1000)    return (n/1000).toFixed(1) + 'K';
+    return String(Math.round(n));
+  };
+  const escH = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   const stateColor = s => ({
-    RUNNING:'#00c896', FINISHED:'#00b4d8', FAILED:'#ff4d6d',
-    CANCELED:'#8a96aa', CANCELING:'#f5a623'
+    RUNNING:'#00c896', FINISHED:'#0097ff', FAILED:'#ff4d6d',
+    CANCELED:'#8a96aa', CANCELING:'#f5a623', FAILED_WITH_SAVEPOINT:'#ff4d6d'
   }[s] || '#aaa');
+  const stateIcon = s => ({
+    RUNNING:'▶', FINISHED:'✓', FAILED:'✗', CANCELED:'■', CANCELING:'◌'
+  }[s] || '?');
 
-  const jobRows = jobs.map((j, i) => {
-    const dur = fmtDur(j.duration || 0);
-    const sc  = stateColor(j.state);
-    const vertices = (j.detail?.vertices || []).length;
-    return `
-      <tr style="background:${i%2===0?'#f8fafc':'#fff'}">
-        <td style="padding:8px;border-bottom:1px solid #eee;font-family:monospace;font-size:11px;color:#334;">${(j.jid||'').slice(0,16)}…</td>
-        <td style="padding:8px;border-bottom:1px solid #eee;font-size:11px;">${escHtml((j.name||'').slice(0,40))}</td>
-        <td style="padding:8px;border-bottom:1px solid #eee;"><span style="color:${sc};font-weight:600;font-size:10px;">${j.state||'—'}</span></td>
-        <td style="padding:8px;border-bottom:1px solid #eee;font-size:11px;">${dur}</td>
-        <td style="padding:8px;border-bottom:1px solid #eee;font-size:11px;text-align:center;">${vertices}</td>
+  // ── Build per-job sections ────────────────────────────────────────────────
+  const jobSections = jobs.map((j, ji) => {
+    const sc = stateColor(j.state);
+    const dur = fmtDur(j.duration || j['duration'] || 0);
+    const vertices = j.detail?.vertices || [];
+    const cp = j.checkpoints;
+    const cpTotal     = cp?.counts?.total       ?? '—';
+    const cpCompleted = cp?.counts?.completed   ?? '—';
+    const cpFailed    = cp?.counts?.failed      ?? '—';
+    const cpInProg    = cp?.counts?.in_progress ?? '—';
+    const cpLastDur   = cp?.latest?.completed?.end_to_end_duration != null
+      ? fmtDur(cp.latest.completed.end_to_end_duration) : '—';
+    const cpStateSize = cp?.latest?.completed?.state_size != null
+      ? fmtBytes(cp.latest.completed.state_size) : '—';
+    const cpLocation  = cp?.latest?.completed?.external_path || cp?.latest?.completed?.path || '—';
+
+    // ── Vertex table ────────────────────────────────────────────────────────
+    const vertexRows = vertices.map((v, vi) => {
+      const vm = j.vertexMetrics?.[v.id] || {};
+      const recIn   = vm['numRecordsIn']  || vm['numRecordsInPerSecond']  || 0;
+      const recOut  = vm['numRecordsOut'] || vm['numRecordsOutPerSecond'] || 0;
+      const bytIn   = vm['numBytesIn']  || 0;
+      const bytOut  = vm['numBytesOut'] || 0;
+      const bp      = vm['backPressuredTimeMsPerSecond'] != null ? Math.round(vm['backPressuredTimeMsPerSecond']/10) + '%' : '—';
+      const idle    = vm['idleTimeMsPerSecond']          != null ? Math.round(vm['idleTimeMsPerSecond']/10)          + '%' : '—';
+      const wm      = vm['currentOutputWatermark']       != null && vm['currentOutputWatermark'] > 0
+        ? new Date(vm['currentOutputWatermark']).toISOString().slice(0,19).replace('T',' ') : '—';
+      const vsc = stateColor(v.status);
+      const isIdle = recIn === 0 && recOut === 0;
+      const isFailed = ['FAILED','ERROR'].includes(v.status);
+      const rowBg = isFailed ? 'rgba(255,77,109,0.08)' : vi%2===0 ? '#f8fafc' : '#fff';
+      return `<tr style="background:${rowBg};">
+        <td style="padding:6px 8px;border-bottom:1px solid #eee;font-size:10px;font-family:monospace;color:#334;">${escH(v.name || v.id).slice(0,50)}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #eee;"><span style="color:${vsc};font-weight:600;font-size:10px;">${stateIcon(v.status)} ${v.status||'—'}</span></td>
+        <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:center;font-size:10px;">${v.parallelism||1}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right;font-size:10px;${recIn>0?'color:#0097ff;font-weight:600;':isIdle?'color:#aaa;':''}">${recIn>0?fmtN(recIn):'—'}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right;font-size:10px;${recOut>0?'color:#00c896;font-weight:600;':isIdle?'color:#aaa;':''}">${recOut>0?fmtN(recOut):'—'}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right;font-size:10px;">${bytIn>0?fmtBytes(bytIn):'—'}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right;font-size:10px;">${bytOut>0?fmtBytes(bytOut):'—'}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:center;font-size:10px;${bp!=='—'&&parseInt(bp)>50?'color:#f5a623;font-weight:600;':''}">${bp}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:center;font-size:10px;">${idle}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #eee;font-size:9px;font-family:monospace;color:#667;">${wm}</td>
       </tr>`;
+    }).join('');
+
+    // ── TM metrics ─────────────────────────────────────────────────────────
+    const cpuStr  = j.tmCpu  != null ? j.tmCpu.toFixed(1) + '%' : '—';
+    const heapStr = j.tmHeap != null
+      ? fmtBytes(j.tmHeap) + ' / ' + fmtBytes(j.tmHeapMax || j.tmHeap * 1.5)
+      : '—';
+
+    // ── Window / watermark info from vertices ──────────────────────────────
+    const hasWatermarks = vertices.some(v => {
+      const vm = j.vertexMetrics?.[v.id] || {};
+      return vm['currentOutputWatermark'] && vm['currentOutputWatermark'] > 0;
+    });
+
+    return `
+    <div class="section ${ji > 0 ? 'page-break' : ''}">
+      <!-- Job Header -->
+      <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:#f6f9ff;border:1px solid #dde6f5;border-radius:6px;margin-bottom:16px;">
+        <span style="font-size:20px;color:${sc};">${stateIcon(j.state)}</span>
+        <div style="flex:1;">
+          <div style="font-size:13px;font-weight:700;color:#1a2035;font-family:'IBM Plex Mono';">${escH((j.name||j.jid).slice(0,60))}</div>
+          <div style="font-size:10px;color:#667;margin-top:2px;font-family:'IBM Plex Mono';">JID: ${j.jid || '—'}</div>
+        </div>
+        <div style="display:flex;gap:24px;">
+          <div style="text-align:center;"><div style="font-size:9px;color:#8a96aa;text-transform:uppercase;">Status</div><div style="font-size:13px;font-weight:700;color:${sc};">${j.state||'—'}</div></div>
+          <div style="text-align:center;"><div style="font-size:9px;color:#8a96aa;text-transform:uppercase;">Duration</div><div style="font-size:13px;font-weight:600;color:#1a2035;font-family:'IBM Plex Mono';">${dur}</div></div>
+          <div style="text-align:center;"><div style="font-size:9px;color:#8a96aa;text-transform:uppercase;">Parallelism</div><div style="font-size:13px;font-weight:600;color:#1a2035;">${j.detail?.['execution-config']?.parallelism || j.detail?.parallelism || '—'}</div></div>
+          <div style="text-align:center;"><div style="font-size:9px;color:#8a96aa;text-transform:uppercase;">Vertices</div><div style="font-size:13px;font-weight:600;color:#1a2035;">${vertices.length}</div></div>
+        </div>
+      </div>
+
+      <!-- TM Metrics Row -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;">
+        <div class="info-card"><div class="info-card-label">CPU Load (cluster)</div><div class="info-card-val">${cpuStr}</div></div>
+        <div class="info-card"><div class="info-card-label">JVM Heap Used</div><div class="info-card-val" style="font-size:12px;">${heapStr}</div></div>
+        <div class="info-card"><div class="info-card-label">Checkpoints Done</div><div class="info-card-val">${cpCompleted}</div></div>
+        <div class="info-card"><div class="info-card-label">Failed Checkpoints</div><div class="info-card-val" style="color:${parseInt(cpFailed)>0?'#ff4d6d':'#1a2035'};">${cpFailed}</div></div>
+      </div>
+
+      <!-- Checkpoint Details -->
+      <div class="section-title">Checkpoint Metrics</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;">
+        <div class="info-card"><div class="info-card-label">Total</div><div class="info-card-val">${cpTotal}</div></div>
+        <div class="info-card"><div class="info-card-label">In Progress</div><div class="info-card-val">${cpInProg}</div></div>
+        <div class="info-card"><div class="info-card-label">Last Duration</div><div class="info-card-val">${cpLastDur}</div></div>
+        <div class="info-card"><div class="info-card-label">State Size</div><div class="info-card-val">${cpStateSize}</div></div>
+        <div class="info-card" style="grid-column:span 2;"><div class="info-card-label">Checkpoint Location (savepoint path)</div><div class="info-card-val" style="font-size:10px;word-break:break-all;">${escH(cpLocation)}</div></div>
+      </div>
+
+      <!-- Watermark info -->
+      ${hasWatermarks ? `<div class="section-title">Watermark &amp; Window Activity</div>
+      <p style="font-size:11px;color:#334;margin-bottom:12px;">Watermarks detected in this job's vertex output metrics. Timestamps shown are event-time watermarks indicating how far processing has advanced.</p>` : ''}
+
+      <!-- Operator Table -->
+      <div class="section-title">Operator Breakdown (${vertices.length} vertices)</div>
+      ${vertices.length === 0 ? '<p style="color:#aaa;font-size:11px;">No vertex data available.</p>' : `
+      <table style="font-size:11px;">
+        <thead><tr>
+          <th>Operator</th><th>Status</th><th style="text-align:center;">Par.</th>
+          <th style="text-align:right;">Records In</th><th style="text-align:right;">Records Out</th>
+          <th style="text-align:right;">Bytes In</th><th style="text-align:right;">Bytes Out</th>
+          <th style="text-align:center;">Backpressure</th><th style="text-align:center;">Idle</th>
+          <th>Watermark</th>
+        </tr></thead>
+        <tbody>${vertexRows}</tbody>
+      </table>`}
+    </div>`;
   }).join('');
 
-  const timingRows = timings.slice(0, 20).map((t, i) => {
-    const ms = t.ms || 0;
-    const col = ms > 5000 ? '#ff4d6d' : ms > 1000 ? '#f5a623' : '#00c896';
-    return `
-      <tr style="background:${i%2===0?'#f8fafc':'#fff'}">
-        <td style="padding:6px 8px;border-bottom:1px solid #eee;font-size:10px;font-family:monospace;color:#334;">${escHtml((t.sql||'').slice(0,70))}</td>
-        <td style="padding:6px 8px;border-bottom:1px solid #eee;font-size:11px;color:${col};font-weight:600;">${ms < 1000 ? ms+'ms' : (ms/1000).toFixed(2)+'s'}</td>
-        <td style="padding:6px 8px;border-bottom:1px solid #eee;font-size:11px;text-align:right;">${(t.rows||0).toLocaleString()}</td>
-      </tr>`;
+  // ── Query history with failure highlighting ──────────────────────────────
+  const timingRows = timings.slice(0, 30).map((t, i) => {
+    const ms  = t.ms || 0;
+    const isFailed = t.status === 'err' || t.status === 'error' || t.status === 'failed';
+    const isRunning = t.status === 'RUNNING';
+    const timeCol = isFailed ? '#ff4d6d' : ms > 5000 ? '#f5a623' : ms > 1000 ? '#f5a623' : '#00c896';
+    const rowBg = isFailed ? 'rgba(255,77,109,0.08)' : isRunning ? 'rgba(0,200,150,0.05)' : i%2===0?'#f8fafc':'#fff';
+    const statusDot = isFailed
+      ? '<span style="color:#ff4d6d;font-weight:700;margin-right:4px;">✗ FAILED</span>'
+      : isRunning
+        ? '<span style="color:#00c896;font-weight:600;margin-right:4px;">▶ RUNNING</span>'
+        : '<span style="color:#00c896;margin-right:4px;">✓</span>';
+    return `<tr style="background:${rowBg};${isFailed?'border-left:3px solid #ff4d6d;':''}">
+      <td style="padding:6px 8px;border-bottom:1px solid #eee;font-size:10px;font-family:monospace;color:#334;">${statusDot}${escH((t.sql||'').replace(/\s+/g,' ').slice(0,80))}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #eee;font-size:11px;color:${isFailed?'#ff4d6d':timeCol};font-weight:600;">${ms < 1000 ? ms+'ms' : (ms/1000).toFixed(2)+'s'}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #eee;font-size:11px;text-align:right;">${(t.rows||0).toLocaleString()}</td>
+    </tr>`;
   }).join('');
+
+  const failedCount = timings.filter(t => t.status === 'err' || t.status === 'error').length;
+  const runningCount = jobs.filter(j => j.state === 'RUNNING').length;
 
   return `<!DOCTYPE html>
 <html>
@@ -587,173 +802,187 @@ function buildReportHtml({ sessionId, catalog, database, connStatus, overview, j
 <title>${reportName}</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600;700&display=swap');
-  * { box-sizing:border-box; margin:0; padding:0; }
-  body { font-family:'IBM Plex Sans',sans-serif; background:#fff; color:#1a2035; font-size:13px; }
-  @media print {
-    body { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-    .no-print { display:none !important; }
-    .page-break { page-break-before: always; }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'IBM Plex Sans',sans-serif;background:#fff;color:#1a2035;font-size:13px;line-height:1.5;}
+  @media print{
+    body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+    .no-print{display:none!important;}
+    .page-break{page-break-before:always;}
   }
-  .header {
-    background: linear-gradient(135deg, #050e1a 0%, #0c1e35 60%, #08263a 100%);
-    color: #fff;
-    padding: 32px 40px 28px;
-    display: flex;
-    align-items: center;
-    gap: 24px;
-  }
-  .logo-box {
-    width: 56px; height: 56px;
-    background: rgba(0,212,170,0.12);
-    border: 1.5px solid rgba(0,212,170,0.5);
-    border-radius: 6px;
-    display: flex; align-items: center; justify-content: center;
-    flex-shrink: 0;
-  }
-  .header-text h1 { font-size: 24px; font-weight: 700; color: #00d4aa; letter-spacing: -0.4px; }
-  .header-text p  { font-size: 12px; color: rgba(255,255,255,0.55); margin-top: 4px; }
-  .header-meta { margin-left: auto; text-align: right; }
-  .header-meta .label { font-size: 9px; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 1px; }
-  .header-meta .val   { font-size: 12px; color: rgba(255,255,255,0.85); font-family:'IBM Plex Mono'; }
 
-  .summary-bar {
-    background: #0d1929;
-    display: flex;
-    gap: 0;
-    padding: 0;
-    border-bottom: 2px solid #00d4aa40;
+  /* ── Cover header ── */
+  .cover{
+    background:linear-gradient(145deg,#020e1e 0%,#0a1f38 50%,#062840 100%);
+    padding:0;min-height:200px;position:relative;overflow:hidden;
   }
-  .summary-item {
-    flex: 1;
-    padding: 14px 20px;
-    border-right: 1px solid rgba(255,255,255,0.06);
-    display: flex; flex-direction: column; gap: 2px;
+  .cover-stripe{
+    position:absolute;top:0;left:0;right:0;height:4px;
+    background:linear-gradient(90deg,#00d4aa,#0097ff,#b044ff,#00d4aa);
   }
-  .summary-item:last-child { border-right: none; }
-  .summary-label { font-size: 9px; color: rgba(255,255,255,0.35); text-transform: uppercase; letter-spacing: 1px; }
-  .summary-val   { font-size: 18px; font-weight: 700; color: #00d4aa; font-family: 'IBM Plex Mono'; }
-  .summary-sub   { font-size: 10px; color: rgba(255,255,255,0.4); }
+  .cover-inner{padding:40px 48px 36px;display:flex;align-items:flex-start;gap:32px;}
+  .cover-logo{
+    width:64px;height:64px;border-radius:8px;flex-shrink:0;
+    background:rgba(0,212,170,0.1);border:1.5px solid rgba(0,212,170,0.4);
+    display:flex;align-items:center;justify-content:center;
+  }
+  .cover-title{flex:1;}
+  .cover-title h1{font-size:28px;font-weight:700;color:#00d4aa;letter-spacing:-0.5px;line-height:1.2;}
+  .cover-title .subtitle{font-size:13px;color:rgba(255,255,255,0.55);margin-top:6px;}
+  .cover-title .report-type{
+    display:inline-block;margin-top:10px;padding:4px 12px;
+    background:rgba(0,212,170,0.15);border:1px solid rgba(0,212,170,0.3);
+    border-radius:3px;font-size:10px;color:#00d4aa;font-family:'IBM Plex Mono';
+    text-transform:uppercase;letter-spacing:1px;
+  }
+  .cover-meta{text-align:right;min-width:220px;}
+  .cover-meta .meta-row{margin-bottom:8px;}
+  .cover-meta .meta-label{font-size:9px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:1px;}
+  .cover-meta .meta-val{font-size:12px;color:rgba(255,255,255,0.85);font-family:'IBM Plex Mono';}
 
-  .section { margin: 24px 32px; }
-  .section-title {
-    font-size: 11px; font-weight: 600; color: #5a6882;
-    text-transform: uppercase; letter-spacing: 1.5px;
-    border-bottom: 1px solid #e8ecf2; padding-bottom: 6px; margin-bottom: 12px;
-    display: flex; align-items: center; gap: 8px;
+  /* ── KPI bar ── */
+  .kpi-bar{
+    background:#0d1929;display:flex;border-bottom:2px solid rgba(0,212,170,0.25);
   }
-  .section-title::before { content:''; display:block; width:3px; height:14px; background:#00d4aa; border-radius:2px; }
-
-  .info-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
-  .info-card {
-    background: #f6f8fc; border: 1px solid #e2e8f2; border-radius: 6px;
-    padding: 12px 14px;
+  .kpi-item{
+    flex:1;padding:16px 20px;border-right:1px solid rgba(255,255,255,0.05);
+    display:flex;flex-direction:column;gap:2px;
   }
-  .info-card-label { font-size: 9px; color: #8a96aa; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
-  .info-card-val   { font-size: 14px; font-weight: 600; color: #1a2035; font-family: 'IBM Plex Mono'; }
+  .kpi-item:last-child{border-right:none;}
+  .kpi-label{font-size:9px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:1.2px;}
+  .kpi-val{font-size:20px;font-weight:700;font-family:'IBM Plex Mono';}
+  .kpi-sub{font-size:10px;color:rgba(255,255,255,0.4);}
 
-  table { width: 100%; border-collapse: collapse; }
-  th { text-align: left; font-size: 10px; font-weight: 600; color: #5a6882; text-transform: uppercase; letter-spacing: 1px; padding: 8px; background: #f0f4fa; border-bottom: 2px solid #dde4f0; }
-  td { vertical-align: middle; }
-
-  .footer {
-    margin-top: 32px;
-    padding: 16px 32px;
-    border-top: 1px solid #e8ecf2;
-    display: flex; justify-content: space-between; align-items: center;
-    font-size: 10px; color: #8a96aa;
+  /* ── Sections ── */
+  .section{margin:24px 36px;}
+  .section-title{
+    font-size:10px;font-weight:700;color:#5a6882;text-transform:uppercase;
+    letter-spacing:1.8px;border-bottom:1px solid #e0e8f0;padding-bottom:6px;
+    margin-bottom:14px;display:flex;align-items:center;gap:8px;
   }
-  .footer-brand { font-weight: 600; color: #00d4aa; }
+  .section-title::before{content:'';display:block;width:3px;height:14px;background:#00d4aa;border-radius:2px;flex-shrink:0;}
+
+  /* ── Info cards ── */
+  .info-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;}
+  .info-card{background:#f6f9fc;border:1px solid #e0e8f2;border-radius:5px;padding:11px 14px;}
+  .info-card-label{font-size:9px;color:#8a96aa;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;}
+  .info-card-val{font-size:14px;font-weight:600;color:#1a2035;font-family:'IBM Plex Mono';}
+
+  /* ── Tables ── */
+  table{width:100%;border-collapse:collapse;}
+  th{text-align:left;font-size:9px;font-weight:700;color:#5a6882;text-transform:uppercase;
+     letter-spacing:1px;padding:8px;background:#f0f4fa;border-bottom:2px solid #d8e2f0;}
+  td{vertical-align:middle;}
+
+  /* ── Alert banners ── */
+  .alert-banner{
+    display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:5px;
+    margin-bottom:16px;font-size:12px;font-weight:600;
+  }
+  .alert-failed{background:rgba(255,77,109,0.1);border:1px solid rgba(255,77,109,0.3);color:#ff4d6d;}
+  .alert-ok{background:rgba(0,200,150,0.08);border:1px solid rgba(0,200,150,0.25);color:#00c896;}
+
+  /* ── Footer ── */
+  .footer{
+    margin-top:40px;padding:16px 36px;border-top:1px solid #e8ecf2;
+    display:flex;justify-content:space-between;align-items:center;
+    font-size:10px;color:#8a96aa;
+  }
+  .footer-brand{font-weight:700;color:#00d4aa;font-size:11px;}
 </style>
 </head>
 <body>
 
-<!-- HEADER -->
-<div class="header">
-  <div class="logo-box">
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#00d4aa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
-    </svg>
-  </div>
-  <div class="header-text">
-    <h1>FlinkSQL Studio</h1>
-    <p>Session Performance &amp; Execution Report</p>
-  </div>
-  <div class="header-meta">
-    <div class="label">Generated</div>
-    <div class="val">${generatedAt}</div>
-    <div class="label" style="margin-top:6px;">Report ID</div>
-    <div class="val">${reportName}</div>
-  </div>
-</div>
-
-<!-- SUMMARY BAR -->
-<div class="summary-bar">
-  <div class="summary-item">
-    <div class="summary-label">Total Jobs</div>
-    <div class="summary-val">${jobs.length}</div>
-    <div class="summary-sub">${jobs.filter(j=>j.state==='RUNNING').length} running</div>
-  </div>
-  <div class="summary-item">
-    <div class="summary-label">Task Managers</div>
-    <div class="summary-val">${overview.taskmanagers ?? '—'}</div>
-    <div class="summary-sub">${overview['slots-total']??'?'} total slots</div>
-  </div>
-  <div class="summary-item">
-    <div class="summary-label">Queries Run</div>
-    <div class="summary-val">${timings.length}</div>
-    <div class="summary-sub">in this session</div>
-  </div>
-  <div class="summary-item">
-    <div class="summary-label">Avg Query Time</div>
-    <div class="summary-val">${timings.length ? fmtDur(Math.round(timings.reduce((a,t)=>a+(t.ms||0),0)/timings.length)) : '—'}</div>
-    <div class="summary-sub">across all queries</div>
-  </div>
-  <div class="summary-item">
-    <div class="summary-label">Flink Version</div>
-    <div class="summary-val" style="font-size:14px;">${overview['flink-version']??'—'}</div>
-    <div class="summary-sub">cluster version</div>
+<!-- COVER -->
+<div class="cover">
+  <div class="cover-stripe"></div>
+  <div class="cover-inner">
+    <div class="cover-logo">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#00d4aa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+      </svg>
+    </div>
+    <div class="cover-title">
+      <h1>FlinkSQL Studio</h1>
+      <div class="subtitle">Apache Flink · Real-Time Stream Processing Intelligence Report</div>
+      <div class="report-type">${isSingleJob ? 'Single Job Analysis Report' : 'Full Session Performance Report'}</div>
+    </div>
+    <div class="cover-meta">
+      <div class="meta-row"><div class="meta-label">Generated</div><div class="meta-val">${generatedAt}</div></div>
+      <div class="meta-row"><div class="meta-label">Report ID</div><div class="meta-val">${reportName}</div></div>
+      <div class="meta-row"><div class="meta-label">Flink Version</div><div class="meta-val">${overview['flink-version']||'—'}</div></div>
+      <div class="meta-row"><div class="meta-label">Session</div><div class="meta-val">${(sessionId||'').slice(0,14)}…</div></div>
+    </div>
   </div>
 </div>
 
-<!-- SESSION INFO -->
+<!-- KPI BAR -->
+<div class="kpi-bar">
+  <div class="kpi-item">
+    <div class="kpi-label">Total Jobs</div>
+    <div class="kpi-val" style="color:#00d4aa;">${jobs.length}</div>
+    <div class="kpi-sub">${runningCount} currently running</div>
+  </div>
+  <div class="kpi-item">
+    <div class="kpi-label">Task Managers</div>
+    <div class="kpi-val" style="color:#0097ff;">${overview.taskmanagers ?? '—'}</div>
+    <div class="kpi-sub">${overview['slots-total']??'?'} total slots</div>
+  </div>
+  <div class="kpi-item">
+    <div class="kpi-label">Queries Executed</div>
+    <div class="kpi-val" style="color:#b044ff;">${timings.length}</div>
+    <div class="kpi-sub">${failedCount > 0 ? failedCount + ' failed' : 'all succeeded'}</div>
+  </div>
+  <div class="kpi-item">
+    <div class="kpi-label">Avg Query Time</div>
+    <div class="kpi-val" style="color:#f5a623;font-size:16px;">${timings.length ? fmtDur(Math.round(timings.reduce((a,t)=>a+(t.ms||0),0)/timings.length)) : '—'}</div>
+    <div class="kpi-sub">across all queries</div>
+  </div>
+  <div class="kpi-item">
+    <div class="kpi-label">Catalog / DB</div>
+    <div class="kpi-val" style="color:#39d353;font-size:13px;">${escH(catalog)}</div>
+    <div class="kpi-sub">${escH(database)}</div>
+  </div>
+</div>
+
+<!-- FAILURE ALERT -->
+${failedCount > 0 ? `
 <div class="section">
-  <div class="section-title">Session Information</div>
-  <div class="info-grid">
-    <div class="info-card"><div class="info-card-label">Session ID</div><div class="info-card-val" style="font-size:11px;">${sessionId.slice(0,20)}…</div></div>
-    <div class="info-card"><div class="info-card-label">Catalog</div><div class="info-card-val">${catalog}</div></div>
-    <div class="info-card"><div class="info-card-label">Database</div><div class="info-card-val">${database}</div></div>
-    <div class="info-card"><div class="info-card-label">Status</div><div class="info-card-val" style="color:#00c896;">${connStatus}</div></div>
-    <div class="info-card"><div class="info-card-label">Running Jobs</div><div class="info-card-val">${overview['jobs-running']??'—'}</div></div>
-    <div class="info-card"><div class="info-card-label">Finished Jobs</div><div class="info-card-val">${overview['jobs-finished']??'—'}</div></div>
+  <div class="alert-banner alert-failed">
+    <span style="font-size:18px;">⚠</span>
+    <span>${failedCount} failed quer${failedCount===1?'y':'ies'} detected in this session. See Query History section for details.</span>
   </div>
-</div>
+</div>` : `
+<div class="section" style="margin-bottom:0;">
+  <div class="alert-banner alert-ok">
+    <span>✓</span>
+    <span>All queries completed successfully in this session.</span>
+  </div>
+</div>`}
 
-<!-- JOBS TABLE -->
-<div class="section page-break">
-  <div class="section-title">Job Execution Summary</div>
-  ${jobs.length === 0 ? '<p style="color:#8a96aa;font-size:12px;">No jobs recorded in this session.</p>' : `
-  <table>
-    <thead><tr>
-      <th>Job ID</th><th>Name</th><th>Status</th><th>Duration</th><th style="text-align:center;">Vertices</th>
-    </tr></thead>
-    <tbody>${jobRows}</tbody>
-  </table>`}
-</div>
+<!-- JOB SECTIONS -->
+${jobSections || '<div class="section"><p style="color:#8a96aa;font-size:12px;">No jobs to report.</p></div>'}
 
 <!-- QUERY HISTORY -->
-<div class="section">
-  <div class="section-title">Query Execution History (last ${Math.min(timings.length,20)})</div>
-  ${timings.length === 0 ? '<p style="color:#8a96aa;font-size:12px;">No queries recorded.</p>' : `
+<div class="section page-break">
+  <div class="section-title">Query Execution History — Last ${Math.min(timings.length,30)}</div>
+  ${timings.length === 0 ? '<p style="color:#aaa;font-size:12px;">No queries recorded this session.</p>' : `
   <table>
-    <thead><tr><th>SQL Statement</th><th>Duration</th><th style="text-align:right;">Rows</th></tr></thead>
+    <thead><tr>
+      <th>SQL Statement</th>
+      <th>Duration</th>
+      <th style="text-align:right;">Rows</th>
+    </tr></thead>
     <tbody>${timingRows}</tbody>
   </table>`}
 </div>
 
 <!-- FOOTER -->
 <div class="footer">
-  <div><span class="footer-brand">FlinkSQL Studio</span> · codedstreams</div>
-  <div>Apache Flink ${overview['flink-version']??''} · Generated ${generatedAt}</div>
+  <div>
+    <span class="footer-brand">FlinkSQL Studio</span>
+    <span style="margin-left:8px;">· codedstreams · Apache Flink ${overview['flink-version']||''}</span>
+  </div>
+  <div>${generatedAt} · ${reportName}</div>
 </div>
 
 </body>

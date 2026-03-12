@@ -626,21 +626,25 @@ async function showJobGraphNodeDetail(nid, nodes, vertices, vertexMetrics) {
     }
   }
 
-  // Auto-start event stream if node is RUNNING (show for all node types now)
+  // Start or show snapshot for all node states
+  _ndState.streamRunning = false;
   if (st === 'RUNNING') {
-    _ndState.streamRunning = false; // reset
+    // Live streaming mode — poll continuously
     _startEventStream();
+  } else if (['FINISHED','CANCELED','CANCELING'].includes(st)) {
+    // Node is done — fetch a one-shot snapshot of final metrics
+    _stopEventStream();
+    _fetchFinalSnapshot(jid, nid, isSource, isSink);
   } else {
     _stopEventStream();
-    // Reset stream UI
-    el('nd-events-stream').innerHTML =
-      `<div class="nd-event-empty">
-        <span style="font-size:22px;opacity:0.3;">⚡</span>
-        <span>Event stream will appear here when the operator is running.</span>
-        <span style="font-size:10px;color:var(--text3);">Events are sampled from the JobManager metrics API.</span>
-      </div>`;
-    el('nd-events-count').textContent = '0 events';
-    el('nd-events-badge').textContent = '0';
+    const stream = el('nd-events-stream');
+    if (stream) stream.innerHTML = `<div class="nd-event-empty">
+      <span>Operator status: ${st} — metrics will appear when RUNNING.</span>
+    </div>`;
+    const countEl = el('nd-events-count');
+    if (countEl) countEl.textContent = '0 events';
+    const badgeEl = el('nd-events-badge');
+    if (badgeEl) badgeEl.textContent = '0';
   }
 }
 
@@ -811,10 +815,29 @@ async function _pollEventStream() {
     );
 
     if (metrics && Array.isArray(metrics) && metrics.length > 0) {
+      // Flink 1.17-1.19: vertex metrics are returned with subtask prefix
+      // e.g. "0.MiniBatchAssigner[184].numRecordsOutPerSecond" or "0.numRecordsOutPerSecond"
+      // We match by exact id, by suffix, OR sum across all subtask entries for same metric.
       const get = key => {
-        const m = metrics.find(m => m.id === key);
-        return m ? parseFloat(m.value || 0) : 0;
+        // Try exact match first
+        const exact = metrics.find(m => m.id === key);
+        if (exact) return parseFloat(exact.value || 0);
+        // Match by suffix (handles subtask-prefixed names)
+        const suffixMatches = metrics.filter(m =>
+          m.id === key ||
+          m.id.endsWith('.' + key) ||
+          m.id.endsWith(key)       // handles "0.numRecordsOutPerSecond" type
+        );
+        if (suffixMatches.length === 1) return parseFloat(suffixMatches[0].value || 0);
+        if (suffixMatches.length  > 1) {
+          // Multiple subtasks — SUM them (e.g. 0.numRecordsOut, 1.numRecordsOut)
+          return suffixMatches.reduce((s, m) => s + parseFloat(m.value || 0), 0);
+        }
+        return 0;
       };
+      const has = key => metrics.some(m =>
+        m.id === key || m.id.endsWith('.' + key) || m.id.endsWith(key)
+      );
 
       const recInPs  = get('numRecordsInPerSecond');
       const recOutPs = get('numRecordsOutPerSecond');
@@ -859,6 +882,80 @@ async function _pollEventStream() {
 
   if (_ndState.streamRunning) {
     _ndState.streamTimer = setTimeout(_pollEventStream, 800);
+  }
+}
+
+
+// ── Final metric snapshot for CANCELED/FINISHED nodes ────────────────────────
+async function _fetchFinalSnapshot(jid, nid, isSource, isSink) {
+  const stream = document.getElementById('nd-events-stream');
+  if (!stream) return;
+  stream.innerHTML = `<div class="nd-event-empty" style="color:var(--text2);">
+    <span>Fetching final metrics snapshot…</span>
+  </div>`;
+
+  try {
+    const baseMetrics = [
+      'numRecordsIn','numRecordsOut',
+      'numRecordsInPerSecond','numRecordsOutPerSecond',
+      'numBytesIn','numBytesOut',
+      'numBytesInPerSecond','numBytesOutPerSecond',
+      'backPressuredTimeMsPerSecond','idleTimeMsPerSecond','busyTimeMsPerSecond',
+    ];
+    const metrics = await jmApi(
+      `/jobs/${jid}/vertices/${nid}/metrics?get=${encodeURIComponent(baseMetrics.join(','))}&agg=sum`
+    );
+
+    if (!metrics || !Array.isArray(metrics) || metrics.length === 0) {
+      stream.innerHTML = `<div class="nd-event-empty">
+        <span>No metric history available for this operator (job has ended).</span>
+      </div>`;
+      return;
+    }
+
+    const getM = key => {
+      const suffixMatches = metrics.filter(m => m.id === key || m.id.endsWith('.' + key) || m.id.endsWith(key));
+      if (suffixMatches.length === 0) return 0;
+      return suffixMatches.reduce((s, m) => s + parseFloat(m.value || 0), 0);
+    };
+
+    const totalIn   = Math.round(getM('numRecordsIn'));
+    const totalOut  = Math.round(getM('numRecordsOut'));
+    const bytesIn   = getM('numBytesIn');
+    const bytesOut  = getM('numBytesOut');
+    const fmtN = n => n > 999999 ? (n/1000000).toFixed(2)+'M' : n > 999 ? (n/1000).toFixed(1)+'K' : String(n);
+    const fmtB = b => b > 1073741824 ? (b/1073741824).toFixed(2)+' GB' : b > 1048576 ? (b/1048576).toFixed(1)+' MB' : b > 1024 ? (b/1024).toFixed(0)+' KB' : b+' B';
+
+    const ts = new Date().toLocaleTimeString('en-US', {hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    let html = `<div class="nd-event-row" style="background:rgba(255,255,255,0.03);border-radius:4px;margin-bottom:4px;">
+      <span class="nd-event-ts">${ts}</span>
+      <span style="color:var(--yellow);font-size:10px;font-weight:600;margin-right:8px;">FINAL SNAPSHOT</span>`;
+
+    if (isSource) {
+      html += `<span class="nd-event-dir out" style="color:var(--accent);">TOTAL OUT</span>
+        <span class="nd-event-val" style="color:var(--text0);">
+          <strong>${fmtN(totalOut)}</strong> records  ${bytesOut>0?fmtB(bytesOut):''}
+        </span>`;
+    } else if (isSink) {
+      html += `<span class="nd-event-dir in" style="color:var(--blue);">TOTAL IN</span>
+        <span class="nd-event-val" style="color:var(--text0);">
+          <strong>${fmtN(totalIn)}</strong> records  ${bytesIn>0?fmtB(bytesIn):''}
+        </span>`;
+    } else {
+      if (totalIn > 0)  html += `<span class="nd-event-dir in" style="color:var(--blue);">IN</span><span class="nd-event-val">${fmtN(totalIn)} recs</span><span style="margin:0 6px;color:var(--border2);">|</span>`;
+      if (totalOut > 0) html += `<span class="nd-event-dir out" style="color:var(--accent);">OUT</span><span class="nd-event-val">${fmtN(totalOut)} recs</span>`;
+    }
+    html += `</div>
+    <div style="padding:8px 0;font-size:10px;color:var(--text3);font-family:var(--mono);">
+      This operator is no longer RUNNING. Showing lifetime totals from JobManager history.
+    </div>`;
+    stream.innerHTML = html;
+    const countEl = document.getElementById('nd-events-count');
+    if (countEl) countEl.textContent = 'final snapshot';
+    const badgeEl = document.getElementById('nd-events-badge');
+    if (badgeEl) badgeEl.textContent = '1';
+  } catch(e) {
+    stream.innerHTML = `<div class="nd-event-empty"><span>Could not fetch metrics: ${e.message}</span></div>`;
   }
 }
 
