@@ -171,7 +171,20 @@ function launchApp(host, port) {
   applyTheme();
 
   // Restore workspace (tabs + query history from localStorage)
-  restoreWorkspace();
+  // Only restore once per page load. If user disconnects and reconnects,
+  // keep the current in-memory tabs — don't re-restore from disk.
+  if (!window._workspaceRestored) {
+    restoreWorkspace();
+    window._workspaceRestored = true;
+    if (state.tabs.length > 0) {
+      const count = state.tabs.length;
+      // Show a dismissible notice so user knows these are their saved scripts
+      setTimeout(() => toast(
+        `${count} tab${count>1?'s':''} restored from your last session — your local scripts are always preserved`,
+        'info'
+      ), 800);
+    }
+  }
 
   // Ensure at least one tab exists
   if (state.tabs.length === 0) addTab('Query 1');

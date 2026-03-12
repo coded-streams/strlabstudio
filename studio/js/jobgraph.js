@@ -116,7 +116,7 @@ async function loadJobGraph(jid) {
     if (st === 'RUNNING' && plan.plan && plan.plan.nodes) {
       for (const node of plan.plan.nodes.slice(0, 8)) {
         try {
-          const vm = await jmApi(`/jobs/${jid}/vertices/${node.id}/metrics?get=numRecordsInPerSecond,numRecordsOutPerSecond,backPressuredTimeMsPerSecond`);
+          const vm = await jmApi(`/jobs/${jid}/vertices/${node.id}/metrics?get=numRecordsInPerSecond,numRecordsOutPerSecond,backPressuredTimeMsPerSecond&agg=sum`);
           if (vm && Array.isArray(vm)) {
             vertexMetrics[node.id] = {};
             vm.forEach(m => { vertexMetrics[node.id][m.id] = m.value; });
@@ -236,24 +236,33 @@ function renderJobGraph(plan, jobDetail, vertexMetrics) {
     const isSource = (n.inputs || []).length === 0;
     const isSink   = !nodes.some(other => (other.inputs || []).some(inp => inp.id === n.id));
 
+    // Metrics for this vertex (must be declared BEFORE isIdle check)
+    const vm     = vertexMetrics[n.id] || {};
+    const recIn  = vm['numRecordsInPerSecond']  != null ? Math.round(parseFloat(vm['numRecordsInPerSecond']))  : null;
+    const recOut = vm['numRecordsOutPerSecond'] != null ? Math.round(parseFloat(vm['numRecordsOutPerSecond'])) : null;
+
     // Node rect class: fault overrides all topology colours
     // Idle detection: RUNNING node with zero throughput gets 'idle' modifier
-    const hasMetrics = (recIn !== null || recOut !== null);
-    const isIdle = hasMetrics && (recIn === 0 || recIn === null) && (recOut === 0 || recOut === null)
-                   && vStatus === 'RUNNING';
+    // For SOURCE: relevant metric is OUT. For SINK: relevant metric is IN.
+    const relevantRate = isSource ? recOut : recIn;
+    const hasMetrics   = relevantRate !== null;
+    const isIdle       = hasMetrics && relevantRate === 0 && vStatus === 'RUNNING';
 
     let rectClass = 'jg-node-rect ';
-    if (isFault)            rectClass += 'fault fault-pulse';
-    else if (isSource)      rectClass += 'source' + (isIdle ? ' idle' : '');
-    else if (isSink)        rectClass += 'sink'   + (isIdle ? ' idle' : '');
-    else                    rectClass += 'process' + (isIdle ? ' idle' : '');
-
-    const vm = vertexMetrics[n.id] || {};
-    const recIn  = vm['numRecordsInPerSecond']  ? Math.round(parseFloat(vm['numRecordsInPerSecond']))  : null;
-    const recOut = vm['numRecordsOutPerSecond'] ? Math.round(parseFloat(vm['numRecordsOutPerSecond'])) : null;
+    if (isFault)       rectClass += 'fault fault-pulse';
+    else if (isSource) rectClass += 'source'  + (isIdle ? ' idle' : '');
+    else if (isSink)   rectClass += 'sink'    + (isIdle ? ' idle' : '');
+    else               rectClass += 'process' + (isIdle ? ' idle' : '');
+    // Show the relevant metric direction on the node label
+    // SOURCE → OUT is meaningful; SINK → IN is meaningful; PROCESS → both
+    const fmtRate = r => r != null ? (r > 999 ? (r/1000).toFixed(1)+'k' : r) + '/s' : '—';
     const metricStr = (recIn !== null || recOut !== null)
-      ? `↓${recIn ?? '—'}/s  ↑${recOut ?? '—'}/s`
-      : (vertex.metrics ? `✓ ${vertex.metrics['write-records'] ?? '—'} rec` : '');
+      ? isSource
+          ? `OUT ${fmtRate(recOut)}`
+          : isSink
+            ? `IN ${fmtRate(recIn)}`
+            : `IN ${fmtRate(recIn)}  OUT ${fmtRate(recOut)}`
+      : (vertex.metrics ? `${vertex.metrics['write-records'] ?? '—'} rec` : '');
 
     const parallelism = n.parallelism || vertex.parallelism || '';
     const cleanDesc = (raw) => (raw || '')
@@ -782,23 +791,24 @@ async function _pollEventStream() {
       if (names.length > 0) _ndState._metricNames = names;  // only cache when we have names
     }
 
-    // Always fetch the key throughput metrics
-    const keyMetrics = [
-      'numRecordsIn','numRecordsOut',
-      'numRecordsInPerSecond','numRecordsOutPerSecond',
-      'numBytesInPerSecond','numBytesOutPerSecond',
-      'backPressuredTimeMsPerSecond','idleTimeMsPerSecond','busyTimeMsPerSecond'
-    ].filter(m => _ndState._metricNames.length === 0 || _ndState._metricNames.includes(m));
-
-    if (keyMetrics.length === 0 && _ndState._metricNames.length > 0) {
-      // Vertex is reporting metrics but none of our key ones — show what's available
-      keyMetrics.push(..._ndState._metricNames.slice(0, 20));
-    }
-
-    const getParam = keyMetrics.join(',');
-    const metrics = getParam
-      ? await jmApi(`/jobs/${jid}/vertices/${nid}/metrics?get=${encodeURIComponent(getParam)}`)
-      : null;
+    // Always fetch base throughput metrics directly — no filtering.
+    // Flink 1.17+ exposes these on all running vertices regardless of connector type.
+    // &agg=sum ensures we get the SUM across all parallel subtasks (not just one).
+    const baseMetrics = [
+      'numRecordsIn', 'numRecordsOut',
+      'numRecordsInPerSecond', 'numRecordsOutPerSecond',
+      'numBytesIn', 'numBytesOut',
+      'numBytesInPerSecond', 'numBytesOutPerSecond',
+      'backPressuredTimeMsPerSecond', 'idleTimeMsPerSecond', 'busyTimeMsPerSecond',
+    ];
+    // Add any Kafka-specific metrics that were discovered
+    const kafkaNames = (_ndState._metricNames || []).filter(m =>
+      m.includes('Kafka') || m.includes('kafka')
+    );
+    const fetchList = [...new Set([...baseMetrics, ...kafkaNames])];
+    const metrics = await jmApi(
+      `/jobs/${jid}/vertices/${nid}/metrics?get=${encodeURIComponent(fetchList.join(','))}&agg=sum`
+    );
 
     if (metrics && Array.isArray(metrics) && metrics.length > 0) {
       const get = key => {
