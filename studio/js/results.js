@@ -25,7 +25,6 @@ function renderResults() {
 
   pageRows.forEach((row, ri) => {
     html += `<tr><td class="row-index">${start + ri + 1}</td>`;
-    // Rows are normalised to {fields:[]} by pollOperation — support both formats for safety
     const rawFields = (row && row.fields !== undefined) ? row.fields : row;
     const fieldArr = Array.isArray(rawFields) ? rawFields : Object.values(rawFields || {});
     fieldArr.forEach((val, ci) => {
@@ -35,8 +34,21 @@ function renderResults() {
       else if (['INT','BIGINT','DOUBLE','FLOAT','DECIMAL','INTEGER','TINYINT','SMALLINT'].some(t => colType.includes(t))) cls = 'num-val';
       else if (colType.includes('BOOL')) cls = 'bool-val';
       else if (colType.includes('TIMESTAMP') || colType.includes('TIME') || colType.includes('DATE')) cls = 'ts-val';
-      const display = val === null ? 'NULL' : String(val);
-      html += `<td class="${cls}" title="${display.replace(/"/g,'&quot;')}">${display}</td>`;
+      // Pretty-print JSON values (common from Kafka JSON format)
+      let display = val === null ? 'NULL' : String(val);
+      if (display.startsWith('{') || display.startsWith('[')) {
+        try {
+          const parsed = JSON.parse(display);
+          // Flatten one level for readability in the cell
+          if (typeof parsed === 'object' && !Array.isArray(parsed)) {
+            display = Object.entries(parsed)
+              .map(([k,v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`)
+              .join('  |  ');
+            cls += ' json-val';
+          }
+        } catch(_) {}
+      }
+      html += `<td class="${cls}" title="${String(val===null?'NULL':val).replace(/"/g,'&quot;').replace(/</g,'&lt;')}">${display}</td>`;
     });
     html += '</tr>';
   });

@@ -339,9 +339,17 @@ async function pollOperation(opHandle, sql, sessionHandle) {
       const remaining = MAX_ROWS - state.results.length;
       if (remaining > 0) {
         state.results.push(...newRows.slice(0, remaining));
+        // During live streaming, auto-advance to last page so new rows are visible
+        const totalPages = Math.ceil(state.results.length / state.pageSize);
+        if (totalPages > 1 && state.resultPage < totalPages - 1) {
+          state.resultPage = totalPages - 1;
+        }
         renderResults();
         const badge = document.getElementById('result-row-badge');
         if (badge) badge.textContent = state.results.length > 999 ? '999+' : state.results.length;
+        // Auto-scroll the table wrap to show newest rows
+        const wrap = document.getElementById('result-table-wrap');
+        if (wrap) wrap.scrollTop = wrap.scrollHeight;
       }
       if (state.results.length >= MAX_ROWS && !state._maxRowsWarned) {
         state._maxRowsWarned = true;
