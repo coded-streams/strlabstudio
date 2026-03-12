@@ -351,8 +351,9 @@ function startHeartbeat() {
     } catch (e) {
       const msg = e.message || '';
       if (msg.includes('404') || msg.includes('does not exist') || msg.includes('Session')) {
-        // Only show banner if user is active (not idle)
-        if (idleSecs < 120) showSessionExpiredBanner();
+        // Session expired on the server — show renewal banner.
+        // Do NOT disconnect — the gateway is still reachable, only the session handle is stale.
+        showSessionExpiredBanner();
       }
     }
   }, 30000); // every 30s
@@ -392,14 +393,11 @@ async function renewSession() {
   const banner = document.getElementById('session-expired-banner');
   if (banner) banner.remove();
 
-  // Guard: if gateway is not set we cannot create a session — show connect screen instead
+  // Guard: if gateway is not set, cannot create session.
+  // Do NOT call disconnectAll() here — that would tear down the app while the user
+  // is actively using it. Just throw so the caller surfaces the error cleanly.
   if (!state.gateway) {
-    addLog('WARN', 'Cannot renew session — not connected to gateway. Please reconnect.');
-    toast('Not connected — please reconnect', 'err');
-    // Pre-fill session name and show connect screen
-    const sname = (() => { try { return localStorage.getItem('flinksql_last_session_name') || ''; } catch(_) { return ''; } })();
-    disconnectAll(true, sname);
-    throw new Error('Not connected to Flink SQL Gateway');
+    throw new Error('Not connected to Flink SQL Gateway — please use the Connect screen to reconnect.');
   }
 
   try {

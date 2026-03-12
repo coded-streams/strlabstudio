@@ -10,6 +10,20 @@ async function createSession() {
   const name = document.getElementById('modal-session-name').value.trim();
   const propsRaw = document.getElementById('modal-session-props').value.trim();
   const props = parseProps(propsRaw);
+
+  // Guard: if gateway is not set, prompt user to reconnect rather than
+  // showing a cryptic "Not connected" error. This can happen if the session
+  // expired and the user was sent back to the connect screen, but the modal
+  // was still open from before.
+  if (!state.gateway || !state.gateway.baseUrl) {
+    closeModal('modal-new-session');
+    toast('Not connected — please reconnect to the gateway first', 'err');
+    addLog('WARN', 'Cannot create session: not connected to Flink SQL Gateway. Use the Connect screen.');
+    // Show connect screen
+    if (typeof disconnectAll === 'function') disconnectAll(true);
+    return;
+  }
+
   try {
     const body = {};
     if (name) body.sessionName = name;
@@ -65,7 +79,15 @@ async function createSession() {
     toast(`New session: ${shortHandle(resp.sessionHandle)}`, 'ok');
     refreshCatalog();
   } catch (e) {
-    toast('Session creation failed: ' + e.message, 'err');
+    const msg = e.message || '';
+    if (msg.includes('Not connected') || msg.includes('gateway')) {
+      closeModal('modal-new-session');
+      toast('Not connected to gateway — please reconnect', 'err');
+      if (typeof disconnectAll === 'function') disconnectAll(true);
+    } else {
+      addLog('ERR', 'Session creation failed: ' + msg);
+      toast('Session creation failed: ' + msg.slice(0, 80), 'err');
+    }
   }
 }
 
