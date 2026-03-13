@@ -314,7 +314,8 @@ const JOB_COLORS = [
   '#00d4aa','#0097ff','#f5a623','#ff4d6d',
   '#39d353','#b044ff','#ff9f40','#4bc0c0',
 ];
-const _jcHistory = {};   // jid → { name, color, data: [{t, val}] }
+const _jcHistory  = {};   // jid → { name, color, data: [{t, val}], dataOut: [{t, val}] }
+const _jcSelected = new Set(); // jids selected for display; empty = show all (default)
 let   _jcAnimFrame = null;
 
 async function updateJobCompare() {
@@ -450,6 +451,120 @@ function redrawJobCompare() {
   updateJobCompareLegend();
 }
 
+// ── Job comparison chart — hover tooltip ──────────────────────────────────
+// We store the last-drawn point coordinates for hit-testing on mousemove.
+const _jcPoints      = []; // hit-test points for main canvas
+const _jcModalPoints = []; // hit-test points for expanded modal canvas
+
+function _jcModalMouseMove(e, canvas) {
+  if (!canvas) return;
+  const rect = canvas.getBoundingClientRect();
+  const mx   = (e.clientX - rect.left) * (canvas.width  / rect.width);
+  const my   = (e.clientY - rect.top)  * (canvas.height / rect.height);
+
+  let best = null, bestDist = 32;
+  for (const pt of _jcModalPoints) {
+    const dist = Math.sqrt((pt.x - mx)**2 + (pt.y - my)**2);
+    if (dist < bestDist) { bestDist = dist; best = pt; }
+  }
+
+  const tip = document.getElementById('jc-modal-tooltip');
+  if (!tip) return;
+
+  if (best) {
+    const metric = document.getElementById('jc-modal-metric')?.value || 'recIn';
+    const unit = metric==='heapUsed'?'MB':metric==='cpuLoad'?'%':metric==='cpBytes'?'MB':'/s';
+    const fmt  = v => v >= 1000 ? (v/1000).toFixed(2)+'k' : v;
+    tip.style.display = 'block';
+    tip.style.left = Math.min(e.clientX + 16, window.innerWidth  - 170) + 'px';
+    tip.style.top  = Math.max(e.clientY - 54, 8) + 'px';
+    tip.innerHTML = `
+      <div style="display:flex;align-items:center;gap:5px;margin-bottom:3px;">
+        <div style="width:12px;height:${best.isOut?'1':'2'}px;
+          background:${best.color};
+          ${best.isOut?'border-top:1px dashed '+best.color+';background:none;':''}
+          border-radius:1px;flex-shrink:0;"></div>
+        <span style="font-weight:700;color:${best.color};max-width:150px;
+          overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
+          title="${escHtml(best.name)}">${escHtml(best.name)}</span>
+      </div>
+      <div style="font-size:10px;color:var(--text2);">${best.isOut?'▸ Records OUT':'▸ Records IN'}</div>
+      <div style="font-size:14px;font-weight:700;color:var(--text0);margin-top:2px;">
+        ${fmt(best.val)}${unit}
+      </div>`;
+  } else {
+    tip.style.display = 'none';
+    renderJobCompareModal(document.getElementById('jc-modal-metric')?.value || 'recIn');
+  }
+}
+
+function _jcMouseMove(e, canvas) {
+  if (!canvas) return;
+  const rect = canvas.getBoundingClientRect();
+  const mx   = (e.clientX - rect.left) * (canvas.width  / rect.width);
+  const my   = (e.clientY - rect.top)  * (canvas.height / rect.height);
+
+  // Find closest point within 24px
+  let best = null, bestDist = 28;
+  for (const pt of _jcPoints) {
+    const dist = Math.sqrt((pt.x - mx)**2 + (pt.y - my)**2);
+    if (dist < bestDist) { bestDist = dist; best = pt; }
+  }
+
+  const tip = document.getElementById('jc-tooltip');
+  if (!tip) return;
+
+  if (best) {
+    const unit = (() => {
+      const m = document.getElementById('job-compare-metric')?.value || 'recIn';
+      return m === 'heapUsed' ? ' MB' : m === 'cpuLoad' ? '%' : m === 'cpBytes' ? ' MB' : '/s';
+    })();
+    const fmt = v => v >= 1000 ? (v/1000).toFixed(2)+'k' : v;
+    tip.style.display    = 'block';
+    tip.style.left       = Math.min(e.offsetX + 14, canvas.offsetWidth  - 160) + 'px';
+    tip.style.top        = Math.max(e.offsetY - 48, 4) + 'px';
+    tip.innerHTML = `
+      <div style="display:flex;align-items:center;gap:5px;margin-bottom:3px;">
+        <div style="width:10px;height:${best.isOut?'1':'2'}px;
+          background:${best.color};
+          ${best.isOut ? 'border-top:1px dashed '+best.color+';background:none;' : ''}
+          border-radius:1px;flex-shrink:0;"></div>
+        <span style="font-weight:700;color:${best.color};max-width:130px;
+          overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
+          title="${escHtml(best.name)}">${escHtml(best.name)}</span>
+      </div>
+      <div style="font-size:10px;color:var(--text2);">${best.isOut ? '▸ Records OUT' : '▸ Records IN'}</div>
+      <div style="font-size:13px;font-weight:700;color:var(--text0);margin-top:1px;">
+        ${fmt(best.val)}${unit}
+      </div>`;
+    // Highlight the point on canvas with a ring
+    _jcDrawHighlight(canvas, best);
+  } else {
+    tip.style.display = 'none';
+    renderJobCompare(); // redraw clean
+  }
+}
+
+function _jcMouseLeave() {
+  const tip = document.getElementById('jc-tooltip');
+  if (tip) tip.style.display = 'none';
+  renderJobCompare(); // redraw without highlight
+}
+
+function _jcDrawHighlight(canvas, pt) {
+  const ctx = canvas.getContext('2d');
+  // Draw a glowing ring around the hovered point
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(pt.x, pt.y, 6, 0, Math.PI * 2);
+  ctx.strokeStyle = pt.color;
+  ctx.lineWidth   = 2;
+  ctx.shadowColor = pt.color;
+  ctx.shadowBlur  = 10;
+  ctx.stroke();
+  ctx.restore();
+}
+
 function renderJobCompare() {
   const canvas = document.getElementById('job-compare-canvas');
   if (!canvas) return;
@@ -460,7 +575,8 @@ function renderJobCompare() {
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, W, H);
 
-  const jobs = Object.entries(_jcHistory).filter(([,h]) => h.data.length >= 2);
+  const allJobs = Object.entries(_jcHistory).filter(([,h]) => h.data.length >= 2);
+  const jobs = allJobs.filter(([jid]) => _jcSelected.size === 0 || _jcSelected.has(jid));
   if (jobs.length === 0) return;
 
   // Compute global max for Y scale
@@ -495,7 +611,10 @@ function renderJobCompare() {
   ctx.strokeStyle = isLight ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.08)';
   ctx.beginPath(); ctx.moveTo(PAD.left, H - PAD.bottom); ctx.lineTo(W - PAD.right, H - PAD.bottom); ctx.stroke();
 
-  const drawSeries = (pts, color, dashed, label) => {
+  // Clear hit-test points before redraw
+  _jcPoints.length = 0;
+
+  const drawSeries = (pts, color, dashed, label, jid, jobName, isOut) => {
     if (!pts || pts.length < 2) return;
     ctx.strokeStyle = color;
     ctx.lineWidth = dashed ? 1.2 : 1.8;
@@ -507,6 +626,10 @@ function renderJobCompare() {
       const x = PAD.left + (i / (pts.length - 1)) * cW;
       const y = PAD.top  + cH * (1 - d.val / globalMax);
       i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      // Record every point for hit-testing (sample every 3rd for perf)
+      if (i % 3 === 0 || i === pts.length - 1) {
+        _jcPoints.push({ jid, name: jobName, color, x, y, val: d.val, isOut: !!isOut });
+      }
     });
     ctx.stroke();
     ctx.setLineDash([]);
@@ -529,11 +652,10 @@ function renderJobCompare() {
   jobs.forEach(([jid, h]) => {
     const hasOut = h.dataOut && h.dataOut.length >= 2;
     if (hasOut) {
-      drawSeries(h.data,    h.color, false, 'IN');
-      // OUT uses a slightly lighter version of same colour (add alpha)
-      drawSeries(h.dataOut, h.color, true,  'OUT');
+      drawSeries(h.data,    h.color, false, 'IN',  jid, h.name, false);
+      drawSeries(h.dataOut, h.color, true,  'OUT', jid, h.name, true);
     } else {
-      drawSeries(h.data, h.color, false, null);
+      drawSeries(h.data, h.color, false, null, jid, h.name, false);
     }
   });
 
@@ -542,22 +664,266 @@ function renderJobCompare() {
   ctx.font = '8px monospace';
   ctx.fillText('older', PAD.left, H - 6);
   ctx.fillText('now', W - PAD.right - 18, H - 6);
+
+  // Hint label
+  ctx.fillStyle = isLight ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.13)';
+  ctx.font = '8px monospace';
+  ctx.fillText('⤢ double-click to expand', W - PAD.right - 118, PAD.top + 9);
+}
+
+// ── Expanded chart modal (double-click on canvas) ──────────────────────────
+function openJobCompareModal() {
+  const existing = document.getElementById('jc-expand-modal');
+  if (existing) existing.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'jc-expand-modal';
+  modal.style.cssText = `
+    position:fixed;top:0;left:0;right:0;bottom:0;z-index:10000;
+    background:rgba(0,0,0,0.82);display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:12px;padding:24px;
+  `;
+
+  // Header row
+  const hdr = document.createElement('div');
+  hdr.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;max-width:1200px;';
+  hdr.innerHTML = `
+    <span style="font-family:var(--mono);font-size:12px;font-weight:700;color:var(--text0);">
+      📈 JOB RESOURCE COMPARISON — EXPANDED VIEW
+    </span>
+    <div id="jc-modal-legend" style="flex:1;display:flex;flex-wrap:wrap;gap:6px;margin-left:16px;"></div>
+    <select id="jc-modal-metric" onchange="renderJobCompareModal(this.value)"
+      style="background:var(--bg3);border:1px solid var(--border2);color:var(--text1);
+             font-family:var(--mono);font-size:11px;padding:3px 8px;border-radius:3px;cursor:pointer;">
+      <option value="recIn">Records In/s</option>
+      <option value="recOut">Records Out/s</option>
+      <option value="duration">Duration (s)</option>
+      <option value="cpuLoad">CPU Load %</option>
+      <option value="heapUsed">Heap (MB)</option>
+      <option value="cpBytes">Checkpoint Size (MB)</option>
+    </select>
+    <button onclick="document.getElementById('jc-expand-modal').remove();"
+      style="padding:4px 12px;font-size:12px;font-family:var(--mono);cursor:pointer;
+             background:rgba(255,77,109,0.12);border:1px solid rgba(255,77,109,0.3);
+             color:var(--red);border-radius:3px;">✕ Close</button>
+  `;
+  modal.appendChild(hdr);
+
+  // Large canvas
+  const canvasWrap = document.createElement('div');
+  canvasWrap.style.cssText = 'width:100%;max-width:1200px;flex:1;max-height:520px;background:var(--bg1);border-radius:4px;border:1px solid var(--border);padding:8px;';
+  const bigCanvas = document.createElement('canvas');
+  bigCanvas.id = 'jc-modal-canvas';
+  bigCanvas.style.cssText = 'width:100%;height:100%;display:block;cursor:crosshair;';
+  canvasWrap.appendChild(bigCanvas);
+  modal.appendChild(canvasWrap);
+
+  // Tooltip for modal canvas (reuse same tooltip mechanism with a modal-specific one)
+  const modalTip = document.createElement('div');
+  modalTip.id = 'jc-modal-tooltip';
+  modalTip.style.cssText = `
+    display:none;position:fixed;z-index:10010;
+    background:var(--bg1);border:1px solid var(--border2);border-radius:4px;
+    padding:7px 10px;pointer-events:none;font-family:var(--mono);font-size:11px;
+    color:var(--text0);box-shadow:0 4px 18px rgba(0,0,0,0.55);min-width:148px;
+  `;
+  document.body.appendChild(modalTip);
+
+  document.body.appendChild(modal);
+  modal.addEventListener('click', e => {
+    if (e.target === modal) {
+      modal.remove();
+      const mt = document.getElementById('jc-modal-tooltip');
+      if (mt) mt.remove();
+    }
+  });
+  document.getElementById('jg-rpt-gen') // no-op guard
+
+  // Wire hover on the large modal canvas
+  bigCanvas.addEventListener('mousemove', e => _jcModalMouseMove(e, bigCanvas));
+  bigCanvas.addEventListener('mouseleave', () => {
+    const mt = document.getElementById('jc-modal-tooltip');
+    if (mt) mt.style.display = 'none';
+    renderJobCompareModal(document.getElementById('jc-modal-metric')?.value || 'recIn');
+  });
+
+  // Sync metric selector with main chart
+  const mainMetric = document.getElementById('job-compare-metric')?.value || 'recIn';
+  const modalSel = document.getElementById('jc-modal-metric');
+  if (modalSel) modalSel.value = mainMetric;
+
+  renderJobCompareModal(mainMetric);
+}
+
+function renderJobCompareModal(metric) {
+  const canvas = document.getElementById('jc-modal-canvas');
+  if (!canvas) return;
+  const W = canvas.offsetWidth  || canvas.parentElement.offsetWidth  - 16 || 1100;
+  const H = canvas.offsetHeight || canvas.parentElement.offsetHeight - 16 || 480;
+  canvas.width  = W;
+  canvas.height = H;
+
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  const allJobs = Object.entries(_jcHistory).filter(([,h]) => h.data.length >= 2);
+  const jobs    = allJobs.filter(([jid]) => _jcSelected.size === 0 || _jcSelected.has(jid));
+  if (jobs.length === 0) {
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.font = '13px monospace';
+    ctx.fillText('No data yet — chart will populate as metrics arrive', 60, H/2);
+    return;
+  }
+
+  // Shared Y max across all jobs
+  let globalMax = 1;
+  jobs.forEach(([,h]) => {
+    h.data.forEach(d => { if (d.val > globalMax) globalMax = d.val; });
+    if (h.dataOut) h.dataOut.forEach(d => { if (d.val > globalMax) globalMax = d.val; });
+  });
+
+  const PAD = { top:20, right:20, bottom:36, left:58 };
+  const cW = W - PAD.left - PAD.right;
+  const cH = H - PAD.top  - PAD.bottom;
+  const isLight = document.body.classList.contains('theme-light');
+  const gridColor  = isLight ? 'rgba(0,0,0,0.07)' : 'rgba(255,255,255,0.06)';
+  const labelColor = isLight ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.4)';
+
+  // Grid lines
+  [0.2, 0.4, 0.6, 0.8, 1].forEach(f => {
+    const y = PAD.top + cH * (1 - f);
+    ctx.strokeStyle = gridColor; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(W - PAD.right, y); ctx.stroke();
+    const label = globalMax * f;
+    ctx.fillStyle = labelColor; ctx.font = '10px monospace';
+    const fmt = v => v >= 1000 ? (v/1000).toFixed(1)+'k' : Math.round(v);
+    ctx.fillText(fmt(label), 4, y + 4);
+  });
+
+  // X axis
+  ctx.strokeStyle = isLight ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.1)';
+  ctx.beginPath(); ctx.moveTo(PAD.left, H-PAD.bottom); ctx.lineTo(W-PAD.right, H-PAD.bottom); ctx.stroke();
+
+  // Clear modal hit-test points
+  _jcModalPoints.length = 0;
+
+  // Draw series
+  const drawSeries = (pts, color, dashed, jobName, jid, isOut) => {
+    if (!pts || pts.length < 2) return;
+    ctx.strokeStyle = color; ctx.lineWidth = dashed ? 1.5 : 2.2;
+    ctx.setLineDash(dashed ? [5,4] : []);
+    ctx.shadowColor = color; ctx.shadowBlur = dashed ? 0 : 6;
+    ctx.beginPath();
+    pts.forEach((d, i) => {
+      const x = PAD.left + (i/(pts.length-1)) * cW;
+      const y = PAD.top  + cH * (1 - d.val/globalMax);
+      i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+      // Record for hit-testing (every 2nd point in large canvas)
+      if (i % 2 === 0 || i === pts.length-1) {
+        _jcModalPoints.push({ jid, name: jobName, color, x, y, val: d.val, isOut: !!isOut });
+      }
+    });
+    ctx.stroke();
+    ctx.setLineDash([]); ctx.shadowBlur = 0;
+    // dot + value at end
+    const last = pts[pts.length-1];
+    const lx = PAD.left + cW, ly = PAD.top + cH*(1-last.val/globalMax);
+    ctx.beginPath(); ctx.arc(lx, ly, dashed?3:4, 0, Math.PI*2);
+    ctx.fillStyle = color; ctx.fill();
+    ctx.fillStyle = color; ctx.font = 'bold 10px monospace';
+    const fmt = v => v >= 1000 ? (v/1000).toFixed(1)+'k' : Math.round(v);
+    ctx.fillText(fmt(last.val), lx-28, ly-(dashed?8:14));
+  };
+
+  jobs.forEach(([jid, h]) => {
+    const hasOut = h.dataOut && h.dataOut.length >= 2;
+    if (hasOut) {
+      drawSeries(h.data,    h.color, false, h.name, jid, false);
+      drawSeries(h.dataOut, h.color, true,  h.name, jid, true);
+    } else {
+      drawSeries(h.data, h.color, false, h.name, jid, false);
+    }
+  });
+
+  // X axis labels
+  ctx.fillStyle = labelColor; ctx.font = '10px monospace';
+  ctx.fillText('← older', PAD.left+2, H-8);
+  ctx.fillText('now →', W-PAD.right-44, H-8);
+
+  // Update modal legend
+  const legEl = document.getElementById('jc-modal-legend');
+  if (legEl) {
+    const hasOut = jobs.some(([,h]) => h.dataOut && h.dataOut.length>0);
+    legEl.innerHTML = jobs.map(([jid,h]) => `
+      <span style="display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:9px;color:${h.color};">
+        <span style="display:inline-block;width:12px;height:2px;background:${h.color};border-radius:1px;"></span>
+        ${hasOut ? `<span style="display:inline-block;width:8px;border-top:1px dashed ${h.color};"></span>` : ''}
+        ${escHtml(h.name)}
+      </span>`).join('');
+  }
 }
 
 function updateJobCompareLegend() {
   const leg = document.getElementById('job-compare-legend');
   if (!leg) return;
-  const hasOut = Object.values(_jcHistory).some(h => h.dataOut && h.dataOut.length > 0);
-  leg.innerHTML = Object.entries(_jcHistory)
-    .filter(([,h]) => h.data.length > 0)
-    .map(([jid, h]) => `
-      <div class="legend-item" style="display:inline-flex;align-items:center;gap:5px;margin-right:10px;">
-        <div style="display:flex;gap:3px;align-items:center;">
-          <div style="background:${h.color};height:2px;width:10px;border-radius:1px;"></div>
-          ${hasOut ? `<div style="background:${h.color};height:1px;width:7px;opacity:0.6;border-top:1px dashed ${h.color};"></div>` : ''}
-        </div>
-        <span style="font-size:9px;color:${h.color};font-family:var(--mono);">${escHtml(h.name)}${hasOut ? ' <span style="opacity:0.6">(— OUT)</span>' : ''}</span>
-      </div>`).join('');
+  const entries = Object.entries(_jcHistory).filter(([,h]) => h.data.length > 0);
+  if (entries.length === 0) { leg.innerHTML = ''; return; }
+
+  const hasOut = entries.some(([,h]) => h.dataOut && h.dataOut.length > 0);
+  const allSelected = _jcSelected.size === 0; // empty set = all shown
+
+  // "All" toggle
+  let html = `<label style="display:inline-flex;align-items:center;gap:4px;margin-right:12px;
+    font-size:9px;font-family:var(--mono);color:var(--text2);cursor:pointer;">
+    <input type="checkbox" ${allSelected ? 'checked' : ''} onchange="_jcToggleAll(this.checked)"
+      style="accent-color:var(--accent);cursor:pointer;">
+    <span style="color:var(--text1);">All</span>
+  </label>`;
+
+  entries.forEach(([jid, h]) => {
+    const isOn = allSelected || _jcSelected.has(jid);
+    html += `<label style="display:inline-flex;align-items:center;gap:4px;margin-right:10px;
+      font-size:9px;font-family:var(--mono);cursor:pointer;opacity:${isOn ? '1' : '0.4'};">
+      <input type="checkbox" ${isOn ? 'checked' : ''} data-jid="${jid}"
+        onchange="_jcToggleJob('${jid}', this.checked)"
+        style="accent-color:${h.color};cursor:pointer;">
+      <div style="display:inline-flex;align-items:center;gap:2px;">
+        <div style="background:${h.color};height:2px;width:10px;border-radius:1px;"></div>
+        ${hasOut ? `<div style="border-top:1px dashed ${h.color};width:7px;opacity:0.65;"></div>` : ''}
+      </div>
+      <span style="color:${h.color};">${escHtml(h.name)}</span>
+    </label>`;
+  });
+
+  leg.innerHTML = html;
+}
+
+function _jcToggleAll(checked) {
+  if (checked) {
+    _jcSelected.clear(); // empty = all shown
+  } else {
+    // Deselect all: put all jids in selected but mark none
+    Object.keys(_jcHistory).forEach(jid => _jcSelected.add(jid));
+  }
+  renderJobCompare();
+  updateJobCompareLegend();
+}
+
+function _jcToggleJob(jid, checked) {
+  if (_jcSelected.size === 0) {
+    // Was "all" mode — switch to per-job mode with all checked except maybe this one
+    Object.keys(_jcHistory).forEach(j => _jcSelected.add(j));
+  }
+  if (checked) {
+    _jcSelected.add(jid);
+  } else {
+    _jcSelected.delete(jid);
+  }
+  // If all are now selected, go back to "all" mode
+  const allJids = Object.keys(_jcHistory);
+  if (allJids.every(j => _jcSelected.has(j))) _jcSelected.clear();
+  renderJobCompare();
+  updateJobCompareLegend();
 }
 
 // ════════════════════════════════════════════════════════════════════════════

@@ -230,6 +230,37 @@ function switchPerfTab(tab) {
   document.querySelectorAll('.perf-subtab-panel').forEach(p => {
     p.classList.toggle('active', p.id === 'perf-st-' + tab);
   });
+
+  // When user clicks the Checkpoints tab, immediately fetch checkpoint data
+  // for whichever job is currently running — don't wait for the next live poll.
+  if (tab === 'checkpoints' && typeof refreshCheckpointPanel === 'function') {
+    // Find a running job from the most recent job list snapshot
+    const jobs = (typeof perf !== 'undefined' && perf.lastJobs) ? perf.lastJobs : [];
+    const runningJob = jobs.find(j => j.state === 'RUNNING');
+    if (runningJob) {
+      refreshCheckpointPanel(runningJob.jid);
+    } else {
+      // No cached jobs yet — fetch live from the cluster now
+      jmApi('/jobs/overview').then(resp => {
+        if (!resp || !resp.jobs) return;
+        const live = resp.jobs.find(j => j.state === 'RUNNING');
+        if (live) {
+          // Cache it so subsequent renders work
+          if (typeof perf !== 'undefined') perf.lastJobs = resp.jobs;
+          refreshCheckpointPanel(live.jid);
+        } else {
+          // No running jobs — show a clear message
+          const badge = document.getElementById('cp-status-badge');
+          if (badge) { badge.textContent = 'NO RUNNING JOB'; badge.className = 'cp-badge cp-badge-none'; }
+          const emptyMsg = document.getElementById('cp-empty-msg');
+          if (emptyMsg) {
+            emptyMsg.style.display = 'block';
+            emptyMsg.textContent = 'No running jobs — start a pipeline first, then enable checkpointing with SET statements.';
+          }
+        }
+      }).catch(() => {});
+    }
+  }
 }
 
 // ── Live toggle ───────────────────────────────────────────────────────────────

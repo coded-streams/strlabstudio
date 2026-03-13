@@ -155,15 +155,31 @@ async function refreshPerf() {
       if (detail && detail.vertices) {
         let maxBp = 0;
         for (const v of detail.vertices.slice(0, 8)) {
+          // Two-step list+fetch — Flink 1.19 prefixes IDs with subtask index
+          let inId = 'numRecordsInPerSecond';
+          let outId = 'numRecordsOutPerSecond';
+          let bpId  = 'backPressuredTimeMsPerSecond';
+          try {
+            const listR = await jmApi(`/jobs/${job.jid}/vertices/${v.id}/metrics`);
+            if (listR && Array.isArray(listR)) {
+              const names = listR.map(m => m.id);
+              const findSuf = suf => names.find(n => n === suf || n.endsWith('.' + suf)) || suf;
+              inId  = findSuf('numRecordsInPerSecond');
+              outId = findSuf('numRecordsOutPerSecond');
+              bpId  = findSuf('backPressuredTimeMsPerSecond');
+            }
+          } catch(_) {}
+          const getIds = [inId, outId, bpId].filter((v,i,a) => a.indexOf(v)===i).join(',');
           const vm = await jmApi(
-            `/jobs/${job.jid}/vertices/${v.id}/metrics?get=numRecordsInPerSecond,numRecordsOutPerSecond,backPressuredTimeMsPerSecond`
+            `/jobs/${job.jid}/vertices/${v.id}/metrics?get=${encodeURIComponent(getIds)}`
           );
           if (vm && Array.isArray(vm)) {
             vm.forEach(m => {
               const val = parseFloat(m.value || 0);
-              if (m.id === 'numRecordsInPerSecond')        totalRecIn  += val;
-              if (m.id === 'numRecordsOutPerSecond')       totalRecOut += val;
-              if (m.id === 'backPressuredTimeMsPerSecond') maxBp = Math.max(maxBp, val);
+              const seg = m.id.includes('.') ? m.id.slice(m.id.lastIndexOf('.')+1) : m.id;
+              if (seg === 'numRecordsInPerSecond')        totalRecIn  += val;
+              if (seg === 'numRecordsOutPerSecond')       totalRecOut += val;
+              if (seg === 'backPressuredTimeMsPerSecond') maxBp = Math.max(maxBp, val);
             });
           }
         }
@@ -431,17 +447,25 @@ async function refreshCheckpointPanel(jid) {
   if (!r) return;
 
   const counts = r.counts || {};
-  const total      = (counts.total      ?? counts.completed ?? 0) + (counts.failed ?? 0) + (counts.in_progress ?? 0);
+  // Flink 1.19 returns: counts.total, counts.completed, counts.failed, counts.in_progress, counts.restored
   const completed  = counts.completed   ?? 0;
   const failed     = counts.failed      ?? 0;
   const inProgress = counts.in_progress ?? 0;
+  const restored   = counts.restored    ?? 0;
+  // Use counts.total if present, otherwise sum the known buckets
+  const total = counts.total != null
+    ? counts.total
+    : completed + failed + inProgress;
 
-  // ── KPI row update ─────────────────────────────────────────────────────────
+  // Log what came back so we can diagnose in the console
+  console.debug('[Checkpoint] counts:', JSON.stringify(counts), '| latest:', JSON.stringify(r.latest));
+
+  // ── KPI row update — always show counts (even 0) once we have an API response
   const setEl = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
-  setEl('cp-total',       total       > 0 ? total       : '—');
-  setEl('cp-completed',   completed   > 0 ? completed   : '—');
-  setEl('cp-failed',      failed      > 0 ? failed      : '—');
-  setEl('cp-in-progress', inProgress  > 0 ? inProgress  : '—');
+  setEl('cp-total',       total);
+  setEl('cp-completed',   completed);
+  setEl('cp-failed',      failed      > 0 ? failed      : '0');
+  setEl('cp-in-progress', inProgress  > 0 ? inProgress  : '0');
 
   // Also update main KPI cards
   const durEl = document.getElementById('kpi-checkpoint-dur');
@@ -489,13 +513,39 @@ async function refreshCheckpointPanel(jid) {
 
     if (emptyMsg) emptyMsg.style.display = 'none';
   } else {
-    // No completed checkpoint yet
+    // No completed checkpoint yet — show counts and helpful context
     if (durEl) durEl.textContent = '—';
     if (dltEl) dltEl.textContent = '';
     setEl('cp-duration', '—'); setEl('cp-size', '—');
     if (latestWrap) latestWrap.style.display = 'none';
-    if (badge) { badge.textContent = 'NO CHECKPOINTS'; badge.className = 'cp-badge cp-badge-none'; }
-    if (emptyMsg) emptyMsg.style.display = 'block';
+
+    // Distinguish: checkpointing configured but none complete yet vs not configured at all
+    const hasActivity = total > 0 || inProgress > 0 || failed > 0;
+    if (badge) {
+      if (inProgress > 0) {
+        badge.textContent = 'IN PROGRESS'; badge.className = 'cp-badge cp-badge-warn';
+      } else if (failed > 0 && completed === 0) {
+        badge.textContent = 'FAILING'; badge.className = 'cp-badge cp-badge-err';
+      } else {
+        badge.textContent = hasActivity ? 'PENDING' : 'NOT CONFIGURED';
+        badge.className   = hasActivity ? 'cp-badge cp-badge-warn' : 'cp-badge cp-badge-none';
+      }
+    }
+    if (emptyMsg) {
+      emptyMsg.style.display = 'block';
+      if (hasActivity) {
+        emptyMsg.innerHTML = `${inProgress > 0 ? 'Checkpoint in progress…' : `${failed} checkpoint(s) failed — no completed checkpoints yet.`}
+          <br><span style="font-size:10px;color:var(--text3);">Waiting for first successful checkpoint. Check Flink logs if failures persist.</span>`;
+      } else {
+        emptyMsg.innerHTML = `No checkpoints recorded yet — checkpointing may not be configured.<br>
+          <span style="font-size:10px;color:var(--text3);line-height:2;">
+            Run these in your session before starting jobs:<br>
+            <code style="color:var(--accent);">SET 'execution.checkpointing.interval' = '10000';</code><br>
+            <code style="color:var(--accent);">SET 'state.backend' = 'filesystem';</code><br>
+            <code style="color:var(--accent);">SET 'state.checkpoints.dir' = 'file:///tmp/flink-checkpoints';</code>
+          </span>`;
+      }
+    }
   }
 
   // ── History sparkline (recent[] array from Flink) ─────────────────────────
