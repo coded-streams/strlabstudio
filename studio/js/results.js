@@ -153,6 +153,13 @@ function _renderResultsToolbar(cols, filteredRows) {
              background:var(--bg3);border:1px solid var(--border);color:var(--text2);border-radius:3px;">
       ⌫ Clear
     </button>
+    <button onclick="openResultsReportModal();"
+      title="Generate PDF report from current results"
+      style="padding:2px 8px;font-size:10px;font-family:var(--mono);cursor:pointer;
+             background:rgba(0,212,170,0.08);border:1px solid rgba(0,212,170,0.3);
+             color:var(--accent);border-radius:3px;margin-left:auto;">
+      📊 Report
+    </button>
   `;
 }
 
@@ -167,6 +174,64 @@ function clearCurrentSlotResults() {
   const badge = document.getElementById('result-row-badge');
   if (badge) badge.textContent = '0';
   addLog('INFO', 'Results cleared — new rows will appear as they arrive.');
+}
+
+
+// ── Results table → PDF report modal ────────────────────────────────────────
+function openResultsReportModal() {
+  const existing = document.getElementById('results-report-modal');
+  if (existing) existing.remove();
+
+  const slot = (state.resultSlots || []).find(s => s.id === state.activeSlot);
+  const rowCount = slot ? slot.rows.length : (state.results || []).length;
+
+  const modal = document.createElement('div');
+  modal.id = 'results-report-modal';
+  modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:10000;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;';
+  modal.innerHTML = `
+    <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:6px;padding:24px;min-width:340px;max-width:480px;font-family:var(--mono);">
+      <div style="font-size:14px;font-weight:700;color:var(--text0);margin-bottom:4px;">📊 Results Report</div>
+      <div style="font-size:10px;color:var(--text2);margin-bottom:16px;">${rowCount.toLocaleString()} rows in current stream slot</div>
+
+      <label style="font-size:10px;color:var(--text2);display:block;margin-bottom:3px;">Include row range (leave blank for all ${rowCount.toLocaleString()} rows):</label>
+      <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <input id="rr-from" type="number" placeholder="From row" min="1"
+          style="flex:1;padding:5px 8px;font-size:11px;font-family:var(--mono);background:var(--bg3);border:1px solid var(--border2);border-radius:3px;color:var(--text0);">
+        <input id="rr-to" type="number" placeholder="To row" value="${Math.min(rowCount, 500)}"
+          style="flex:1;padding:5px 8px;font-size:11px;font-family:var(--mono);background:var(--bg3);border:1px solid var(--border2);border-radius:3px;color:var(--text0);">
+      </div>
+
+      <label style="font-size:10px;color:var(--text2);display:block;margin-bottom:3px;">Filter by entity / value (e.g. CRITICAL, NORTH_EU, device 42):</label>
+      <input id="rr-filter" type="text" placeholder="Leave blank to include all rows"
+        style="width:100%;box-sizing:border-box;padding:5px 8px;font-size:11px;font-family:var(--mono);background:var(--bg3);border:1px solid var(--border2);border-radius:3px;color:var(--text0);margin-bottom:12px;"
+        onkeydown="event.stopPropagation();">
+
+      <label style="font-size:10px;color:var(--text2);display:block;margin-bottom:3px;">Custom report title (optional):</label>
+      <input id="rr-title" type="text" placeholder="e.g. Sensor Network Analysis — March 2026"
+        style="width:100%;box-sizing:border-box;padding:5px 8px;font-size:11px;font-family:var(--mono);background:var(--bg3);border:1px solid var(--border2);border-radius:3px;color:var(--text0);margin-bottom:20px;"
+        onkeydown="event.stopPropagation();">
+
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button onclick="document.getElementById('results-report-modal').remove();"
+          style="padding:6px 16px;font-size:11px;font-family:var(--mono);cursor:pointer;background:var(--bg3);border:1px solid var(--border);color:var(--text2);border-radius:3px;">Cancel</button>
+        <button id="rr-gen-btn"
+          style="padding:6px 16px;font-size:11px;font-family:var(--mono);cursor:pointer;background:rgba(0,212,170,0.12);border:1px solid rgba(0,212,170,0.35);color:var(--accent);border-radius:3px;font-weight:700;">Generate PDF</button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(modal);
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+
+  document.getElementById('rr-gen-btn').onclick = async () => {
+    const rowFrom    = parseInt(document.getElementById('rr-from').value) || 1;
+    const rowTo      = parseInt(document.getElementById('rr-to').value)   || Infinity;
+    const entityFilt = (document.getElementById('rr-filter').value || '').toLowerCase().trim();
+    const rptTitle   = document.getElementById('rr-title').value.trim();
+    modal.remove();
+    if (typeof generateSessionReport === 'function') {
+      await generateSessionReport(null, { rowFrom, rowTo, entityFilter: entityFilt, reportTitle: rptTitle });
+    }
+  };
 }
 
 // ── Stream Selector: lets user pick which result slot to view ────────────────

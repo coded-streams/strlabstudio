@@ -80,10 +80,12 @@ async function createSession() {
     refreshCatalog();
   } catch (e) {
     const msg = e.message || '';
-    if (msg.includes('Not connected') || msg.includes('gateway')) {
+    // Only hard-disconnect if we are genuinely not connected (gateway is null).
+    // NEVER call disconnectAll for Flink API errors — the gateway is still reachable.
+    if (!state.gateway) {
       closeModal('modal-new-session');
-      toast('Not connected to gateway — please reconnect', 'err');
-      if (typeof disconnectAll === 'function') disconnectAll(true);
+      toast('Not connected — please reconnect to the gateway first', 'err');
+      // Don't disconnectAll — user may be in the middle of work. Just show error.
     } else {
       addLog('ERR', 'Session creation failed: ' + msg);
       toast('Session creation failed: ' + msg.slice(0, 80), 'err');
@@ -93,19 +95,36 @@ async function createSession() {
 
 function renderSessionsList() {
   const list = document.getElementById('sessions-list');
-  list.innerHTML = state.sessions.map(s => `
-    <div class="session-item">
+  if (!list) return;
+
+  // Ensure the active session is always in the list
+  if (state.activeSession && !state.sessions.find(s => s.handle === state.activeSession)) {
+    const savedName = (() => { try { return localStorage.getItem('flinksql_last_session_name') || 'default'; } catch(_) { return 'default'; } })();
+    state.sessions.push({ handle: state.activeSession, name: savedName, created: new Date() });
+  }
+
+  if (state.sessions.length === 0) {
+    list.innerHTML = '<div class="tree-loading">No sessions — click Connect to start one.</div>';
+    return;
+  }
+
+  list.innerHTML = state.sessions.map(s => {
+    const isActive = s.handle === state.activeSession;
+    return `
+    <div class="session-item" style="${isActive ? 'border-left:2px solid var(--accent);' : ''}">
       <div class="session-item-header">
-        <span class="session-item-id">${shortHandle(s.handle)}</span>
-        ${s.handle === state.activeSession ? '<span class="session-item-active">ACTIVE</span>' : ''}
+        <span class="session-item-id" title="${s.handle}">${shortHandle(s.handle)}</span>
+        ${isActive ? '<span class="session-item-active">● ACTIVE</span>' : ''}
       </div>
-      <div class="session-item-meta">${s.name} · ${s.created.toLocaleTimeString()}</div>
+      <div class="session-item-meta" style="font-size:10px;color:var(--text2);">
+        ${escHtml(s.name || 'default')} · ${s.created instanceof Date ? s.created.toLocaleTimeString() : '—'}
+      </div>
       <div class="session-item-actions">
-        ${s.handle !== state.activeSession ? `<button class="mini-btn" onclick="switchSession('${s.handle}')">Switch</button>` : ''}
+        ${!isActive ? `<button class="mini-btn" onclick="switchSession('${s.handle}')">Switch</button>` : ''}
         <button class="mini-btn danger" onclick="deleteSession('${s.handle}')">Delete</button>
       </div>
-    </div>
-  `).join('') || '<div class="tree-loading">No sessions.</div>';
+    </div>`;
+  }).join('');
 }
 
 function switchSession(handle) {
@@ -321,6 +340,9 @@ function switchSidebarTab(idx, btn) {
   document.querySelectorAll('.sidebar-tab').forEach(t => t.classList.remove('active'));
   document.getElementById(`sidebar-panel-${idx}`).classList.add('active');
   btn.classList.add('active');
+  // Always re-render sessions list when switching to that tab
+  // so it never shows stale "Loading sessions…" text
+  if (idx === 2) renderSessionsList();
 }
 
 // ──────────────────────────────────────────────

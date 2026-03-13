@@ -333,27 +333,48 @@ async function updateJobCompare() {
       _jcHistory[job.jid] = {
         name: (job.name || job.jid).slice(0, 28),
         color: JOB_COLORS[colIdx % JOB_COLORS.length],
-        data: []
+        data: [],
+        dataOut: []   // second series for OUT when metric=recIn or recOut
       };
       colIdx++;
     }
   }
 
-  // Fetch metric value for each running job
+  // Fetch metric value(s) for each running job
   for (const job of running) {
     const h = _jcHistory[job.jid];
     if (!h) continue;
-    let val = 0;
+    let val = 0, valOut = null;
+
     if (metric === 'recIn' || metric === 'recOut') {
-      const mId = metric === 'recIn' ? 'numRecordsInPerSecond' : 'numRecordsOutPerSecond';
-      // Use vertex-level metrics summed — job-level aggregate needs ?agg=sum which is unreliable in 1.19
+      // Always fetch BOTH in+out so we can draw two lines on the chart
+      let totalIn = 0, totalOut = 0;
       const detail2 = await jmApi(`/jobs/${job.jid}`);
       if (detail2 && detail2.vertices) {
         for (const v of detail2.vertices.slice(0, 8)) {
-          const vm = await jmApi(`/jobs/${job.jid}/vertices/${v.id}/metrics?get=${mId}`);
-          if (vm) vm.forEach(m => { if (m.id === mId) val += parseFloat(m.value)||0; });
+          // Two-step: list actual metric IDs, then fetch
+          let inId = 'numRecordsInPerSecond', outId = 'numRecordsOutPerSecond';
+          try {
+            const listR = await jmApi(`/jobs/${job.jid}/vertices/${v.id}/metrics`);
+            if (listR && Array.isArray(listR)) {
+              const names = listR.map(m => m.id);
+              const findSuffix = suf => names.find(n => n === suf || n.endsWith('.' + suf));
+              inId  = findSuffix('numRecordsInPerSecond')  || inId;
+              outId = findSuffix('numRecordsOutPerSecond') || outId;
+            }
+          } catch(_) {}
+          const vm = await jmApi(`/jobs/${job.jid}/vertices/${v.id}/metrics?get=${encodeURIComponent(inId + ',' + outId)}`);
+          if (vm && Array.isArray(vm)) {
+            vm.forEach(m => {
+              const seg = m.id.lastIndexOf('.') >= 0 ? m.id.slice(m.id.lastIndexOf('.')+1) : m.id;
+              if (seg === 'numRecordsInPerSecond')  totalIn  += parseFloat(m.value||0);
+              if (seg === 'numRecordsOutPerSecond') totalOut += parseFloat(m.value||0);
+            });
+          }
         }
       }
+      val    = Math.round(totalIn);
+      valOut = Math.round(totalOut);
     } else if (metric === 'duration') {
       val = Math.round((job.duration || 0) / 1000);
     } else if (metric === 'cpuLoad') {
@@ -410,6 +431,14 @@ async function updateJobCompare() {
     }
     h.data.push({ t: Date.now(), val });
     if (h.data.length > 60) h.data.shift();
+    // Also store OUT series when fetching records metrics
+    if (valOut !== null) {
+      if (!h.dataOut) h.dataOut = [];
+      h.dataOut.push({ t: Date.now(), val: valOut });
+      if (h.dataOut.length > 60) h.dataOut.shift();
+    } else {
+      h.dataOut = [];  // clear when not applicable
+    }
   }
 
   renderJobCompare();
@@ -466,13 +495,13 @@ function renderJobCompare() {
   ctx.strokeStyle = isLight ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.08)';
   ctx.beginPath(); ctx.moveTo(PAD.left, H - PAD.bottom); ctx.lineTo(W - PAD.right, H - PAD.bottom); ctx.stroke();
 
-  // Draw each job line
-  jobs.forEach(([jid, h]) => {
-    const pts = h.data;
-    ctx.strokeStyle = h.color;
-    ctx.lineWidth = 1.5;
-    ctx.shadowColor = h.color;
-    ctx.shadowBlur = 4;
+  const drawSeries = (pts, color, dashed, label) => {
+    if (!pts || pts.length < 2) return;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = dashed ? 1.2 : 1.8;
+    ctx.setLineDash(dashed ? [4, 3] : []);
+    ctx.shadowColor = color;
+    ctx.shadowBlur  = dashed ? 0 : 4;
     ctx.beginPath();
     pts.forEach((d, i) => {
       const x = PAD.left + (i / (pts.length - 1)) * cW;
@@ -480,20 +509,32 @@ function renderJobCompare() {
       i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
     });
     ctx.stroke();
+    ctx.setLineDash([]);
     ctx.shadowBlur = 0;
-
-    // Last point dot + annotation
+    // Last point dot
     const last = pts[pts.length - 1];
     const lx = PAD.left + cW;
     const ly = PAD.top + cH * (1 - last.val / globalMax);
     ctx.beginPath();
-    ctx.arc(lx, ly, 3, 0, Math.PI * 2);
-    ctx.fillStyle = h.color;
+    ctx.arc(lx, ly, dashed ? 2 : 3, 0, Math.PI * 2);
+    ctx.fillStyle = color;
     ctx.fill();
-    ctx.fillStyle = h.color;
+    ctx.fillStyle = color;
     ctx.font = '9px monospace';
     const valStr = last.val > 999 ? (last.val/1000).toFixed(1)+'k' : Math.round(last.val);
-    ctx.fillText(valStr, lx - 20, ly - 6);
+    ctx.fillText((label ? label+': ' : '') + valStr, lx - 28, ly - 5);
+  };
+
+  // Draw each job — solid line = IN, dashed line = OUT (when dual-metric mode)
+  jobs.forEach(([jid, h]) => {
+    const hasOut = h.dataOut && h.dataOut.length >= 2;
+    if (hasOut) {
+      drawSeries(h.data,    h.color, false, 'IN');
+      // OUT uses a slightly lighter version of same colour (add alpha)
+      drawSeries(h.dataOut, h.color, true,  'OUT');
+    } else {
+      drawSeries(h.data, h.color, false, null);
+    }
   });
 
   // X axis time labels
@@ -506,12 +547,16 @@ function renderJobCompare() {
 function updateJobCompareLegend() {
   const leg = document.getElementById('job-compare-legend');
   if (!leg) return;
+  const hasOut = Object.values(_jcHistory).some(h => h.dataOut && h.dataOut.length > 0);
   leg.innerHTML = Object.entries(_jcHistory)
     .filter(([,h]) => h.data.length > 0)
     .map(([jid, h]) => `
-      <div class="legend-item">
-        <div class="legend-dot" style="background:${h.color};height:3px;width:12px;border-radius:1px;"></div>
-        <span style="font-size:9px;color:${h.color};font-family:var(--mono);">${escHtml(h.name)}</span>
+      <div class="legend-item" style="display:inline-flex;align-items:center;gap:5px;margin-right:10px;">
+        <div style="display:flex;gap:3px;align-items:center;">
+          <div style="background:${h.color};height:2px;width:10px;border-radius:1px;"></div>
+          ${hasOut ? `<div style="background:${h.color};height:1px;width:7px;opacity:0.6;border-top:1px dashed ${h.color};"></div>` : ''}
+        </div>
+        <span style="font-size:9px;color:${h.color};font-family:var(--mono);">${escHtml(h.name)}${hasOut ? ' <span style="opacity:0.6">(— OUT)</span>' : ''}</span>
       </div>`).join('');
 }
 
@@ -648,58 +693,57 @@ async function generateSessionReport(focusJid, opts = {}) {
 }
 
 // Generate report for the currently selected job in Job Graph tab
+// Only asks for an optional report name — no row filtering (that's in Results tab).
 async function generateJobGraphReport() {
   const sel = document.getElementById('jg-job-select');
   const jid = sel?.value || null;
 
-  // Show filter modal before generating
-  const existing = document.getElementById('report-filter-modal');
+  const existing = document.getElementById('jg-report-name-modal');
   if (existing) existing.remove();
 
   const modal = document.createElement('div');
-  modal.id = 'report-filter-modal';
-  modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:10000;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;';
+  modal.id = 'jg-report-name-modal';
+  modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:10000;background:rgba(0,0,0,0.65);display:flex;align-items:center;justify-content:center;';
   modal.innerHTML = `
-    <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:6px;padding:24px;min-width:340px;max-width:480px;font-family:var(--mono);">
-      <div style="font-size:14px;font-weight:700;color:var(--text0);margin-bottom:4px;">📊 Generate Report</div>
-      <div style="font-size:10px;color:var(--text2);margin-bottom:16px;">Job: <span style="color:var(--accent)">${jid ? jid.slice(0,16)+'…' : 'All Jobs'}</span></div>
-
-      <label style="font-size:10px;color:var(--text2);display:block;margin-bottom:3px;">Include result rows (row number range — leave blank for all):</label>
-      <div style="display:flex;gap:8px;margin-bottom:12px;">
-        <input id="rpt-row-from" type="number" placeholder="From row" min="1"
-          style="flex:1;padding:5px 8px;font-size:11px;font-family:var(--mono);background:var(--bg3);border:1px solid var(--border2);border-radius:3px;color:var(--text0);">
-        <input id="rpt-row-to" type="number" placeholder="To row"
-          style="flex:1;padding:5px 8px;font-size:11px;font-family:var(--mono);background:var(--bg3);border:1px solid var(--border2);border-radius:3px;color:var(--text0);">
+    <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:6px;padding:22px;min-width:320px;max-width:420px;font-family:var(--mono);">
+      <div style="font-size:13px;font-weight:700;color:var(--text0);margin-bottom:4px;">📊 Generate Performance Report</div>
+      <div style="font-size:10px;color:var(--text2);margin-bottom:14px;">
+        Job: <span style="color:var(--accent)">${jid ? jid.slice(0,16)+'…' : 'All Running Jobs'}</span>
+        — includes metrics, checkpoints, operator breakdown
       </div>
-
-      <label style="font-size:10px;color:var(--text2);display:block;margin-bottom:3px;">Filter results by entity / value (e.g. CRITICAL, NORTH_EU, device_id 42):</label>
-      <input id="rpt-entity-filter" type="text" placeholder="Leave blank to include all rows"
-        style="width:100%;box-sizing:border-box;padding:5px 8px;font-size:11px;font-family:var(--mono);background:var(--bg3);border:1px solid var(--border2);border-radius:3px;color:var(--text0);margin-bottom:12px;"
-        onkeydown="event.stopPropagation();">
-
-      <label style="font-size:10px;color:var(--text2);display:block;margin-bottom:3px;">Custom report title (optional):</label>
-      <input id="rpt-title" type="text" placeholder="e.g. Sensor Network — March 2026 Analysis"
-        style="width:100%;box-sizing:border-box;padding:5px 8px;font-size:11px;font-family:var(--mono);background:var(--bg3);border:1px solid var(--border2);border-radius:3px;color:var(--text0);margin-bottom:20px;"
-        onkeydown="event.stopPropagation();">
-
+      <label style="font-size:10px;color:var(--text2);display:block;margin-bottom:3px;">Report name (optional):</label>
+      <input id="jg-rpt-name" type="text"
+        placeholder="e.g. Sensor Network Performance — March 2026"
+        style="width:100%;box-sizing:border-box;padding:6px 9px;font-size:11px;font-family:var(--mono);
+               background:var(--bg3);border:1px solid var(--border2);border-radius:3px;
+               color:var(--text0);margin-bottom:18px;"
+        onkeydown="if(event.key==='Enter'){document.getElementById('jg-rpt-gen').click();}event.stopPropagation();">
       <div style="display:flex;gap:8px;justify-content:flex-end;">
-        <button onclick="document.getElementById('report-filter-modal').remove();"
-          style="padding:6px 16px;font-size:11px;font-family:var(--mono);cursor:pointer;background:var(--bg3);border:1px solid var(--border);color:var(--text2);border-radius:3px;">Cancel</button>
-        <button id="rpt-generate-btn"
-          style="padding:6px 16px;font-size:11px;font-family:var(--mono);cursor:pointer;background:rgba(0,212,170,0.12);border:1px solid rgba(0,212,170,0.35);color:var(--accent);border-radius:3px;font-weight:700;">Generate PDF</button>
+        <button onclick="document.getElementById('jg-report-name-modal').remove();"
+          style="padding:6px 14px;font-size:11px;font-family:var(--mono);cursor:pointer;
+                 background:var(--bg3);border:1px solid var(--border);color:var(--text2);border-radius:3px;">
+          Cancel
+        </button>
+        <button id="jg-rpt-gen"
+          style="padding:6px 14px;font-size:11px;font-family:var(--mono);cursor:pointer;
+                 background:rgba(0,212,170,0.12);border:1px solid rgba(0,212,170,0.35);
+                 color:var(--accent);border-radius:3px;font-weight:700;">
+          Generate PDF
+        </button>
       </div>
     </div>`;
 
   document.body.appendChild(modal);
   modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
 
-  document.getElementById('rpt-generate-btn').onclick = async () => {
-    const rowFrom    = parseInt(document.getElementById('rpt-row-from').value) || 1;
-    const rowTo      = parseInt(document.getElementById('rpt-row-to').value)   || Infinity;
-    const entityFilt = (document.getElementById('rpt-entity-filter').value || '').toLowerCase().trim();
-    const rptTitle   = document.getElementById('rpt-title').value.trim();
+  // Focus the name input immediately
+  setTimeout(() => document.getElementById('jg-rpt-name')?.focus(), 50);
+
+  document.getElementById('jg-rpt-gen').onclick = async () => {
+    const reportTitle = document.getElementById('jg-rpt-name').value.trim();
     modal.remove();
-    await generateSessionReport(jid, { rowFrom, rowTo, entityFilter: entityFilt, reportTitle: rptTitle });
+    addLog('INFO', 'Generating performance report' + (jid ? ' for job ' + jid.slice(0,8) + '…' : ' for all jobs…'));
+    await generateSessionReport(jid, { reportTitle });
   };
 }
 

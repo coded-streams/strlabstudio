@@ -1,6 +1,13 @@
 // THEME TOGGLE
+function selectTheme(t) {
+  if (!THEMES.includes(t)) return;
+  state.theme = t;
+  applyTheme();
+  try { localStorage.setItem('flinksql_theme', state.theme); } catch(_) {}
+}
+
 // ──────────────────────────────────────────────
-const THEMES = ['dark', 'light', 'monokai'];
+const THEMES = ['dark', 'light', 'monokai', 'dracula', 'nord', 'contrast'];
 function toggleTheme() {
   const idx = THEMES.indexOf(state.theme);
   state.theme = THEMES[(idx + 1) % THEMES.length];
@@ -15,11 +22,14 @@ function applyTheme() {
   // Update toggle button
   const icon  = document.getElementById('theme-icon');
   const label = document.getElementById('theme-label');
-  const themeNames = { dark: 'Dark', light: 'Light', monokai: 'Monokai' };
-  const themeIcons = { dark: '🌙', light: '☀️', monokai: '🎨' };
+  const themeNames = { dark: 'Dark', light: 'Light', monokai: 'Monokai', dracula: 'Dracula', nord: 'Nord', contrast: 'Contrast' };
+  const themeIcons = { dark: '🌙', light: '☀️', monokai: '🎨', dracula: '🧛', nord: '❄️', contrast: '◑' };
   const isLight = state.theme === 'light';
   if (icon)  icon.textContent  = themeIcons[state.theme] || '🌙';
   if (label) label.textContent = themeNames[state.theme] || 'Dark';
+  // Sync dropdown
+  const sel = document.getElementById('theme-select');
+  if (sel) sel.value = state.theme;
   // Update connect screen logo border
   document.querySelectorAll('.connect-logo, .logo-mark').forEach(el => {
     el.style.setProperty('--logo-border', isLight ? 'rgba(0,122,96,0.5)' : 'rgba(0,212,170,0.4)');

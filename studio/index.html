@@ -170,7 +170,22 @@
       <button class="topbar-btn" onclick="refreshCatalog()" title="Refresh Catalog">⟳ Catalog</button>
       <button class="topbar-btn" onclick="openSnippets()" title="Snippets">✂ Snippets</button>
       <button class="topbar-btn" onclick="openModal('modal-about')" title="About FlinkSQL Studio">ℹ About</button>
-      <button id="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark theme" class="topbar-btn" style="gap:5px;"><span id="theme-icon">☀</span><span id="theme-label">Light</span></button>
+      <div class="topbar-theme-wrap" title="Switch theme">
+        <span id="theme-icon" style="font-size:12px;pointer-events:none;">🌙</span>
+        <select id="theme-select" onchange="selectTheme(this.value)"
+          style="background:transparent;border:none;color:var(--text1);
+                 font-family:var(--mono);font-size:10px;cursor:pointer;
+                 outline:none;padding:0 2px;appearance:none;-webkit-appearance:none;
+                 max-width:72px;">
+          <option value="dark">Dark</option>
+          <option value="light">Light</option>
+          <option value="monokai">Monokai</option>
+          <option value="dracula">Dracula</option>
+          <option value="nord">Nord</option>
+          <option value="contrast">Contrast</option>
+        </select>
+        <span style="font-size:8px;color:var(--text3);pointer-events:none;">▾</span>
+      </div>
       <button class="topbar-btn" onclick="openModal('modal-workspace')" title="Workspace / Session Persistence">&#128190; Workspace</button>
       <button class="topbar-btn danger" onclick="disconnectAll()" title="Disconnect">⏻ Disconnect</button>
     </div>

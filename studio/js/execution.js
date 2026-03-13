@@ -424,7 +424,10 @@ async function pollOperation(opHandle, sql, sessionHandle) {
           const badge = document.getElementById('result-row-badge');
           if (badge) badge.textContent = slot.rows.length > 999 ? '999+' : slot.rows.length;
           const wrap = document.getElementById('result-table-wrap');
-          if (wrap) wrap.scrollTop = wrap.scrollHeight;
+          if (wrap) {
+            // Scroll follows sort direction: newest-first=top, oldest-first=bottom
+            wrap.scrollTop = state.resultNewestFirst ? 0 : wrap.scrollHeight;
+          }
         }
         if (slot.rows.length >= MAX_ROWS && !state._maxRowsWarned) {
           state._maxRowsWarned = true;

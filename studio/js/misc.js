@@ -42,23 +42,85 @@ function _checkResources() {
   }
 }
 
-function _freeResultMemory() {
-  // Keep only the active slot, truncate all others to last 1000 rows
+let _pendingMemoryCleanup = null;
+
+function _freeResultMemory(immediate = false) {
+  if (immediate) {
+    _doTrimMemory();
+    return;
+  }
+
+  // Show 30s warning banner — user has 3 minutes before data is actually deleted
+  if (_pendingMemoryCleanup) return; // already pending
+
+  const banner = document.createElement('div');
+  banner.id = 'memory-trim-banner';
+  banner.style.cssText = `
+    position:fixed;top:0;left:0;right:0;z-index:9997;
+    background:rgba(245,166,35,0.97);color:#111;
+    font-family:var(--mono);font-size:11px;font-weight:600;
+    padding:10px 16px;display:flex;align-items:center;gap:10px;
+    border-bottom:2px solid #b86800;box-shadow:0 2px 12px rgba(0,0,0,0.4);
+  `;
+  let secsLeft = 180; // 3 minutes
+  const updateText = () => {
+    const m = Math.floor(secsLeft/60), s = secsLeft % 60;
+    const timeStr = m > 0 ? m+'m '+s+'s' : s+'s';
+    banner.innerHTML = `
+      <span style="font-size:16px;">⚠</span>
+      <span>Memory is high — old result data will be cleared in <strong>${timeStr}</strong> to free resources.</span>
+      <button onclick="openResultsReportModal && openResultsReportModal();" style="
+        padding:3px 10px;font-size:10px;font-family:var(--mono);cursor:pointer;
+        background:#111;color:#f5a623;border:1px solid #b86800;border-radius:3px;white-space:nowrap;">
+        📊 Export Report Now
+      </button>
+      <button onclick="_freeResultMemory(true);document.getElementById('memory-trim-banner')?.remove();clearTimeout(_pendingMemoryCleanup);_pendingMemoryCleanup=null;" style="
+        padding:3px 10px;font-size:10px;font-family:var(--mono);cursor:pointer;
+        background:#111;color:#f5a623;border:1px solid #b86800;border-radius:3px;">
+        Free Now
+      </button>
+      <button onclick="document.getElementById('memory-trim-banner')?.remove();clearTimeout(_pendingMemoryCleanup);_pendingMemoryCleanup=null;" style="
+        background:none;border:none;color:#111;font-size:18px;cursor:pointer;padding:0 4px;margin-left:auto;">×</button>
+    `;
+  };
+  updateText();
+  document.body.prepend(banner);
+  addLog('WARN', 'High memory usage detected — result data will be trimmed in 3 minutes. Export a report now if needed.');
+
+  // Count down every second for 30s display, then execute after 3 minutes
+  const countdown = setInterval(() => {
+    secsLeft--;
+    if (secsLeft <= 0 || !document.getElementById('memory-trim-banner')) {
+      clearInterval(countdown);
+    } else {
+      updateText();
+    }
+  }, 1000);
+
+  _pendingMemoryCleanup = setTimeout(() => {
+    clearInterval(countdown);
+    const b = document.getElementById('memory-trim-banner');
+    if (b) b.remove();
+    _pendingMemoryCleanup = null;
+    _doTrimMemory();
+  }, 180000); // 3 minutes
+}
+
+function _doTrimMemory() {
   const active = state.activeSlot;
   (state.resultSlots || []).forEach(slot => {
     if (slot.id !== active && slot.status !== 'streaming' && slot.rows.length > 1000) {
       slot.rows = slot.rows.slice(-1000);
     }
   });
-  // Trim non-streaming slots entirely if there are > 5
   const done = (state.resultSlots || []).filter(s => s.status !== 'streaming');
   if (done.length > 3) {
     const toRemove = done.slice(0, done.length - 3).map(s => s.id);
     state.resultSlots = (state.resultSlots || []).filter(s => !toRemove.includes(s.id));
   }
   if (typeof renderStreamSelector === 'function') renderStreamSelector();
-  addLog('INFO', 'Resource cleanup: old result slots trimmed to free memory.');
-  toast('Memory freed — old results trimmed', 'info');
+  addLog('INFO', 'Resource cleanup complete — old result slots trimmed.');
+  toast('Memory freed — old results removed', 'info');
 }
 
 function _showResourceWarning(title, detail, onAction) {

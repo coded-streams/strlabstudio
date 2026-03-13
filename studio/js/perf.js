@@ -197,8 +197,19 @@ async function refreshPerf() {
   // Update throughput badge
   if (perf.sparkRecIn.length > 0) {
     const badge = document.getElementById('ps-throughput-badge');
-    const lastIn = perf.sparkRecIn[perf.sparkRecIn.length-1] || 0;
-    if (badge) badge.textContent = lastIn > 0 ? Math.round(lastIn)+'/s' : '';
+    const lastIn  = perf.sparkRecIn[perf.sparkRecIn.length-1]  || 0;
+    const lastOut = perf.sparkRecOut ? (perf.sparkRecOut[perf.sparkRecOut.length-1] || 0) : 0;
+    if (badge) badge.textContent = lastIn > 0 ? Math.round(lastIn)+'/s in · ' + Math.round(lastOut)+'/s out' : '';
+    // Update IN/OUT live count display cards if they exist
+    const inEl  = document.getElementById('perf-live-rec-in');
+    const outEl = document.getElementById('perf-live-rec-out');
+    if (inEl)  inEl.textContent  = lastIn  > 999 ? (lastIn/1000).toFixed(1)+'k/s'  : Math.round(lastIn)  + '/s';
+    if (outEl) outEl.textContent = lastOut > 999 ? (lastOut/1000).toFixed(1)+'k/s' : Math.round(lastOut) + '/s';
+    // Update cumulative totals
+    const inTotalEl  = document.getElementById('perf-total-rec-in');
+    const outTotalEl = document.getElementById('perf-total-rec-out');
+    if (inTotalEl  && perf.totalRecIn  !== undefined) inTotalEl.textContent  = perf.totalRecIn  > 999 ? (perf.totalRecIn/1000).toFixed(1)+'k'  : perf.totalRecIn;
+    if (outTotalEl && perf.totalRecOut !== undefined) outTotalEl.textContent = perf.totalRecOut > 999 ? (perf.totalRecOut/1000).toFixed(1)+'k' : perf.totalRecOut;
   }
   // Update queries badge
   const qBadge = document.getElementById('ps-queries-badge');

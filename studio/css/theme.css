@@ -138,3 +138,108 @@
   from { transform: translateY(10px); opacity:0; }
   to   { transform: translateY(0);    opacity:1; }
 }
+
+  /* ── DRACULA THEME ── */
+  body.theme-dracula {
+    --bg0: #1e1f29;
+    --bg1: #282a36;
+    --bg2: #2e3044;
+    --bg3: #343746;
+    --bg4: #3c3f55;
+    --border: #44475a;
+    --border2: #565a74;
+    --accent: #50fa7b;
+    --accent2: #8be9fd;
+    --accent3: #ffb86c;
+    --accent4: #ff5555;
+    --text0: #f8f8f2;
+    --text1: #cdd6f4;
+    --text2: #6272a4;
+    --text3: #44475a;
+    --green: #50fa7b;
+    --red: #ff5555;
+    --yellow: #f1fa8c;
+    --blue: #8be9fd;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+    --radius: 3px;
+    --logo-bg: #282a36;
+    --logo-text: #f8f8f2;
+    --input-bg: #1e1f29;
+  }
+
+  /* ── SOLARIZED LIGHT EDITOR / DARK CHROME theme ── */
+  /* Editor area bright white, topbar + sidepanels stay dark */
+  body.theme-contrast {
+    --bg0: #0a0e16;
+    --bg1: #0f1520;
+    --bg2: #131a27;
+    --bg3: #192030;
+    --bg4: #1f2840;
+    --border: #223040;
+    --border2: #2a3d55;
+    --accent: #00c896;
+    --accent2: #3d9bff;
+    --accent3: #ffaa00;
+    --accent4: #ff3d6e;
+    --text0: #eef2fa;
+    --text1: #b0bfd8;
+    --text2: #607090;
+    --text3: #364560;
+    --green: #00c896;
+    --red: #ff3d6e;
+    --yellow: #ffaa00;
+    --blue: #3d9bff;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+    --radius: 3px;
+    --logo-bg: #0a0e16;
+    --logo-text: #eef2fa;
+    --input-bg: #ffffff;
+    /* Editor-specific overrides: white background for the code area */
+    --editor-bg: #ffffff;
+    --editor-text: #1a1a2e;
+    --editor-line-num: #9090a0;
+    --editor-selection: #b3d4ff;
+  }
+  body.theme-contrast .editor-area,
+  body.theme-contrast #sql-editor {
+    background: #ffffff !important;
+    color: #1a1a2e !important;
+    border-top: 1px solid #d0d8e8;
+  }
+  body.theme-contrast .line-numbers {
+    background: #f4f6fb !important;
+    color: #9090a0 !important;
+    border-right: 1px solid #d0d8e8 !important;
+  }
+
+  /* ── NORD THEME ── */
+  /* Arctic, north-bluish palette inspired by the Nordic landscape */
+  body.theme-nord {
+    --bg0: #1c2333;
+    --bg1: #242b3d;
+    --bg2: #2e3848;
+    --bg3: #374155;
+    --bg4: #414c63;
+    --border: #4a5568;
+    --border2: #5a6680;
+    --accent: #88c0d0;
+    --accent2: #81a1c1;
+    --accent3: #ebcb8b;
+    --accent4: #bf616a;
+    --text0: #eceff4;
+    --text1: #d8dee9;
+    --text2: #8494a8;
+    --text3: #4c566a;
+    --green: #a3be8c;
+    --red: #bf616a;
+    --yellow: #ebcb8b;
+    --blue: #81a1c1;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+    --radius: 3px;
+    --logo-bg: #242b3d;
+    --logo-text: #eceff4;
+    --input-bg: #1c2333;
+  }
