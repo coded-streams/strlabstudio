@@ -4,26 +4,75 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FlinkSQL Studio</title>
-  <!-- Favicon: SVG logo inline -->
+
+  <!-- Favicon -->
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23090c12'/%3E%3Cpolyline points='20 24 28 16 20 8' fill='none' stroke='%2300d4aa' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpolyline points='12 8 4 16 12 24' fill='none' stroke='%2300d4aa' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
-  <link rel="shortcut icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23090c12'/%3E%3Cpolyline points='20 24 28 16 20 8' fill='none' stroke='%2300d4aa' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpolyline points='12 8 4 16 12 24' fill='none' stroke='%2300d4aa' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+
+  <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-  <!-- Stylesheets — split by concern -->
+
+  <!-- Stylesheets -->
   <link rel="stylesheet" href="css/theme.css">
   <link rel="stylesheet" href="css/layout.css">
   <link rel="stylesheet" href="css/panels.css">
+
+  <style>
+    /* ── Log panel layout fix ─────────────────────────────────────────────────────
+       Prevents error text from overflowing into a narrow left column when the
+       inline error detail expands. The log-line needs overflow:hidden and
+       log-msg needs min-width:0 so flex truncation works correctly.          */
+    .log-line {
+      min-width: 0;
+      overflow: hidden;
+    }
+    .log-line-main {
+      min-width: 0;
+      flex-wrap: nowrap;
+      align-items: flex-start;
+    }
+    .log-msg {
+      min-width: 0;
+      flex: 1;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      white-space: pre-wrap;
+    }
+    .log-detail-panel {
+      width: 100%;
+      box-sizing: border-box;
+      margin-left: 0;
+    }
+    /* Error log line — ensure it stays inside the panel width */
+    .log-line-err {
+      overflow: hidden;
+      min-width: 0;
+    }
+    /* FULL ERROR label should stay on same line as summary, not push content */
+    #log-panel .log-line {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    #log-panel .log-line-main {
+      display: flex;
+      flex-direction: row;
+      gap: 8px;
+      min-width: 0;
+      width: 100%;
+    }
+  </style>
 </head>
 <body>
 
-<!-- ═══════════════════════════════════════════════════ -->
-<!--  CONNECTION SCREEN                                  -->
-<!-- ═══════════════════════════════════════════════════ -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!--  CONNECTION SCREEN                                              -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
 <div id="connect-screen">
   <div class="connect-panel">
     <div class="connect-header">
-      <div class="connect-logo" style="background:var(--logo-bg);border:1px solid var(--logo-border,rgba(0,212,170,0.4));display:flex;align-items:center;justify-content:center;width:38px;height:38px;clip-path:polygon(0 0, 85% 0, 100% 15%, 100% 100%, 15% 100%, 0 85%);">
+      <div class="connect-logo" style="background:var(--logo-bg,#0c1018);border:1px solid var(--logo-border,rgba(0,212,170,0.4));display:flex;align-items:center;justify-content:center;width:38px;height:38px;clip-path:polygon(0 0, 85% 0, 100% 15%, 100% 100%, 15% 100%, 0 85%);">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
         </svg>
@@ -33,7 +82,10 @@
         <div class="connect-sub">CONNECT TO FLINK SQL GATEWAY</div>
       </div>
     </div>
+
     <div class="connect-body">
+
+      <!-- Connection Mode -->
       <div class="field-group">
         <label class="field-label">Connection Mode</label>
         <div style="display:flex;gap:6px;margin-bottom:10px;">
@@ -53,10 +105,12 @@
             <span style="font-size:10px;color:var(--text3);display:block;margin-top:2px;">URL + token auth</span>
           </button>
         </div>
+
         <div id="mode-proxy-info" style="font-size:11px;background:rgba(0,212,170,0.06);border:1px solid rgba(0,212,170,0.2);padding:10px 12px;border-radius:3px;color:var(--text1);line-height:1.7;">
           ✓ Using built-in same-origin proxy<br>
-          <span style="color:var(--text3)">API calls go through <strong style="color:var(--accent)">localhost:3030/flink-api/</strong> → gateway<br>No CORS issues. No configuration needed.</span>
+          <span style="color:var(--text3)">API calls go through <strong style="color:var(--accent)">localhost:3030/flink-api/</strong> → gateway.<br>No CORS issues. No configuration needed.</span>
         </div>
+
         <div id="mode-direct-info" style="display:none;">
           <div class="field-row" style="margin-top:8px;">
             <input class="field-input" id="inp-host" type="text" placeholder="localhost" value="localhost" />
@@ -64,6 +118,7 @@
           </div>
           <div style="font-size:10px;color:var(--text3);margin-top:5px;">CORS proxy port (8084). Direct gateway port is 8083.</div>
         </div>
+
         <div id="mode-remote-info" style="display:none;margin-top:8px;">
           <div class="field-group" style="margin-bottom:10px;">
             <label class="field-label">Gateway URL</label>
@@ -72,9 +127,9 @@
           <div class="field-group" style="margin-bottom:6px;">
             <label class="field-label">Auth Type</label>
             <div style="display:flex;gap:6px;">
-              <button class="mode-btn" id="auth-none" onclick="setAuthMode('none')" style="flex:1;padding:5px 8px;font-size:11px;">No Auth</button>
+              <button class="mode-btn" id="auth-none"   onclick="setAuthMode('none')"   style="flex:1;padding:5px 8px;font-size:11px;">No Auth</button>
               <button class="mode-btn active" id="auth-bearer" onclick="setAuthMode('bearer')" style="flex:1;padding:5px 8px;font-size:11px;">Bearer Token</button>
-              <button class="mode-btn" id="auth-basic" onclick="setAuthMode('basic')" style="flex:1;padding:5px 8px;font-size:11px;">Basic Auth</button>
+              <button class="mode-btn" id="auth-basic"  onclick="setAuthMode('basic')"  style="flex:1;padding:5px 8px;font-size:11px;">Basic Auth</button>
             </div>
           </div>
           <div id="auth-bearer-fields">
@@ -82,43 +137,61 @@
           </div>
           <div id="auth-basic-fields" style="display:none;">
             <div class="field-row" style="margin-top:6px;">
-              <input class="field-input" id="inp-basic-user" type="text" placeholder="username" style="font-size:12px;" />
+              <input class="field-input" id="inp-basic-user" type="text"     placeholder="username" style="font-size:12px;" />
               <input class="field-input" id="inp-basic-pass" type="password" placeholder="password" style="font-size:12px;" />
             </div>
           </div>
-          <div style="font-size:10px;color:var(--text3);margin-top:6px;line-height:1.6;">Compatible with Confluent Cloud Flink, AWS Kinesis Data Analytics, and any self-hosted cluster with an exposed SQL Gateway.</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:6px;line-height:1.6;">Compatible with Confluent Cloud Flink, AWS Kinesis Data Analytics, and any self-hosted cluster.</div>
         </div>
       </div>
+
+      <!-- Session Mode -->
       <div class="field-group">
         <label class="field-label">Session</label>
         <div style="display:flex;gap:0;margin-bottom:6px;border:1px solid var(--border);border-radius:3px;overflow:hidden;">
-          <button id="sess-mode-new" onclick="setSessionMode('new')"
-            style="flex:1;padding:5px 10px;font-size:10px;font-family:var(--mono);cursor:pointer;
-                   background:var(--accent);color:#000;border:none;font-weight:700;">
+          <button id="sess-mode-new"      onclick="setSessionMode('new')"
+                  style="flex:1;padding:5px 10px;font-size:10px;font-family:var(--mono);cursor:pointer;background:var(--accent);color:#000;border:none;font-weight:700;">
             + New Session
           </button>
           <button id="sess-mode-existing" onclick="setSessionMode('existing')"
-            style="flex:1;padding:5px 10px;font-size:10px;font-family:var(--mono);cursor:pointer;
-                   background:var(--bg3);color:var(--text2);border:none;">
-            ↩ Use Existing Handle
+                  style="flex:1;padding:5px 10px;font-size:10px;font-family:var(--mono);cursor:pointer;background:var(--bg3);color:var(--text2);border:none;">
+            ↩ Use Existing
+          </button>
+          <button id="sess-mode-admin"    onclick="setSessionMode('admin')"
+                  style="flex:1;padding:5px 10px;font-size:10px;font-family:var(--mono);cursor:pointer;background:var(--bg3);color:var(--yellow,#f5a623);border:none;border-left:1px solid var(--border);">
+            🛡 Admin
           </button>
         </div>
+
+        <!-- New session -->
         <div id="sess-new-area">
           <input class="field-input" id="inp-session-name" type="text" placeholder="my-session (optional name)" />
-          <div style="font-size:10px;color:var(--text3);margin-top:3px;">
-            Creates a fresh Flink SQL Gateway session. Give it a name to restore your workspace next time.
-          </div>
+          <div style="font-size:10px;color:var(--text3);margin-top:3px;">Creates a fresh Flink SQL Gateway session.</div>
         </div>
+
+        <!-- Existing session -->
         <div id="sess-existing-area" style="display:none;">
           <input class="field-input" id="inp-session-handle" type="text"
-            placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-            style="font-size:11px;" />
-          <div style="font-size:10px;color:var(--text3);margin-top:3px;">
-            Reconnect to an existing session by pasting its full UUID handle.
-            TEMPORARY tables and running jobs are preserved.
+                 placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" style="font-size:11px;" />
+          <div style="font-size:10px;color:var(--text3);margin-top:3px;">Reconnect to an existing session — TEMPORARY tables are preserved.</div>
+          <!-- Existing sessions dropdown injected here by loadExistingSessionsFromGateway() -->
+        </div>
+
+        <!-- Admin session -->
+        <div id="sess-admin-area" style="display:none;">
+          <div style="background:rgba(245,166,35,0.07);border:1px solid rgba(245,166,35,0.25);padding:10px 12px;border-radius:3px;margin-bottom:8px;font-size:11px;color:var(--text1);line-height:1.7;">
+            🛡 <strong style="color:var(--yellow,#f5a623);">Admin Session</strong> — Full cluster visibility.<br>
+            <span style="color:var(--text3);font-size:10px;">See all jobs across all sessions, generate professional reports, manage cluster resources.</span>
+          </div>
+          <input class="field-input" id="inp-admin-name" type="text"     placeholder="Your name (e.g. John Smith)"    style="margin-bottom:8px;" />
+          <input class="field-input" id="inp-admin-pass" type="password" placeholder="Admin passcode" />
+          <div style="font-size:10px;color:var(--text3);margin-top:4px;">
+            Default: <code style="color:var(--accent);background:rgba(0,212,170,0.08);padding:1px 5px;border-radius:2px;">admin1234</code> — change after connecting via the 🛡 Settings badge.
           </div>
         </div>
       </div>
+
+      <!-- Advanced Properties -->
       <div class="field-group">
         <label class="field-label">Session Properties <span style="color:var(--text3)">(optional)</span></label>
         <div class="connect-props">
@@ -132,29 +205,28 @@
 
       <div class="connect-status" id="connect-status"></div>
     </div>
+
     <div class="connect-footer">
-      <button class="btn btn-secondary" onclick="testConnection()">
-        <span id="test-btn-text">⚡ Test Connection</span>
-      </button>
-      <button class="btn btn-primary" id="connect-btn" onclick="doConnect()">
-        <span id="connect-btn-text">Connect & Open Studio</span>
-      </button>
+      <button class="btn btn-secondary" onclick="testConnection()">⚡ Test Connection</button>
+      <button class="btn btn-primary"   id="connect-btn" onclick="doConnect()">Connect &amp; Open Studio</button>
     </div>
   </div>
 </div>
 
-<!-- ═══════════════════════════════════════════════════ -->
-<!--  MAIN APP                                           -->
-<!-- ═══════════════════════════════════════════════════ -->
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!--  MAIN APP                                                       -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
 <div id="app">
+
   <!-- TOP BAR -->
   <div id="topbar">
     <div class="topbar-logo">
       <div class="logo-mark" style="background:var(--logo-bg,#0c1018);border:1px solid var(--logo-border,rgba(0,212,170,0.35));display:flex;align-items:center;justify-content:center;width:26px;height:26px;clip-path:polygon(0 0, 80% 0, 100% 20%, 100% 100%, 20% 100%, 0 80%);">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
-      </svg>
-    </div>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+        </svg>
+      </div>
       <span class="logo-text">FlinkSQL<span class="logo-ver">Studio</span></span>
     </div>
     <div class="topbar-session">
@@ -162,21 +234,17 @@
       <span class="session-info">Session: <span class="session-id" id="topbar-session-id">—</span></span>
     </div>
     <div class="conn-chip" id="topbar-conn-info">
-      <span>🖧</span>
-      <span id="topbar-host-label" class="val">—</span>
+      <span>🖧</span><span id="topbar-host-label" class="val">—</span>
     </div>
     <div class="topbar-actions">
-      <button class="topbar-btn" onclick="openNewSessionModal()" title="New Session">＋ New Session</button>
-      <button class="topbar-btn" onclick="refreshCatalog()" title="Refresh Catalog">⟳ Catalog</button>
-      <button class="topbar-btn" onclick="openSnippets()" title="Snippets">✂ Snippets</button>
-      <button class="topbar-btn" onclick="openModal('modal-about')" title="About FlinkSQL Studio">ℹ About</button>
+      <button class="topbar-btn" onclick="openNewSessionModal()"    title="New Session">＋ New Session</button>
+      <button class="topbar-btn" onclick="refreshCatalog()"         title="Refresh Catalog">⟳ Catalog</button>
+      <button class="topbar-btn" onclick="openSnippets()"           title="Snippets">✂ Snippets</button>
+      <button class="topbar-btn" onclick="showTipsModal()"          title="Tips &amp; Flink Concepts">💡 Tips</button>
+      <button class="topbar-btn" onclick="openModal('modal-about')" title="About">ℹ About</button>
       <div class="topbar-theme-wrap" title="Switch theme">
         <span id="theme-icon" style="font-size:12px;pointer-events:none;">🌙</span>
-        <select id="theme-select" onchange="selectTheme(this.value)"
-          style="background:transparent;border:none;color:var(--text1);
-                 font-family:var(--mono);font-size:10px;cursor:pointer;
-                 outline:none;padding:0 2px;appearance:none;-webkit-appearance:none;
-                 max-width:72px;">
+        <select id="theme-select" onchange="selectTheme(this.value)">
           <option value="dark">Dark</option>
           <option value="light">Light</option>
           <option value="monokai">Monokai</option>
@@ -186,30 +254,29 @@
         </select>
         <span style="font-size:8px;color:var(--text3);pointer-events:none;">▾</span>
       </div>
-      <button class="topbar-btn" onclick="openModal('modal-workspace')" title="Workspace / Session Persistence">&#128190; Workspace</button>
-      <button class="topbar-btn danger" onclick="disconnectAll()" title="Disconnect">⏻ Disconnect</button>
+      <button class="topbar-btn" onclick="openModal('modal-workspace')" title="Workspace">&#128190; Workspace</button>
+      <button class="topbar-btn danger" onclick="disconnectAll()"       title="Disconnect">⏻ Disconnect</button>
     </div>
   </div>
 
   <!-- MAIN LAYOUT -->
   <div id="main-layout">
+
     <!-- SIDEBAR -->
     <div id="sidebar">
       <div class="sidebar-tabs">
         <button class="sidebar-tab active" onclick="switchSidebarTab(0,this)">CATALOG</button>
-        <button class="sidebar-tab" onclick="switchSidebarTab(1,this)">HISTORY</button>
-        <button class="sidebar-tab" onclick="switchSidebarTab(2,this)">SESSIONS</button>
+        <button class="sidebar-tab"        onclick="switchSidebarTab(1,this)">HISTORY</button>
+        <button class="sidebar-tab"        onclick="switchSidebarTab(2,this)">SESSIONS</button>
       </div>
       <!-- Catalog panel -->
       <div class="sidebar-panel active" id="sidebar-panel-0">
-        <div style="display:flex;gap:4px;padding:6px 8px 4px;border-bottom:1px solid var(--border1);">
-          <button class="mini-btn" style="flex:1;font-size:10px;" onclick="insertCatalogSnippet('catalog')" title="Insert CREATE CATALOG template">＋ Catalog</button>
-          <button class="mini-btn" style="flex:1;font-size:10px;" onclick="insertCatalogSnippet('database')" title="Insert CREATE DATABASE template">＋ Database</button>
-          <button class="mini-btn" style="flex:1;font-size:10px;" onclick="refreshCatalog()" title="Refresh">⟳</button>
+        <div style="display:flex;gap:4px;padding:6px 8px 4px;border-bottom:1px solid var(--border);">
+          <button class="mini-btn" style="flex:1;font-size:10px;" onclick="insertCatalogSnippet('catalog')">＋ Catalog</button>
+          <button class="mini-btn" style="flex:1;font-size:10px;" onclick="insertCatalogSnippet('database')">＋ Database</button>
+          <button class="mini-btn" style="flex:1;font-size:10px;" onclick="refreshCatalog()">⟳</button>
         </div>
-        <div id="catalog-tree">
-          <div class="tree-loading">Loading catalog…</div>
-        </div>
+        <div id="catalog-tree"><div class="tree-loading">Loading catalog…</div></div>
       </div>
       <!-- History panel -->
       <div class="sidebar-panel" id="sidebar-panel-1">
@@ -222,9 +289,7 @@
         <div class="sidebar-action">
           <button class="btn btn-secondary" style="width:100%;font-size:11px;padding:6px;" onclick="openNewSessionModal()">＋ Create New Session</button>
         </div>
-        <div id="sessions-list">
-          <div class="tree-loading">Loading sessions…</div>
-        </div>
+        <div id="sessions-list"><div class="tree-loading">Loading sessions…</div></div>
       </div>
     </div>
 
@@ -237,13 +302,13 @@
 
       <!-- Toolbar -->
       <div class="editor-toolbar">
-        <button class="toolbar-btn run" onclick="executeSQL()" title="Run (Ctrl+Enter)">▶ Run</button>
-        <button class="toolbar-btn run" onclick="executeSelected()" title="Run Selected (Ctrl+Shift+Enter)" style="background:rgba(0,212,170,0.06);">▶ Selection</button>
+        <button class="toolbar-btn run"  onclick="executeSQL()"      title="Run (Ctrl+Enter)">▶ Run</button>
+        <button class="toolbar-btn run"  onclick="executeSelected()" title="Run Selected (Ctrl+Shift+Enter)" style="background:rgba(0,212,170,0.06);">▶ Selection</button>
         <button class="toolbar-btn stop" id="stop-btn" onclick="cancelOperation()" style="display:none;">■ Stop</button>
         <div class="toolbar-sep"></div>
-        <button class="toolbar-btn" onclick="formatSQL()" title="Format SQL">⟳ Format</button>
+        <button class="toolbar-btn" onclick="formatSQL()"  title="Format SQL">⟳ Format</button>
         <button class="toolbar-btn" onclick="clearEditor()" title="Clear">✕ Clear</button>
-        <button class="toolbar-btn" onclick="saveQuery()" title="Save (Ctrl+S)">💾 Save</button>
+        <button class="toolbar-btn" onclick="saveQuery()"  title="Save (Ctrl+S)">💾 Save</button>
         <div class="toolbar-sep"></div>
         <button class="toolbar-btn" onclick="explainSQL()" title="Explain Plan">📋 Explain</button>
         <div class="toolbar-info">
@@ -251,26 +316,21 @@
           <span><kbd>Ctrl+S</kbd> save</span>
           <span id="cursor-pos">Ln 1, Col 1</span>
         </div>
-        <div id="editor-warn" style="display:none;background:rgba(245,166,35,0.10);border-top:1px solid rgba(245,166,35,0.35);color:#f5a623;font-size:11px;font-family:var(--mono);padding:5px 12px 5px;line-height:1.5;"></div>
+        <div id="editor-warn" style="display:none;background:rgba(245,166,35,0.10);border-top:1px solid rgba(245,166,35,0.35);color:#f5a623;font-size:11px;font-family:var(--mono);padding:5px 12px;line-height:1.5;"></div>
       </div>
 
-      <!-- Editor + Results (vertical split) -->
+      <!-- Editor + Results split -->
       <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
-        <!-- Editor -->
+
+        <!-- SQL Editor -->
         <div id="editor-wrapper" style="flex:1;overflow:hidden;position:relative;">
           <div class="line-numbers" id="line-numbers"><span>1</span></div>
-          <textarea
-            class="sql-editor"
-            id="sql-editor"
-            spellcheck="false"
-            autocomplete="off"
-            autocorrect="off"
-            autocapitalize="off"
-            placeholder="-- Write your Flink SQL here
+          <textarea class="sql-editor" id="sql-editor"
+                    spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"
+                    placeholder="-- Write your Flink SQL here
 -- Ctrl+Enter to execute  |  Ctrl+/ to comment  |  Ctrl+S to save
 
-SHOW CATALOGS;"
-          ></textarea>
+SHOW CATALOGS;"></textarea>
         </div>
 
         <!-- Vertical resizer -->
@@ -288,20 +348,17 @@ SHOW CATALOGS;"
             <button class="result-tab" onclick="switchResultTab('ops',this)">
               Operations <span class="badge" id="ops-badge">0</span>
             </button>
-            <button class="result-tab" onclick="switchResultTab('perf',this)" id="perf-tab-btn">
-              Performance
-            </button>
-            <button class="result-tab" onclick="switchResultTab('jobgraph',this)" id="jobgraph-tab-btn">
-              Job Graph
-            </button>
+            <button class="result-tab" onclick="switchResultTab('perf',this)" id="perf-tab-btn">Performance</button>
+            <button class="result-tab" onclick="switchResultTab('jobgraph',this)" id="jobgraph-tab-btn">Job Graph</button>
             <div class="results-actions">
-              <button class="topbar-btn" id="results-toggle-btn" onclick="toggleResultsPanel()" title="Minimize/restore panel" style="padding:0 8px;min-width:26px;">▼</button>
-              <button class="topbar-btn" id="results-max-btn" onclick="maximiseResultsPanel()" title="Maximize panel" style="padding:0 8px;min-width:26px;">⊞</button>
-              <button class="topbar-btn" onclick="exportCSV()" title="Export results as CSV" id="export-results-btn">Export</button>
-              <button class="topbar-btn" onclick="exportSessionLog()" title="Export session log as .txt" id="export-log-btn" style="display:none;">Log</button>
-              <button class="topbar-btn" onclick="clearResults()" title="Clear">✕</button>
+              <button class="topbar-btn" id="results-toggle-btn" onclick="toggleResultsPanel()" title="Minimize/restore" style="padding:0 8px;min-width:26px;">▼</button>
+              <button class="topbar-btn" id="results-max-btn"    onclick="maximiseResultsPanel()" title="Maximize" style="padding:0 8px;min-width:26px;">⊞</button>
+              <button class="topbar-btn" onclick="exportCSV()"         title="Export CSV"    id="export-results-btn">Export</button>
+              <button class="topbar-btn" onclick="exportSessionLog()"  title="Export Log"    id="export-log-btn" style="display:none;">Log</button>
+              <button class="topbar-btn" onclick="clearResults()"      title="Clear">✕</button>
             </div>
           </div>
+
           <div class="results-content">
             <!-- Data tab -->
             <div id="result-data-tab" style="flex:1;overflow:hidden;display:flex;flex-direction:column;">
@@ -322,29 +379,31 @@ SHOW CATALOGS;"
             <div id="log-panel"></div>
             <!-- Ops tab -->
             <div id="ops-panel" style="display:none;flex:1;overflow-y:auto;padding:8px 12px;"></div>
-            <!-- Performance tab -->
+            <!-- Performance tab — see panels.css + perf.js -->
             <div id="perf-panel">
-              <!-- Toolbar -->
               <div class="perf-toolbar">
                 <span class="perf-toolbar-label">Performance</span>
                 <span id="perf-last-refresh" style="font-size:10px;color:var(--text3);margin-left:6px;"></span>
                 <div class="perf-subtabs">
-                  <button class="perf-subtab-btn active" data-tab="overview"  onclick="switchPerfTab('overview')">Overview</button>
-                  <button class="perf-subtab-btn"        data-tab="throughput" onclick="switchPerfTab('throughput')">Throughput</button>
-                  <button class="perf-subtab-btn"        data-tab="jobs"      onclick="switchPerfTab('jobs')">Jobs</button>
-                  <button class="perf-subtab-btn"        data-tab="checkpoints" onclick="switchPerfTab('checkpoints')">Checkpoints</button>
-                  <button class="perf-subtab-btn"        data-tab="cluster"   onclick="switchPerfTab('cluster')">Cluster</button>
-                  <button class="perf-subtab-btn"        data-tab="report"    onclick="switchPerfTab('report')">Report</button>
+                  <button class="perf-subtab-btn active" onclick="switchPerfTab('overview')">Overview</button>
+                  <button class="perf-subtab-btn"        onclick="switchPerfTab('throughput')">Throughput</button>
+                  <button class="perf-subtab-btn"        onclick="switchPerfTab('jobs')">Jobs</button>
+                  <button class="perf-subtab-btn"        onclick="switchPerfTab('checkpoints')">Checkpoints</button>
+                  <button class="perf-subtab-btn"        onclick="switchPerfTab('cluster')">Cluster</button>
+                  <button class="perf-subtab-btn"        onclick="switchPerfTab('report')">Report</button>
                 </div>
                 <button class="perf-refresh-btn" id="perf-live-btn" onclick="togglePerfLive()" style="margin-left:auto;">
                   <span id="perf-live-dot-el" class="perf-live-dot" style="display:none;"></span>
                   <span id="perf-live-label">▶ Live</span>
                 </button>
-                <button class="perf-refresh-btn" onclick="refreshPerf()" style="margin-left:4px;">Refresh</button>
-                <button class="perf-refresh-btn" onclick="exportPerfCSV()" style="margin-left:4px;">Export CSV</button>
-                <input id="perf-query-filter" type="text" placeholder="Filter queries..." onkeyup="filterPerfQueries(this.value)" style="background:var(--bg1);border:1px solid var(--border2);color:var(--text0);font-family:var(--mono);font-size:11px;padding:4px 9px;border-radius:var(--radius);width:160px;outline:none;margin-left:6px;">
+                <button class="perf-refresh-btn" onclick="refreshPerf()"    style="margin-left:4px;">Refresh</button>
+                <button class="perf-refresh-btn" onclick="exportPerfCSV()"  style="margin-left:4px;">Export CSV</button>
+                <input id="perf-query-filter" type="text" placeholder="Filter queries..."
+                       onkeyup="filterPerfQueries(this.value)"
+                       style="background:var(--bg1);border:1px solid var(--border2);color:var(--text0);font-family:var(--mono);font-size:11px;padding:4px 9px;border-radius:var(--radius);width:160px;outline:none;margin-left:6px;">
               </div>
-              <!-- ═══ CLUSTER STATS ROW (always visible) ═══ -->
+
+              <!-- Cluster stats row -->
               <div class="cluster-row" id="perf-cluster-row">
                 <div class="cluster-stat"><div><div class="cluster-stat-val" id="cs-tms">—</div><div class="cluster-stat-lbl">Task Managers</div></div></div>
                 <div class="cluster-stat"><div><div class="cluster-stat-val" id="cs-slots-free">—</div><div class="cluster-stat-lbl">Slots Used</div></div></div>
@@ -352,14 +411,14 @@ SHOW CATALOGS;"
                 <div class="cluster-stat"><div><div class="cluster-stat-val" id="cs-jobs-running">—</div><div class="cluster-stat-lbl">Running Jobs</div></div></div>
                 <div class="cluster-stat"><div><div class="cluster-stat-val" id="cs-jobs-finished">—</div><div class="cluster-stat-lbl">Finished Jobs</div></div></div>
                 <div class="cluster-stat"><div><div class="cluster-stat-val" id="cs-slots-free-count">—</div><div class="cluster-stat-lbl">Free Slots</div></div></div>
+                <div class="cluster-stat"><div><div class="cluster-stat-val" id="cs-sessions-count">—</div><div class="cluster-stat-lbl">Sessions</div></div></div>
               </div>
 
-              <!-- ═══ SUB-TAB PANELS ═══ -->
+              <!-- Sub-tab panels -->
               <div class="perf-subtab-content">
 
-                <!-- ── SUB-TAB: OVERVIEW ── -->
+                <!-- Overview -->
                 <div class="perf-subtab-panel active" id="perf-st-overview">
-                  <!-- KPI row -->
                   <div class="perf-grid" id="perf-kpi-row">
                     <div class="perf-kpi" style="--kpi-color:var(--accent)">
                       <div class="perf-kpi-label">Last Query Time</div>
@@ -398,7 +457,6 @@ SHOW CATALOGS;"
                       <div class="perf-kpi-delta" id="kpi-state-delta"></div>
                     </div>
                   </div>
-                  <!-- Overview sections: backpressure + query history -->
                   <div class="perf-body-single">
                     <div class="perf-section" id="ps-health">
                       <button class="perf-section-hdr" onclick="togglePerfSection('ps-health')">
@@ -411,9 +469,9 @@ SHOW CATALOGS;"
                           <div class="gauge-wrap">
                             <svg class="gauge-svg" width="90" height="58" viewBox="0 0 90 58">
                               <path class="gauge-bg"  d="M 10 50 A 35 35 0 0 1 80 50" />
-                              <path class="gauge-arc" id="gauge-bp-arc" d="M 10 50 A 35 35 0 0 1 80 50" stroke="var(--red)" stroke-dasharray="110" stroke-dashoffset="110"/>
-                              <text class="gauge-val" id="gauge-bp-val" x="45" y="44" text-anchor="middle">—</text>
-                              <text class="gauge-sub" x="45" y="54" text-anchor="middle">BACKPRESSURE</text>
+                              <path class="gauge-arc" id="gauge-bp-arc"    d="M 10 50 A 35 35 0 0 1 80 50" stroke="var(--red)"    stroke-dasharray="110" stroke-dashoffset="110"/>
+                              <text class="gauge-val" id="gauge-bp-val"    x="45" y="44" text-anchor="middle">—</text>
+                              <text class="gauge-sub"                      x="45" y="54" text-anchor="middle">BACKPRESSURE</text>
                             </svg>
                             <div class="gauge-name">0% = healthy</div>
                           </div>
@@ -422,14 +480,13 @@ SHOW CATALOGS;"
                               <path class="gauge-bg"  d="M 10 50 A 35 35 0 0 1 80 50" />
                               <path class="gauge-arc" id="gauge-slots-arc" d="M 10 50 A 35 35 0 0 1 80 50" stroke="var(--accent)" stroke-dasharray="110" stroke-dashoffset="55"/>
                               <text class="gauge-val" id="gauge-slots-val" x="45" y="44" text-anchor="middle">—</text>
-                              <text class="gauge-sub" x="45" y="54" text-anchor="middle">SLOT USAGE</text>
+                              <text class="gauge-sub"                      x="45" y="54" text-anchor="middle">SLOT USAGE</text>
                             </svg>
                             <div class="gauge-name">% slots in use</div>
                           </div>
                         </div>
                       </div>
                     </div>
-
                     <div class="perf-section" id="ps-queries">
                       <button class="perf-section-hdr" onclick="togglePerfSection('ps-queries')">
                         <span class="perf-section-arrow" id="ps-queries-arrow">▾</span>
@@ -438,14 +495,14 @@ SHOW CATALOGS;"
                       </button>
                       <div class="perf-section-body" id="ps-queries-body">
                         <div class="timing-list" id="timing-list">
-                          <div style="font-size:11px;color:var(--text3);text-align:center;padding:12px;">Run queries to see timing comparison</div>
+                          <div style="font-size:11px;color:var(--text3);text-align:center;padding:12px;">Run queries to see timing</div>
                         </div>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <!-- ── SUB-TAB: THROUGHPUT ── -->
+                <!-- Throughput -->
                 <div class="perf-subtab-panel" id="perf-st-throughput">
                   <div class="perf-body-single">
                     <div class="perf-section" id="ps-throughput">
@@ -469,8 +526,6 @@ SHOW CATALOGS;"
                         </div>
                       </div>
                     </div>
-
-                    <!-- Job Resource Comparison (multi-line animated graph) -->
                     <div class="perf-section" id="ps-jobgraph">
                       <button class="perf-section-hdr" onclick="togglePerfSection('ps-jobgraph')">
                         <span class="perf-section-arrow" id="ps-jobgraph-arrow">▾</span>
@@ -479,7 +534,6 @@ SHOW CATALOGS;"
                       </button>
                       <div class="perf-section-body" id="ps-jobgraph-body">
                         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
-                          <span style="font-size:10px;color:var(--text2);">Metric:</span>
                           <select id="job-compare-metric" onchange="redrawJobCompare()" style="font-size:10px;background:var(--bg3);border:1px solid var(--border);color:var(--text1);padding:3px 6px;border-radius:2px;">
                             <option value="recIn">Records In/s</option>
                             <option value="recOut">Records Out/s</option>
@@ -492,15 +546,11 @@ SHOW CATALOGS;"
                           <div id="job-compare-legend" style="display:flex;gap:10px;flex-wrap:wrap;margin-left:auto;"></div>
                         </div>
                         <div style="position:relative;height:180px;background:var(--bg0);border:1px solid var(--border);border-radius:3px;">
-                          <canvas id="job-compare-canvas" style="width:100%;height:180px;display:block;cursor:crosshair;" title="Double-click to expand — hover to inspect jobs" ondblclick="openJobCompareModal()" onmousemove="_jcMouseMove(event,this)" onmouseleave="_jcMouseLeave()"></canvas>
-                          <div id="jc-tooltip" style="
-                            display:none;position:absolute;z-index:200;
-                            background:var(--bg1);border:1px solid var(--border2);
-                            border-radius:4px;padding:7px 10px;pointer-events:none;
-                            font-family:var(--mono);font-size:11px;color:var(--text0);
-                            box-shadow:0 4px 16px rgba(0,0,0,0.45);min-width:140px;
-                            backdrop-filter:blur(4px);
-                          "></div>
+                          <canvas id="job-compare-canvas" style="width:100%;height:180px;display:block;cursor:crosshair;"
+                                  ondblclick="openJobCompareModal()"
+                                  onmousemove="_jcMouseMove(event,this)"
+                                  onmouseleave="_jcMouseLeave()"></canvas>
+                          <div id="jc-tooltip" style="display:none;position:absolute;z-index:200;background:var(--bg1);border:1px solid var(--border2);border-radius:4px;padding:7px 10px;pointer-events:none;font-family:var(--mono);font-size:11px;color:var(--text0);box-shadow:0 4px 16px rgba(0,0,0,0.45);min-width:140px;backdrop-filter:blur(4px);"></div>
                           <div id="job-compare-empty" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--text3);">No running jobs — start a pipeline to see live comparison</div>
                         </div>
                       </div>
@@ -508,7 +558,7 @@ SHOW CATALOGS;"
                   </div>
                 </div>
 
-                <!-- ── SUB-TAB: JOBS ── -->
+                <!-- Jobs -->
                 <div class="perf-subtab-panel" id="perf-st-jobs">
                   <div class="perf-body-single">
                     <div class="perf-section" id="ps-jobs">
@@ -526,7 +576,7 @@ SHOW CATALOGS;"
                   </div>
                 </div>
 
-                <!-- ── SUB-TAB: CHECKPOINTS ── -->
+                <!-- Checkpoints -->
                 <div class="perf-subtab-panel" id="perf-st-checkpoints">
                   <div class="perf-body-single">
                     <div class="perf-section" id="ps-checkpoints">
@@ -558,20 +608,17 @@ SHOW CATALOGS;"
                               <svg id="spark-cp-dur" viewBox="0 0 300 52" preserveAspectRatio="none"></svg>
                             </div>
                             <div class="spark-label-row">
-                              <span id="spark-cp-min">min —</span>
-                              <span id="spark-cp-max">max —</span>
+                              <span id="spark-cp-min">min —</span><span id="spark-cp-max">max —</span>
                             </div>
                           </div>
-                          <div id="cp-empty-msg" style="font-size:11px;color:var(--text3);text-align:center;padding:14px 0;">
-                            No checkpoints recorded yet.
-                          </div>
+                          <div id="cp-empty-msg" style="font-size:11px;color:var(--text3);text-align:center;padding:14px 0;">No checkpoints recorded yet.</div>
                         </div>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <!-- ── SUB-TAB: CLUSTER ── -->
+                <!-- Cluster -->
                 <div class="perf-subtab-panel" id="perf-st-cluster">
                   <div class="perf-body-single">
                     <div class="perf-section" id="ps-cluster">
@@ -595,7 +642,7 @@ SHOW CATALOGS;"
                   </div>
                 </div>
 
-                <!-- ── SUB-TAB: REPORT ── -->
+                <!-- Report -->
                 <div class="perf-subtab-panel" id="perf-st-report">
                   <div class="perf-body-single">
                     <div class="perf-section" id="ps-report">
@@ -605,11 +652,31 @@ SHOW CATALOGS;"
                       </button>
                       <div class="perf-section-body" id="ps-report-body">
                         <div class="perf-card" style="display:flex;flex-direction:column;gap:12px;">
-                          <p style="font-size:11px;color:var(--text2);line-height:1.6;">Generate a professional PDF report of your entire session — queries, job metrics, cluster info, checkpoints, and performance history.</p>
+                          <p style="font-size:11px;color:var(--text2);line-height:1.6;">Generate a PDF report of your session — queries, job metrics, cluster info, checkpoints, and performance history.</p>
+                          <!-- Admin report type selector — shown only in admin sessions by admin.js -->
+                          <div id="admin-report-options" style="display:none;background:rgba(245,166,35,0.06);border:1px solid rgba(245,166,35,0.2);padding:10px 12px;border-radius:var(--radius);margin-bottom:4px;">
+                            <div style="font-size:10px;color:var(--yellow,#f5a623);font-weight:700;letter-spacing:0.5px;margin-bottom:8px;">🛡 ADMIN REPORT TYPE</div>
+                            <div style="display:flex;gap:8px;">
+                              <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text1);cursor:pointer;">
+                                <input type="radio" name="admin-report-type" value="technical" checked> Technical Report
+                              </label>
+                              <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text1);cursor:pointer;">
+                                <input type="radio" name="admin-report-type" value="business"> Business / Management
+                              </label>
+                            </div>
+                            <div style="font-size:10px;color:var(--text3);margin-top:6px;line-height:1.6;">
+                              <strong style="color:var(--text2);">Technical:</strong> vertex metrics, JVM, checkpoints, per-session breakdown.<br>
+                              <strong style="color:var(--text2);">Business:</strong> self-explaining resource utilisation, job health %, throughput summaries.
+                            </div>
+                          </div>
                           <div style="display:flex;align-items:center;gap:8px;">
                             <span style="font-size:11px;color:var(--text2);white-space:nowrap;">Report name:</span>
-                            <input id="report-name-input" placeholder="flinksql-session-report" style="flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text0);padding:5px 8px;border-radius:2px;font-size:11px;font-family:var(--mono);" />
-                            <button onclick="generateSessionReport()" style="background:rgba(0,212,170,0.12);border:1px solid rgba(0,212,170,0.35);color:var(--accent);font-size:11px;padding:5px 12px;border-radius:2px;cursor:pointer;white-space:nowrap;font-family:var(--mono);">Generate PDF</button>
+                            <input id="report-name-input" placeholder="flinksql-session-report"
+                                   style="flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text0);padding:5px 8px;border-radius:2px;font-size:11px;font-family:var(--mono);" />
+                            <button onclick="generateSessionReport()"
+                                    style="background:rgba(0,212,170,0.12);border:1px solid rgba(0,212,170,0.35);color:var(--accent);font-size:11px;padding:5px 12px;border-radius:2px;cursor:pointer;white-space:nowrap;font-family:var(--mono);">
+                              Generate PDF
+                            </button>
                           </div>
                           <div id="report-status" style="font-size:10px;color:var(--text3);"></div>
                         </div>
@@ -618,8 +685,9 @@ SHOW CATALOGS;"
                   </div>
                 </div>
 
-              </div>
-            </div>
+              </div><!-- /perf-subtab-content -->
+            </div><!-- /perf-panel -->
+
             <!-- Job Graph tab -->
             <div id="job-graph-panel">
               <div class="jg-toolbar">
@@ -627,20 +695,25 @@ SHOW CATALOGS;"
                 <select class="jg-job-select" id="jg-job-select" onchange="onJgJobChange(this.value)">
                   <option value="">— Select a job —</option>
                 </select>
-                <!-- View mode tabs -->
                 <div class="jg-view-tabs" style="display:flex;gap:2px;margin-left:6px;">
-                  <button class="jg-view-tab active" id="jg-tab-dag" onclick="switchJgView('dag')">◈ DAG</button>
-                  <button class="jg-view-tab" id="jg-tab-timeline" onclick="switchJgView('timeline')">▤ Timeline</button>
+                  <button class="jg-view-tab active" id="jg-tab-dag"      onclick="switchJgView('dag')">◈ DAG</button>
+                  <button class="jg-view-tab"        id="jg-tab-timeline" onclick="switchJgView('timeline')">▤ Timeline</button>
                 </div>
                 <button class="jg-refresh-btn" onclick="refreshJobGraphList()" style="margin-left:6px;">⟳ Refresh Jobs</button>
                 <button class="jg-refresh-btn" onclick="reloadCurrentJgView()" style="margin-left:2px;">↺ Reload</button>
-                <button class="jg-refresh-btn danger" id="jg-cancel-btn" onclick="cancelSelectedJob()" style="margin-left:2px;display:none;background:rgba(255,80,80,0.12);color:#ff5050;border-color:rgba(255,80,80,0.3);">Cancel Job</button>
+                <button class="jg-refresh-btn danger" id="jg-cancel-btn" onclick="cancelSelectedJob()"
+                        style="margin-left:2px;display:none;background:rgba(255,80,80,0.12);color:#ff5050;border-color:rgba(255,80,80,0.3);">
+                  Cancel Job
+                </button>
                 <span id="jg-job-status-badge" style="font-size:10px;padding:2px 8px;border-radius:2px;margin-left:4px;display:none;"></span>
-                <button class="jg-refresh-btn" onclick="generateJobGraphReport()" style="margin-left:auto;background:rgba(0,212,170,0.1);color:var(--accent);border-color:rgba(0,212,170,0.3);" title="Generate PDF report for selected job (or all jobs if none selected)">Report</button>
+                <button class="jg-refresh-btn" onclick="generateJobGraphReport()"
+                        style="margin-left:auto;background:rgba(0,212,170,0.1);color:var(--accent);border-color:rgba(0,212,170,0.3);">
+                  Report
+                </button>
                 <span style="font-size:10px;color:var(--text3);margin-left:8px;" id="jg-hint">Double-click a node to inspect</span>
               </div>
               <!-- DAG view -->
-              <div class="jg-canvas-wrap" id="jg-canvas-wrap" style="display:flex;flex-direction:column;">
+              <div class="jg-canvas-wrap" id="jg-canvas-wrap">
                 <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;color:var(--text3);">
                   <div style="font-size:28px;opacity:0.3;">◈</div>
                   <div style="font-size:12px;">Select a job above to visualize its execution graph</div>
@@ -653,7 +726,7 @@ SHOW CATALOGS;"
                   <div style="display:flex;align-items:center;justify-content:center;height:200px;color:var(--text3);font-size:12px;">Select a job to view vertex timeline</div>
                 </div>
               </div>
-              <!-- Vertex status detail (appears below timeline on click) -->
+              <!-- Vertex detail panel -->
               <div id="jg-vertex-detail-wrap" style="display:none;border-top:1px solid var(--border);padding:12px 16px;background:var(--bg2);">
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
                   <span style="font-size:11px;font-weight:600;color:var(--text1);letter-spacing:1px;text-transform:uppercase;" id="jg-vd-title">Vertex Status Timeline</span>
@@ -664,16 +737,17 @@ SHOW CATALOGS;"
               <div class="jg-detail" id="jg-detail">
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
                   <div class="jg-detail-title" id="jg-detail-title" style="margin-bottom:0;">Vertex Details</div>
-                  <button onclick="document.getElementById('jg-detail').classList.remove('open')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;line-height:1;padding:0 2px;" title="Close">&times;</button>
+                  <button onclick="document.getElementById('jg-detail').classList.remove('open')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;line-height:1;padding:0 2px;">&times;</button>
                 </div>
                 <div class="jg-detail-grid" id="jg-detail-grid"></div>
               </div>
-            </div>
-          </div>
-        </div>
+            </div><!-- /job-graph-panel -->
+
+          </div><!-- /results-content -->
+        </div><!-- /results-panel -->
       </div>
-    </div>
-  </div>
+    </div><!-- /editor-area -->
+  </div><!-- /main-layout -->
 
   <!-- STATUS BAR -->
   <div id="statusbar">
@@ -682,16 +756,16 @@ SHOW CATALOGS;"
       <span id="conn-status-text">Connected</span>
     </div>
     <div class="status-sep"></div>
-    <div class="status-item">
-      <span>🖧 <span id="sb-host">—</span></span>
-    </div>
+    <div class="status-item"><span>🖧 <span id="sb-host">—</span></span></div>
     <div class="status-sep"></div>
     <div class="status-item" id="sb-session-info">
       Session: <span id="sb-session" style="color:var(--accent)">—</span>
     </div>
     <div class="status-sep"></div>
-    <div class="status-item" id="sb-catalog-info" title="Current catalog.database — run USE CATALOG / USE to change">
-      <span style="color:var(--text3)">catalog:</span> <span id="sb-catalog" style="color:var(--accent3)">default_catalog</span><span style="color:var(--text3)">.</span><span id="sb-database" style="color:var(--accent3)">default</span>
+    <div class="status-item" id="sb-catalog-info" title="Current catalog.database">
+      <span style="color:var(--text3)">catalog:</span>
+      <span id="sb-catalog"  style="color:var(--accent3)">default_catalog</span><span style="color:var(--text3)">.</span>
+      <span id="sb-database" style="color:var(--accent3)">default</span>
     </div>
     <div class="status-sep"></div>
     <div class="status-item" id="sb-job-info" style="display:none;">
@@ -702,19 +776,17 @@ SHOW CATALOGS;"
       <span id="status-exec-text">Executing…</span>
     </div>
   </div>
-</div>
+</div><!-- /app -->
 
-<!-- ═══════════════════════════════════════════════════ -->
-<!--  MODALS                                             -->
-<!-- ═══════════════════════════════════════════════════ -->
 
-<!-- New Session Modal -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!--  MODALS                                                         -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+
+<!-- New Session -->
 <div class="modal-overlay" id="modal-new-session">
   <div class="modal">
-    <div class="modal-header">
-      New Session
-      <button class="modal-close" onclick="closeModal('modal-new-session')">×</button>
-    </div>
+    <div class="modal-header">New Session<button class="modal-close" onclick="closeModal('modal-new-session')">×</button></div>
     <div class="modal-body">
       <div class="modal-field">
         <label class="field-label">Session Name (optional)</label>
@@ -723,29 +795,26 @@ SHOW CATALOGS;"
       <div class="modal-field">
         <label class="field-label">Properties (one per line: key=value)</label>
         <textarea class="field-input" id="modal-session-props" rows="5"
-          placeholder="execution.runtime-mode=streaming&#10;parallelism.default=4&#10;table.exec.state.ttl=3600000"
-          style="resize:vertical;line-height:1.6;"></textarea>
+                  placeholder="execution.runtime-mode=streaming&#10;parallelism.default=4&#10;table.exec.state.ttl=3600000"
+                  style="resize:vertical;line-height:1.6;"></textarea>
       </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('modal-new-session')">Cancel</button>
-      <button class="btn btn-primary" onclick="createSession()">Create Session</button>
+      <button class="btn btn-primary"   onclick="createSession()">Create Session</button>
     </div>
   </div>
 </div>
 
-<!-- Snippets Modal -->
+<!-- Snippets -->
 <div class="modal-overlay" id="modal-snippets">
   <div class="modal" style="width:500px;">
-    <div class="modal-header">
-      SQL Snippets
-      <button class="modal-close" onclick="closeModal('modal-snippets')">×</button>
-    </div>
+    <div class="modal-header">SQL Snippets<button class="modal-close" onclick="closeModal('modal-snippets')">×</button></div>
     <div class="modal-body" style="padding:0;max-height:400px;overflow-y:auto;" id="snippets-list"></div>
   </div>
 </div>
 
-<!-- Error Detail Modal -->
+<!-- Error Detail -->
 <div class="modal-overlay" id="modal-error">
   <div class="modal" style="width:740px;max-height:86vh;display:flex;flex-direction:column;">
     <div class="modal-header" style="color:var(--red);display:flex;align-items:center;gap:10px;">
@@ -754,39 +823,29 @@ SHOW CATALOGS;"
       <button class="modal-close" onclick="closeModal('modal-error')" style="margin-left:auto;">×</button>
     </div>
     <div class="modal-body" style="flex:1;overflow:hidden;display:flex;flex-direction:column;gap:12px;">
-
-      <!-- Friendly summary -->
       <div id="error-summary" style="background:rgba(255,77,109,0.08);border:1px solid rgba(255,77,109,0.3);border-radius:var(--radius);padding:12px 14px;font-size:12px;color:var(--red);line-height:1.8;font-family:var(--mono);white-space:pre-wrap;"></div>
-
-      <!-- Stack trace label + copy inline -->
       <div style="display:flex;align-items:center;gap:8px;">
         <span style="font-size:10px;color:var(--text2);letter-spacing:1px;text-transform:uppercase;">Full Stack Trace</span>
         <button class="btn btn-secondary" style="font-size:10px;padding:2px 8px;margin-left:auto;" onclick="copyErrorToClipboard()">&#128203; Copy</button>
       </div>
-
-      <!-- Syntax-highlighted stack trace -->
-      <pre id="error-stacktrace" style="flex:1;overflow-y:auto;background:var(--bg0);border:1px solid var(--border);border-radius:var(--radius);padding:14px;font-size:11px;color:var(--text1);line-height:1.7;white-space:pre-wrap;word-break:break-word;max-height:380px;tab-size:2;"></pre>
-
+      <pre id="error-stacktrace" style="flex:1;overflow-y:auto;background:var(--bg0);border:1px solid var(--border);border-radius:var(--radius);padding:14px;font-size:11px;color:var(--text1);line-height:1.7;white-space:pre-wrap;word-break:break-word;max-height:380px;"></pre>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-secondary" style="font-size:11px;" onclick="copyErrorToClipboard()">&#128203; Copy Stack Trace</button>
-      <button class="btn btn-primary" style="font-size:11px;" onclick="closeModal('modal-error')">Close</button>
+      <button class="btn btn-secondary" onclick="copyErrorToClipboard()">&#128203; Copy Stack Trace</button>
+      <button class="btn btn-primary"   onclick="closeModal('modal-error')">Close</button>
     </div>
   </div>
 </div>
 
-<!-- Session Workspace Modal -->
+<!-- Workspace -->
 <div class="modal-overlay" id="modal-workspace">
   <div class="modal" style="width:560px;">
-    <div class="modal-header">
-      Workspace Manager
-      <button class="modal-close" onclick="closeModal('modal-workspace')">×</button>
-    </div>
+    <div class="modal-header">Workspace Manager<button class="modal-close" onclick="closeModal('modal-workspace')">×</button></div>
     <div class="modal-body" style="display:flex;flex-direction:column;gap:14px;">
-      <p style="font-size:12px;color:var(--text1);line-height:1.7;">Export saves: <strong style="color:var(--accent)">editor tabs · SQL scripts · query history · session logs · performance timings · theme preference</strong>.<br><span style="color:var(--text2)">Flink cluster sessions are ephemeral and cannot be exported — re-run CREATE TABLE statements after reconnecting.</span></p>
+      <p style="font-size:12px;color:var(--text1);line-height:1.7;">Export saves: <strong style="color:var(--accent)">editor tabs · SQL scripts · query history · session logs · performance timings · theme preference</strong>.</p>
       <div style="display:flex;flex-direction:column;gap:6px;">
         <label style="font-size:11px;color:var(--text2);">Export filename (optional)</label>
-        <input id="export-filename-input" class="sql-input" style="font-size:12px;padding:6px 10px;" placeholder="my-project  (leave blank for auto timestamp)" />
+        <input id="export-filename-input" style="font-size:12px;padding:6px 10px;background:var(--bg1);border:1px solid var(--border);color:var(--text0);border-radius:var(--radius);font-family:var(--mono);" placeholder="my-project" />
       </div>
       <div style="display:flex;gap:8px;">
         <button class="btn btn-secondary" style="flex:1;font-size:11px;" onclick="exportWorkspace()">&#8659; Export Workspace</button>
@@ -794,52 +853,41 @@ SHOW CATALOGS;"
         <input type="file" id="import-ws-file" accept=".json" style="display:none" onchange="importWorkspace(event)">
       </div>
       <div style="background:rgba(0,212,170,0.06);border:1px solid rgba(0,212,170,0.2);padding:10px 12px;border-radius:var(--radius);font-size:11px;color:var(--text1);line-height:1.7;">
-        <strong style="color:var(--accent);">Tip:</strong> Sessions = Flink SQL Gateway sessions (runtime context). Tabs = your editor scripts. Export regularly to save your scripts before container restarts.
+        <strong style="color:var(--accent);">Tip:</strong> Export regularly to preserve your scripts before container restarts.
       </div>
     </div>
   </div>
 </div>
 
-<!-- About Modal -->
+<!-- About -->
 <div class="modal-overlay" id="modal-about">
   <div class="modal" style="width:520px;">
-    <div class="modal-header">
-      About FlinkSQL Studio
-      <button class="modal-close" onclick="closeModal('modal-about')">×</button>
-    </div>
+    <div class="modal-header">About FlinkSQL Studio<button class="modal-close" onclick="closeModal('modal-about')">×</button></div>
     <div class="modal-body" style="display:flex;flex-direction:column;gap:16px;">
       <div style="display:flex;align-items:center;gap:16px;">
-        <div style="width:56px;height:56px;background:var(--logo-bg,#0c1018);border:1px solid var(--logo-border,rgba(0,212,170,0.4));display:flex;align-items:center;justify-content:center;clip-path:polygon(0 0, 80% 0, 100% 20%, 100% 100%, 20% 100%, 0 80%);flex-shrink:0;">
+        <div style="width:56px;height:56px;background:var(--logo-bg,#0c1018);border:1px solid rgba(0,212,170,0.4);display:flex;align-items:center;justify-content:center;clip-path:polygon(0 0,80% 0,100% 20%,100% 100%,20% 100%,0 80%);flex-shrink:0;">
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
         </div>
         <div>
-          <div style="font-size:18px;font-weight:700;color:var(--text0);letter-spacing:-0.3px;">FlinkSQL Studio</div>
+          <div style="font-size:18px;font-weight:700;color:var(--text0);">FlinkSQL Studio</div>
           <div style="font-size:11px;color:var(--text2);margin-top:3px;">Browser-based SQL IDE for Apache Flink</div>
-          <div style="font-size:10px;color:var(--text3);margin-top:2px;font-family:var(--mono);">v1.0.0 · Apache 2.0 License</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px;font-family:var(--mono);">v1.0.19 · MIT License</div>
         </div>
       </div>
-      <p style="font-size:13px;color:var(--text1);line-height:1.7;">
-        FlinkSQL Studio was built to make Apache Flink SQL more accessible — a proper IDE experience without the overhead of a full platform deployment. Write, test, and debug Flink SQL statements from any browser, against any cluster.
-      </p>
-      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;display:flex;flex-direction:column;gap:8px;">
-        <div style="font-size:10px;color:var(--text3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px;">Created by</div>
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;">
+        <div style="font-size:10px;color:var(--text3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px;">Created by</div>
         <div style="font-size:14px;font-weight:600;color:var(--text0);">Nestor A. A</div>
-        <div style="font-size:12px;color:var(--text2);">Open source project — <strong style="color:var(--accent)">codedstreams</strong></div>
-        <a href="/cdn-cgi/l/email-protection#157b7066617a6774777c7462607d557278747c793b767a78" style="font-size:12px;color:var(--accent2);text-decoration:none;display:flex;align-items:center;gap:6px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 7l10 7 10-7"/></svg><span class="__cf_email__" data-cfemail="e28c8791968d9083808b8395978aa2858f838b8ecc818d8f">[email&#160;protected]</span></a>
-        <a href="https://github.com/coded-streams/flinksql-studio" target="_blank" style="font-size:12px;color:var(--accent2);text-decoration:none;display:flex;align-items:center;gap:6px;">
+        <div style="font-size:12px;color:var(--text2);margin-top:4px;">Open source — <strong style="color:var(--accent)">codedstreams</strong></div>
+        <a href="https://github.com/coded-streams/flinksql-studio" target="_blank"
+           style="font-size:12px;color:var(--accent2);text-decoration:none;display:flex;align-items:center;gap:6px;margin-top:8px;">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
           github.com/coded-streams/flinksql-studio
         </a>
       </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <span style="background:rgba(0,212,170,0.1);border:1px solid rgba(0,212,170,0.3);color:var(--accent);font-size:10px;padding:3px 8px;border-radius:2px;font-family:var(--mono);">Apache Flink 1.18+</span>
-        <span style="background:rgba(0,151,255,0.1);border:1px solid rgba(0,151,255,0.3);color:var(--blue);font-size:10px;padding:3px 8px;border-radius:2px;font-family:var(--mono);">Single-file HTML</span>
-        <span style="background:rgba(57,211,83,0.1);border:1px solid rgba(57,211,83,0.3);color:var(--green);font-size:10px;padding:3px 8px;border-radius:2px;font-family:var(--mono);">Zero dependencies</span>
-        <span style="background:rgba(245,166,35,0.1);border:1px solid rgba(245,166,35,0.3);color:var(--yellow);font-size:10px;padding:3px 8px;border-radius:2px;font-family:var(--mono);">Docker · K8s</span>
-      </div>
+      <button class="btn btn-secondary" style="font-size:11px;align-self:flex-start;" onclick="closeModal('modal-about');showTipsModal()">💡 Tips &amp; Flink Concepts</button>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-primary" style="font-size:11px;" onclick="closeModal('modal-about')">Close</button>
+      <button class="btn btn-primary" onclick="closeModal('modal-about')">Close</button>
     </div>
   </div>
 </div>
@@ -847,120 +895,129 @@ SHOW CATALOGS;"
 <!-- Toast -->
 <div id="toast"></div>
 
-<!-- ═══════════════════════════════════════════════════ -->
-<!--  JAVASCRIPT                                         -->
-<!-- ═══════════════════════════════════════════════════ -->
-  <!-- ── JavaScript modules — load order matters ── -->
-  <!-- 1. Global state, constants, snippets, API helper -->
-  <script src="js/state.js"></script>
-  <!-- 2. Connection screen: auth, gateway, session launch, heartbeat -->
-  <script src="js/connection.js"></script>
-  <!-- 3. Tab management: add, rename, switch, close -->
-  <script src="js/tabs.js"></script>
-  <!-- 4. SQL editor: input handling, line numbers, format, comment -->
-  <script src="js/editor.js"></script>
-  <!-- 5. SQL execution engine: runSQL, pollOperation (streaming fix), cancel -->
-  <script src="js/execution.js"></script>
-  <!-- 6. Results rendering: table, pagination, CSV export -->
-  <script src="js/results.js"></script>
-  <!-- 7. Log, operations, history, error parsing -->
-  <script src="js/log.js"></script>
-  <!-- 8. Catalog browser: refresh, tree, table insert -->
-  <script src="js/catalog.js"></script>
-  <!-- 9. Session management: create, switch, delete, snippets -->
-  <script src="js/session.js"></script>
-  <!-- 10. Performance monitor: KPIs, sparklines, timing bars, checkpoints -->
-  <script src="js/perf.js"></script>
-  <!-- 11. Theme toggle: dark/light, apply, persist -->
-  <script src="js/theme.js"></script>
-  <!-- 12. Workspace persistence: localStorage save/restore, export/import -->
-  <script src="js/workspace.js"></script>
-  <!-- 13. Error modal, job list refresh, cancel job -->
-  <script src="js/modals.js"></script>
-  <!-- 14. Job Graph: load, render DAG, zoom/pan, node detail -->
-  <script src="js/jobgraph.js"></script>
-  <!-- 15. Misc: perf filter, ensureDefaultCatalog, togglePerfLive, init -->
-  <script src="js/misc.js"></script>
-
-
-  <!-- ── Node Detail Modal ─────────────────────────────────────────────── -->
-  <div id="nd-modal-backdrop" onclick="if(event.target===this)closeNodeModal()">
-    <div id="nd-modal">
-
-      <!-- Header -->
-      <div id="nd-modal-header">
-        <div id="nd-modal-icon">⚙</div>
-        <div id="nd-modal-titles">
-          <div id="nd-modal-name">Operator</div>
-          <div id="nd-modal-meta">
-            <span id="nd-modal-status-badge">—</span>
-            <span id="nd-modal-id-label"></span>
-            <span id="nd-modal-parallelism-label"></span>
-          </div>
+<!-- Node Detail Modal -->
+<div id="nd-modal-backdrop" onclick="if(event.target===this)closeNodeModal()">
+  <div id="nd-modal">
+    <div id="nd-modal-header">
+      <div id="nd-modal-icon">⚙</div>
+      <div id="nd-modal-titles">
+        <div id="nd-modal-name">Operator</div>
+        <div id="nd-modal-meta">
+          <span id="nd-modal-status-badge">—</span>
+          <span id="nd-modal-id-label"></span>
+          <span id="nd-modal-parallelism-label"></span>
         </div>
-        <button id="nd-modal-close" onclick="closeNodeModal()" title="Close (Esc)">×</button>
       </div>
-
-      <!-- Tab bar -->
-      <div id="nd-modal-tabs">
-        <button class="nd-tab-btn active" onclick="switchNodeTab(this,'nd-pane-metrics')">
-          Metrics
-        </button>
-        <button class="nd-tab-btn" onclick="switchNodeTab(this,'nd-pane-all')">
-          All Metrics
-        </button>
-        <button class="nd-tab-btn" id="nd-tab-events" onclick="switchNodeTab(this,'nd-pane-events')" style="display:none;">
-          Live Events <span class="nd-tab-badge" id="nd-events-badge">0</span>
-        </button>
+      <button id="nd-modal-close" onclick="closeNodeModal()" title="Close (Esc)">×</button>
+    </div>
+    <div id="nd-modal-tabs">
+      <button class="nd-tab-btn active" onclick="switchNodeTab(this,'nd-pane-metrics')">Metrics</button>
+      <button class="nd-tab-btn"        onclick="switchNodeTab(this,'nd-pane-all')">All Metrics</button>
+      <button class="nd-tab-btn" id="nd-tab-events" onclick="switchNodeTab(this,'nd-pane-events')" style="display:none;">
+        Live Events <span class="nd-tab-badge" id="nd-events-badge">0</span>
+      </button>
+    </div>
+    <div id="nd-modal-body">
+      <div class="nd-pane active" id="nd-pane-metrics">
+        <div class="nd-metrics-grid" id="nd-metrics-grid"></div>
+        <div class="nd-section-title">Subtask Overview</div>
+        <div id="nd-subtask-table-wrap"></div>
       </div>
-
-      <!-- Body -->
-      <div id="nd-modal-body">
-
-        <!-- Tab 1: Key metrics cards -->
-        <div class="nd-pane active" id="nd-pane-metrics">
-          <div class="nd-metrics-grid" id="nd-metrics-grid"></div>
-          <div class="nd-section-title">Subtask Overview</div>
-          <div id="nd-subtask-table-wrap"></div>
+      <div class="nd-pane" id="nd-pane-all">
+        <div class="nd-section-title">All Available Metrics</div>
+        <table class="nd-kv-table" id="nd-all-metrics-table"></table>
+      </div>
+      <div class="nd-pane" id="nd-pane-events">
+        <div style="padding:12px 20px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <button class="nd-events-btn active" id="nd-btn-start-stream" onclick="toggleEventStream()">
+            <span class="nd-live-dot"></span>Streaming
+          </button>
+          <button class="nd-events-btn" onclick="clearEventStream()">Clear</button>
+          <span id="nd-events-count" style="margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--text3);">0 events</span>
         </div>
-
-        <!-- Tab 2: All raw metrics as key-value -->
-        <div class="nd-pane" id="nd-pane-all">
-          <div class="nd-section-title">All Available Metrics</div>
-          <table class="nd-kv-table" id="nd-all-metrics-table"></table>
-        </div>
-
-        <!-- Tab 3: Live events stream (sink/source nodes only) -->
-        <div class="nd-pane" id="nd-pane-events">
-          <div style="padding:12px 20px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-            <button class="nd-events-btn active" id="nd-btn-start-stream" onclick="toggleEventStream()">
-              <span class="nd-live-dot"></span>Streaming
-            </button>
-            <button class="nd-events-btn" onclick="clearEventStream()">Clear</button>
-            <span id="nd-events-count" style="margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--text3);">0 events</span>
-          </div>
-          <!-- Mini throughput chart -->
-          <div style="padding:10px 20px 0;display:flex;gap:10px;align-items:flex-end;">
-            <div style="flex:1;background:var(--bg0);border:1px solid var(--border);border-radius:5px;padding:6px 8px;">
-              <div style="font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:4px;" id="nd-chart-legend">
-                <span style="color:var(--blue);" id="nd-legend-in">— In</span>&nbsp;&nbsp;<span style="color:var(--accent);" id="nd-legend-out">— Out</span>&nbsp;&nbsp;Records/s
-              </div>
-              <canvas id="nd-throughput-canvas" width="600" height="52" style="width:100%;height:52px;display:block;"></canvas>
+        <div style="padding:10px 20px 0;">
+          <div style="flex:1;background:var(--bg0);border:1px solid var(--border);border-radius:5px;padding:6px 8px;">
+            <div style="font-family:var(--mono);font-size:9px;color:var(--text3);margin-bottom:4px;" id="nd-chart-legend">
+              <span style="color:var(--blue);" id="nd-legend-in">— In</span>&nbsp;&nbsp;
+              <span style="color:var(--accent);" id="nd-legend-out">— Out</span>&nbsp;&nbsp;Records/s
             </div>
-          </div>
-          <div id="nd-events-stream" style="margin-top:8px;">
-            <div class="nd-event-empty">
-              <span style="font-size:22px;opacity:0.3;">⚡</span>
-              <span>Operator throughput will stream here when the operator is running.</span>
-              <span style="font-size:10px;color:var(--text3);">Polls JobManager metrics API every 800ms.</span>
-            </div>
+            <canvas id="nd-throughput-canvas" width="600" height="52" style="width:100%;height:52px;display:block;"></canvas>
           </div>
         </div>
-
+        <div id="nd-events-stream" style="margin-top:8px;">
+          <div class="nd-event-empty">
+            <span style="font-size:22px;opacity:0.3;">⚡</span>
+            <span>Operator throughput will stream here when running.</span>
+            <span style="font-size:10px;color:var(--text3);">Polls JobManager metrics API every 800ms.</span>
+          </div>
+        </div>
       </div>
     </div>
   </div>
+</div>
 
-  <script src="js/timeline.js"></script>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!--  JAVASCRIPT — load order matters                                -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+
+<!--  1. Global state, constants, snippets, API helpers -->
+<script src="js/state.js"></script>
+
+<!--  2. Connection screen: auth, gateway, session launch,
+         tips modal (random shuffle deck, no counter),
+         admin session, existing session loader,
+         heartbeat, session renewal                         -->
+<script src="js/connection.js"></script>
+
+<!--  3. Tab management: add, rename, switch, close -->
+<script src="js/tabs.js"></script>
+
+<!--  4. SQL editor: input, line numbers, format, comment, keyboard shortcuts -->
+<script src="js/editor.js"></script>
+
+<!--  5. SQL execution engine: runSQL, pollOperation, cancel,
+         duplicate guard, job tagging, session-scoped tracking -->
+<script src="js/execution.js"></script>
+
+<!--  6. Results rendering: table, pagination, CSV export, stream selector -->
+<script src="js/results.js"></script>
+
+<!--  7. Log panel, operations list, history, error parsing -->
+<script src="js/log.js"></script>
+
+<!--  8. Catalog browser: refresh, tree, table insert -->
+<script src="js/catalog.js"></script>
+
+<!--  9. Session management: create, switch, delete, snippets,
+         job scoping, job registration, cancel confirmation modal,
+         session inspector (overview/queries/jobs/audit), audit trail,
+         query count tracking, admin sessions activity view             -->
+<script src="js/session.js"></script>
+
+<!-- 10. Performance monitor: KPIs, sparklines, checkpoints, cluster resources -->
+<script src="js/perf.js"></script>
+
+<!-- 11. Theme: toggle dark/light/monokai/dracula/nord/contrast, persist -->
+<script src="js/theme.js"></script>
+
+<!-- 12. Workspace: localStorage save/restore, export/import JSON -->
+<script src="js/workspace.js"></script>
+
+<!-- 13. Error modal, job graph job list, cancel job confirmation -->
+<script src="js/modals.js"></script>
+
+<!-- 14. Job Graph: DAG render, zoom/pan, node detail, vertex metrics stream -->
+<script src="js/jobgraph.js"></script>
+
+<!-- 15. Misc: perf filter, ensureDefaultCatalog, togglePerfLive, init -->
+<script src="js/misc.js"></script>
+
+<!-- 16. Vertex timeline chart -->
+<script src="js/timeline.js"></script>
+
+<!-- 17. Admin session UI: topbar badge, admin sessions btn, report options -->
+<script src="js/admin.js"></script>
+
 </body>
 </html>
