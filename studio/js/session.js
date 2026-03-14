@@ -136,28 +136,47 @@ function renderSessionsList() {
 async function _loadGatewaySessionsForAdmin() {
   try {
     const resp = await api('GET', '/v1/sessions');
-    const gwList = resp.sessions || resp || [];
-    if (!Array.isArray(gwList)) return;
+    // Flink Gateway returns sessions in various formats depending on version:
+    // { sessions: [ {sessionHandle, sessionName} ] }  OR  [ "handle1", "handle2" ]
+    // OR { data: [...] }  OR just an array directly
+    let gwList = [];
+    if (resp && Array.isArray(resp.sessions)) {
+      gwList = resp.sessions;
+    } else if (resp && Array.isArray(resp.data)) {
+      gwList = resp.data;
+    } else if (Array.isArray(resp)) {
+      gwList = resp;
+    } else if (resp && typeof resp === 'object') {
+      // Try to find any array property
+      const arrProp = Object.values(resp).find(v => Array.isArray(v));
+      if (arrProp) gwList = arrProp;
+    }
+
     gwList.forEach(gws => {
-      const handle = gws.sessionHandle || gws.handle || (typeof gws === 'string' ? gws : null);
-      if (!handle) return;
-      const name = gws.sessionName || gws.name || '';
+      // Handle both object {sessionHandle:'...'} and bare string "handle-uuid"
+      const handle = (typeof gws === 'string') ? gws
+          : (gws.sessionHandle || gws.handle || gws.session_handle || null);
+      if (!handle || typeof handle !== 'string') return;
+      const name = (typeof gws === 'string') ? '' : (gws.sessionName || gws.name || '');
       if (!state.sessions.find(s => s.handle === handle)) {
         state.sessions.push({
           handle,
-          name:         name || shortHandle(handle),
+          name:         name || ('remote-' + handle.slice(0, 8)),
           created:      new Date(),
           isAdmin:      false,
           jobIds:       [],
           queryCount:   0,
           _auditTrail:  [],
-          _fromGateway: true,   // discovered from gateway, not created in this browser
+          _fromGateway: true,
         });
       }
     });
+
+    if (gwList.length === 0) {
+      addLog('INFO', 'Gateway returned 0 sessions from GET /v1/sessions — other users may not be connected yet.');
+    }
   } catch(e) {
-    // /v1/sessions listing may not be supported on all gateway versions — silent fail
-    addLog('INFO', 'Note: gateway did not return a session list (GET /v1/sessions not supported). Only locally registered sessions are shown.');
+    addLog('WARN', 'GET /v1/sessions not supported by this gateway version — showing locally registered sessions only. Error: ' + e.message);
   }
 }
 
@@ -602,6 +621,15 @@ function showCancelJobConfirm(jid, jobName) {
 }
 
 async function _doCancelJob(jid) {
+  // ── Record audit BEFORE cancelling so it's captured even if cancel fails ──
+  // Find which session owns this job
+  const ownerHandle = state._jobSessionMap ? (state._jobSessionMap[jid] || state.activeSession) : state.activeSession;
+  const liveJobs = (typeof perf !== 'undefined' && perf.lastJobs) ? perf.lastJobs : [];
+  const job = liveJobs.find(j => j.jid === jid);
+  const jobLabel = job ? ((job.name || jid).slice(0, 50)) : jid.slice(0, 8);
+  if (state.isAdminSession) {
+    recordAudit(ownerHandle, 'Cancel Job', jobLabel);
+  }
   try {
     await jmApi(`/jobs/${jid}/yarn-cancel`);
     addLog('WARN', `Job ${jid.slice(0,8)}… cancel requested`);

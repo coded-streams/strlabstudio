@@ -706,9 +706,9 @@ GROUP BY window_start, window_end;</pre>`
 <pre style="margin-top:10px;background:var(--bg0);border:1px solid var(--border);padding:10px 12px;border-radius:4px;font-size:11px;color:var(--text1);">-- Enable checkpointing every 10 seconds:
 SET 'execution.checkpointing.interval' = '10000';
 SET 'execution.checkpointing.mode'     = 'EXACTLY_ONCE';
--- Set state backend to filesystem (S3/MinIO):
+-- Set state backend to any S3-compatible object storage:
 SET 'state.backend'         = 'filesystem';
-SET 'state.checkpoints.dir' = 's3://my-bucket/checkpoints';</pre>`
+SET 'state.checkpoints.dir' = 's3://your-bucket/checkpoints';</pre>`
   },
   {
     icon: '🔄', category: 'Flink Concepts',
@@ -743,17 +743,24 @@ SELECT * FROM (
 ) WITH (
   'connector'                    = 'kafka',
   'topic'                        = 'user-events',
-  'properties.bootstrap.servers' = 'kafka-01:29092',
+  'properties.bootstrap.servers' = 'your-broker-host:9092',
   'properties.group.id'          = 'flink-consumer-01',
   'scan.startup.mode'            = 'latest-offset',
   'format'                       = 'json',
   'json.timestamp-format.standard' = 'ISO-8601'
-);</pre>`
+);
+
+-- For production clusters requiring SASL/SSL authentication:
+-- 'properties.security.protocol'  = 'SASL_SSL',
+-- 'properties.sasl.mechanism'     = 'PLAIN',
+-- 'properties.sasl.jaas.config'   = 'org.apache.kafka.common.security.plain.PlainLoginModule required username="YOUR_API_KEY" password="YOUR_API_SECRET";',
+-- 'properties.ssl.endpoint.identification.algorithm' = 'https'</pre>
+Replace <code>your-broker-host:9092</code> with your actual Kafka bootstrap server address.`
   },
   {
     icon: '📋', category: 'Connectors',
-    title: 'Connecting to Confluent Schema Registry',
-    body: `Use Avro with Confluent Schema Registry for schema evolution and type safety across Kafka topics.
+    title: 'Connecting to a Schema Registry (Avro format)',
+    body: `Use Avro format with a Schema Registry for schema evolution and type safety across Kafka topics.
 <pre style="margin-top:10px;background:var(--bg0);border:1px solid var(--border);padding:10px 12px;border-radius:4px;font-size:11px;color:var(--text1);">CREATE TABLE payments_avro (
   payment_id STRING,
   amount     DOUBLE,
@@ -762,22 +769,25 @@ SELECT * FROM (
   WATERMARK FOR ts AS ts - INTERVAL '3' SECOND
 ) WITH (
   'connector'                    = 'kafka',
-  'topic'                        = 'payments',
-  'properties.bootstrap.servers' = 'kafka-01:29092',
-  'properties.group.id'          = 'flink-payments-01',
+  'topic'                        = 'your-avro-topic',
+  'properties.bootstrap.servers' = 'your-broker-host:9092',
+  'properties.group.id'          = 'flink-avro-consumer-01',
   'format'                       = 'avro-confluent',
-  'avro-confluent.url'           = 'http://schemaregistry0-01:8081',
+  'avro-confluent.url'           = 'https://your-schema-registry-host',
+  -- For secured registries (Confluent Cloud, Apicurio with auth, AWS Glue):
+  -- 'avro-confluent.basic-auth.credentials-source' = 'USER_INFO',
+  -- 'avro-confluent.basic-auth.user-info'           = 'YOUR_API_KEY:YOUR_API_SECRET',
   'scan.startup.mode'            = 'earliest-offset'
 );</pre>
 Requires: <code>flink-sql-avro-confluent-registry-&lt;ver&gt;.jar</code> and <code>flink-sql-avro-&lt;ver&gt;.jar</code> in <code>/opt/flink/lib/</code>.`
   },
   {
     icon: '🪣', category: 'Connectors',
-    title: 'Checkpointing and sinking to S3 / MinIO',
+    title: 'Checkpointing and sinking to object storage (S3, GCS, MinIO)',
     body: `Use the filesystem connector to write results to S3 or MinIO in Parquet/ORC/CSV format, and checkpoint state there for fault tolerance.
 <pre style="margin-top:10px;background:var(--bg0);border:1px solid var(--border);padding:10px 12px;border-radius:4px;font-size:11px;color:var(--text1);">-- 1. Set checkpoint backend to S3/MinIO
 SET 'state.backend'         = 'filesystem';
-SET 'state.checkpoints.dir' = 's3://flink-checkpoints/cp';
+SET 'state.checkpoints.dir' = 's3://your-bucket/flink-checkpoints';
 
 -- 2. Create a filesystem sink (Parquet, partitioned by date)
 CREATE TABLE trade_archive (
@@ -788,12 +798,13 @@ CREATE TABLE trade_archive (
 ) PARTITIONED BY (trade_date)
 WITH (
   'connector'           = 'filesystem',
-  'path'                = 's3://my-data-lake/trades/',
+  'path'                = 's3://your-bucket/data-lake/events/',
   'format'              = 'parquet',
   'sink.rolling-policy.rollover-interval' = '10 min',
   'sink.partition-commit.delay'           = '1 min',
   'sink.partition-commit.policy.kind'     = 'success-file'
-);</pre>`
+);</pre>
+Credentials are resolved automatically from the environment: IAM role (AWS), Application Default Credentials (GCP), Managed Identity (Azure), or via <code>fs.s3a.*</code> properties in <code>flink-conf.yaml</code> for self-hosted clusters.`
   },
   {
     icon: '🔍', category: 'Connectors',
@@ -807,7 +818,7 @@ WITH (
   PRIMARY KEY (symbol) NOT ENFORCED
 ) WITH (
   'connector'                = 'elasticsearch-7',
-  'hosts'                    = 'http://elasticsearch:9200',
+  'hosts'                    = 'http://your-elasticsearch-host:9200',
   'index'                    = 'trade-metrics',
   'sink.bulk-flush.interval' = '5s',
   'sink.bulk-flush.max-actions' = '1000'
@@ -877,7 +888,7 @@ CREATE TABLE ml_features_kafka (
 ) WITH (
   'connector'                    = 'kafka',
   'topic'                        = 'ml-features',
-  'properties.bootstrap.servers' = 'kafka-01:29092',
+  'properties.bootstrap.servers' = 'your-broker-host:9092',
   'format'                       = 'json'
 );
 
@@ -911,6 +922,225 @@ SET 'table.optimizer.agg-phase-strategy'  = 'TWO_PHASE';</pre>`
     body: `FlinkSQL Studio blocks re-submitting the same INSERT INTO while it's already RUNNING. But if you restart the IDE, the guard resets. Always check the <strong>Job Graph</strong> tab before submitting — if the job is RUNNING, do not re-submit. Duplicate pipelines consume double the slots, produce duplicate records in your sinks, and cause state corruption.`
   },
 
+
+  // ── PIPELINE DESIGN ────────────────────────────────────────────────────────
+  {
+    icon: '🏗', category: 'Pipeline Design',
+    title: 'Streaming pipeline design principles',
+    body: `A well-designed streaming pipeline follows three rules: <strong>one source of truth per topic</strong>, <strong>idempotent sinks</strong>, and <strong>bounded state</strong>.
+<pre style="margin-top:10px;">-- Good pattern: enrich → filter → aggregate → sink
+-- Each step is a separate INSERT INTO
+INSERT INTO enriched_events
+SELECT e.*, u.tier, u.region
+FROM raw_events e JOIN users_dim u ON e.user_id = u.user_id;
+
+INSERT INTO fraud_alerts
+SELECT * FROM enriched_events WHERE risk_score >= 0.75;
+
+INSERT INTO hourly_stats
+SELECT window_start, COUNT(*), SUM(amount)
+FROM TABLE(TUMBLE(TABLE enriched_events, DESCRIPTOR(ts), INTERVAL '1' HOUR))
+GROUP BY window_start;</pre>
+Keep each job focused on one transformation. Chaining everything in one query makes debugging and scaling difficult.`
+  },
+  {
+    icon: '🔄', category: 'Pipeline Design',
+    title: 'ETL vs ELT vs streaming ETL',
+    body: `<strong>ETL</strong> (Extract → Transform → Load): Transform data before loading to the warehouse. Traditional batch approach — Flink can do this with bounded sources.<br>
+<strong>ELT</strong> (Extract → Load → Transform): Load raw data first, transform inside the warehouse. Better for flexibility.<br>
+<strong>Streaming ETL</strong>: Transform data <em>as it arrives</em>, before it lands anywhere.
+<pre style="margin-top:10px;">-- Streaming ETL: enrich Kafka events and write to data lake
+CREATE TABLE raw_kafka (...) WITH ('connector'='kafka',...);
+CREATE TABLE enriched_lake (...) WITH ('connector'='filesystem','path'='s3://...');
+
+-- This runs continuously — every event is enriched and landed immediately
+INSERT INTO enriched_lake
+SELECT
+  event_id, user_id, amount,
+  CASE WHEN amount > 10000 THEN 'HIGH' WHEN amount > 1000 THEN 'MED' ELSE 'LOW' END AS tier,
+  PROCTIME() AS processed_at
+FROM raw_kafka;</pre>`
+  },
+  {
+    icon: '⚙', category: 'Pipeline Design',
+    title: 'Temporal joins for slowly-changing dimensions',
+    body: `When your dimension table (users, products, prices) changes over time, use a <strong>temporal join</strong> to join events with the dimension value that was valid at event time — not the current value.
+<pre style="margin-top:10px;">-- Price at time of trade — NOT the current price
+SELECT t.trade_id, t.symbol, t.amount, p.price_usd
+FROM trades t
+LEFT JOIN prices FOR SYSTEM_TIME AS OF t.event_time AS p
+  ON t.symbol = p.symbol;
+
+-- The FOR SYSTEM_TIME AS OF clause looks up the price
+-- that was valid when the trade happened</pre>
+Without this, late joins use the wrong price and produce incorrect aggregations. The prices table needs to be a versioned table backed by Kafka or a changelog-mode JDBC source.`
+  },
+
+  // ── FLINK APIS ─────────────────────────────────────────────────────────────
+  {
+    icon: '📐', category: 'Flink APIs',
+    title: 'Flink has four APIs — choose the right one',
+    body: `Flink offers four levels of abstraction. This studio uses the <strong>SQL / Table API</strong> level.
+<ul style="margin:10px 0 0 16px;font-size:12px;line-height:1.9;">
+  <li><strong>SQL / Table API</strong> — Declarative. Write SQL or use the Table API in Java/Python. Best for ETL, aggregations, joins. What you're using now.</li>
+  <li><strong>DataStream API</strong> — Programmatic. Fine-grained control over state, time, and operators. Use when SQL can't express your logic.</li>
+  <li><strong>ProcessFunction API</strong> — Low-level. Access timers, keyed state, and side outputs directly. Used for CEP, custom windowing, and complex routing.</li>
+  <li><strong>StateFun (Stateful Functions)</strong> — Actor-model. Each entity (user, device) has its own state. Use for complex per-entity workflows.</li>
+</ul>
+The SQL/Table API compiles down to the DataStream API internally — so you get the same performance guarantees.`
+  },
+  {
+    icon: '🌊', category: 'Flink APIs',
+    title: 'DataStream API concepts',
+    body: `The DataStream API gives you explicit control over streams in Java/Scala/Python.
+<pre style="margin-top:10px;">// Java example — keyed stream with ProcessFunction
+DataStream&lt;Transaction&gt; txns = env.addSource(kafkaSource);
+
+txns
+  .keyBy(tx -> tx.userId)            // partition by user
+  .process(new FraudDetector())      // stateful per-user check
+  .addSink(alertSink);               // write to Kafka alerts topic
+
+// FraudDetector maintains state per user:
+// - last transaction amount
+// - flag timer (auto-clear after 1 minute idle)</pre>
+In Flink SQL, <code>MATCH_RECOGNIZE</code> lets you do pattern matching without writing Java — but for complex multi-step logic the DataStream API is more expressive.`
+  },
+  {
+    icon: '⏱', category: 'Flink APIs',
+    title: 'Table API — mixing SQL and programmatic logic',
+    body: `The Table API is a fluent Java/Python DSL that compiles to the same plan as SQL. You can mix it with DataStream for hybrid pipelines.
+<pre style="margin-top:10px;">// Java: convert DataStream → Table → SQL → back to DataStream
+StreamTableEnvironment tEnv = StreamTableEnvironment.create(env);
+
+Table events = tEnv.fromDataStream(kafkaStream, $("user_id"), $("amount"), $("ts").rowtime());
+Table enriched = tEnv.sqlQuery(
+    "SELECT user_id, SUM(amount) FROM " + events + " GROUP BY user_id"
+);
+
+DataStream&lt;Row&gt; result = tEnv.toDataStream(enriched);
+result.addSink(redisSink);</pre>
+Use this pattern when your source or sink needs custom deserialisation that SQL connectors don't support.`
+  },
+
+  // ── FLINK CEP ──────────────────────────────────────────────────────────────
+  {
+    icon: '🔍', category: 'Flink CEP',
+    title: 'What is Complex Event Processing (CEP)?',
+    body: `CEP detects <strong>patterns across a sequence of events</strong> in a stream — for example: "flag a user who makes 3 transactions over $1000 within 5 minutes, followed by a transaction in a different country."
+<br><br>
+Flink supports CEP in two ways:
+<ul style="margin:8px 0 0 16px;font-size:12px;line-height:1.8;">
+  <li><strong>SQL: <code>MATCH_RECOGNIZE</code></strong> — Declarative pattern matching directly in Flink SQL. Best for straightforward sequential patterns.</li>
+  <li><strong>CEP Library (Java/Scala)</strong> — <code>org.apache.flink:flink-cep</code>. Full NFA (non-deterministic finite automaton) pattern engine. Best for complex branching patterns.</li>
+</ul>
+CEP is fundamentally different from windowed aggregation — it matches ordered sequences of individual events, not aggregates over a time window.`
+  },
+  {
+    icon: '🔤', category: 'Flink CEP',
+    title: 'MATCH_RECOGNIZE — CEP in Flink SQL',
+    body: `<code>MATCH_RECOGNIZE</code> is the SQL standard for CEP. Define a pattern with regex-like syntax over event rows.
+<pre style="margin-top:10px;">-- Detect: login → failed_payment → successful_payment
+-- (possible card-testing fraud pattern)
+SELECT *
+FROM transactions
+MATCH_RECOGNIZE (
+  PARTITION BY user_id                     -- per-user pattern
+  ORDER BY event_time                      -- must be time-ordered
+  MEASURES
+    FIRST(A.amount) AS first_attempt,
+    LAST(C.amount)  AS success_amount,
+    A.event_time    AS pattern_start
+  ONE ROW PER MATCH
+  AFTER MATCH SKIP TO NEXT ROW
+  PATTERN (A+ B* C)                        -- 1+ fails, 0+ mid, 1 success
+  WITHIN INTERVAL '10' MINUTE             -- window for the whole pattern
+  DEFINE
+    A AS A.status = 'FAILED'  AND A.amount > 500,
+    B AS B.status = 'FAILED',
+    C AS C.status = 'SUCCESS' AND C.country <> FIRST(A.country)
+) MR;</pre>`
+  },
+  {
+    icon: '🧩', category: 'Flink CEP',
+    title: 'CEP patterns: quantifiers and conditions',
+    body: `CEP pattern quantifiers work like regex:
+<pre style="margin-top:10px;">PATTERN (A B+ C?)
+-- A: exactly once
+-- B+: one or more times
+-- C?: zero or one time
+
+-- Greedy vs reluctant:
+PATTERN (A B+? C)    -- B matches as FEW times as possible
+PATTERN (A B+ C)     -- B matches as MANY times as possible
+
+-- Branching (OR):
+PATTERN (A (B | C) D)   -- A then B or C then D
+
+-- With WITHIN clause for time bounds:
+PATTERN (A B C) WITHIN INTERVAL '5' MINUTE
+
+-- Example: 3 consecutive RSSI drops below threshold
+SELECT *
+FROM tower_metrics
+MATCH_RECOGNIZE (
+  PARTITION BY tower_id ORDER BY event_time
+  MEASURES COUNT(A.event_id) AS consecutive_drops
+  ONE ROW PER MATCH
+  PATTERN (A{3,})                 -- 3 or more consecutive bad readings
+  DEFINE A AS A.rssi_dbm < -105  -- threshold for "bad signal"
+) MR;</pre>`
+  },
+  {
+    icon: '⚡', category: 'Flink CEP',
+    title: 'CEP Library in Java/Scala for complex patterns',
+    body: `When MATCH_RECOGNIZE isn't expressive enough, use the Flink CEP Java library for full NFA pattern matching.
+<pre style="margin-top:10px;">// Define: 3+ failed logins in 2 min → account lockout alert
+Pattern&lt;LoginEvent, ?&gt; pattern = Pattern
+  .&lt;LoginEvent&gt;begin("first")
+      .where(SimpleCondition.of(e -> e.getStatus().equals("FAILED")))
+  .next("middle")
+      .where(SimpleCondition.of(e -> e.getStatus().equals("FAILED")))
+      .timesOrMore(2)
+  .within(Time.minutes(2));
+
+PatternStream&lt;LoginEvent&gt; ps = CEP.pattern(
+  loginStream.keyBy(LoginEvent::getUserId), pattern
+);
+
+DataStream&lt;Alert&gt; alerts = ps.process(
+  new PatternProcessFunction&lt;LoginEvent, Alert&gt;() {
+    public void processMatch(Map&lt;String, List&lt;LoginEvent&gt;&gt; match,
+                             Context ctx, Collector&lt;Alert&gt; out) {
+      out.collect(new Alert(match.get("first").get(0).getUserId(),
+                            "Brute force attempt detected"));
+    }
+  });</pre>
+The CEP library supports <code>followedBy</code>, <code>followedByAny</code>, <code>notFollowedBy</code>, and <code>oneOrMore</code>, <code>times(n)</code>, <code>until</code> — much richer than SQL MATCH_RECOGNIZE.`
+  },
+  {
+    icon: '🎯', category: 'Flink CEP',
+    title: 'CEP output strategies and SKIP options',
+    body: `After a pattern matches, <strong>SKIP</strong> controls where matching resumes — critical for avoiding duplicate alerts.
+<pre style="margin-top:10px;">-- SKIP options in MATCH_RECOGNIZE:
+AFTER MATCH SKIP TO NEXT ROW        -- resume after first event of match
+AFTER MATCH SKIP PAST LAST ROW      -- skip entire matched sequence (no overlap)
+AFTER MATCH SKIP TO FIRST A         -- resume at first event matching A
+AFTER MATCH SKIP TO LAST B          -- resume at last event matching B
+
+-- Example: non-overlapping fraud windows
+SELECT *
+FROM transactions
+MATCH_RECOGNIZE (
+  PARTITION BY user_id ORDER BY ts
+  MEASURES A.ts AS alert_time, COUNT(*) AS event_count
+  ONE ROW PER MATCH
+  AFTER MATCH SKIP PAST LAST ROW    -- don't re-alert on same events
+  PATTERN (A{3,}) WITHIN INTERVAL '1' MINUTE
+  DEFINE A AS A.amount > 5000
+) MR;</pre>
+<strong>ONE ROW PER MATCH</strong> emits one result row per matched sequence. <strong>ALL ROWS PER MATCH</strong> emits every event that participated in the match — useful for audit trails.`
+  },
   // ── ADMIN ─────────────────────────────────────────────────────────────────
   {
     icon: '🛡', category: 'Admin',
@@ -1056,6 +1286,9 @@ function _renderTip(idx) {
     'Flink Concepts':     'var(--accent3,#7ee8d0)',
     'Connectors':         'var(--green)',
     'AI & ML Workloads':  'var(--purple,#9b72cf)',
+    'Pipeline Design':    '#f7b731',
+    'Flink APIs':         '#4bcffa',
+    'Flink CEP':          '#fd9644',
     'Performance Tips':   'var(--yellow)',
     'Admin':              'var(--yellow)',
   };
