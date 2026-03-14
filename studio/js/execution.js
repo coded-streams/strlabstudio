@@ -139,21 +139,28 @@ async function submitStatement(sql) {
   }
 
   // ── Inject pipeline.name tag for INSERT statements ─────────────────────────
-  // This tags the Flink job with the session ID so it's traceable in the UI
+  // Derives a meaningful unique job name: [session] sink_table_name
   const isInsert = /^\s*(INSERT|EXECUTE\s+STATEMENT)/i.test(cleanSql);
   if (isInsert && sessionHandle) {
     const sessionLabel = (() => {
       const sess = state.sessions.find(s => s.handle === sessionHandle);
       return sess ? (sess.name || shortHandle(sessionHandle)) : shortHandle(sessionHandle);
     })();
-    const pipelineTag = `[${sessionLabel}] `;
-    // Only inject if not already tagged
+    // Derive job name from SQL content
+    const derivedName = (() => {
+      const s = cleanSql.replace(/\s+/g, ' ').trim();
+      const insertMatch = s.match(/^INSERT\s+INTO\s+[`"']?([\w.]+)[`"']?/i);
+      if (insertMatch) return insertMatch[1];
+      if (/^EXECUTE\s+STATEMENT\s+SET/i.test(s)) return 'multi-sink-pipeline';
+      return 'pipeline';
+    })();
+    const jobName = `[${sessionLabel}] ${derivedName}`;
     try {
       await api('POST', `/v1/sessions/${sessionHandle}/statements`, {
-        statement: `SET 'pipeline.name' = '${pipelineTag}FlinkSQL Studio Pipeline'`,
+        statement: "SET 'pipeline.name' = '" + jobName.replace(/'/g, "''") + "'",
         executionTimeout: 0,
       });
-    } catch(_) {} // Non-fatal — SET may fail on some gateway versions
+    } catch(_) {} // Non-fatal
   }
 
   let resp;

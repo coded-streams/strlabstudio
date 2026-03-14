@@ -385,12 +385,12 @@ SHOW CATALOGS;"></textarea>
                 <span class="perf-toolbar-label">Performance</span>
                 <span id="perf-last-refresh" style="font-size:10px;color:var(--text3);margin-left:6px;"></span>
                 <div class="perf-subtabs">
-                  <button class="perf-subtab-btn active" onclick="switchPerfTab('overview')">Overview</button>
-                  <button class="perf-subtab-btn"        onclick="switchPerfTab('throughput')">Throughput</button>
-                  <button class="perf-subtab-btn"        onclick="switchPerfTab('jobs')">Jobs</button>
-                  <button class="perf-subtab-btn"        onclick="switchPerfTab('checkpoints')">Checkpoints</button>
-                  <button class="perf-subtab-btn"        onclick="switchPerfTab('cluster')">Cluster</button>
-                  <button class="perf-subtab-btn"        onclick="switchPerfTab('report')">Report</button>
+                  <button class="perf-subtab-btn active" data-tab="overview"     onclick="switchPerfTab('overview')">Overview</button>
+                  <button class="perf-subtab-btn"        data-tab="throughput"   onclick="switchPerfTab('throughput')">Throughput</button>
+                  <button class="perf-subtab-btn"        data-tab="jobs"         onclick="switchPerfTab('jobs')">Jobs</button>
+                  <button class="perf-subtab-btn"        data-tab="checkpoints"  onclick="switchPerfTab('checkpoints')">Checkpoints</button>
+                  <button class="perf-subtab-btn"        data-tab="cluster"      onclick="switchPerfTab('cluster')">Cluster</button>
+                  <button class="perf-subtab-btn"        data-tab="report"       onclick="switchPerfTab('report')">Report</button>
                 </div>
                 <button class="perf-refresh-btn" id="perf-live-btn" onclick="togglePerfLive()" style="margin-left:auto;">
                   <span id="perf-live-dot-el" class="perf-live-dot" style="display:none;"></span>
@@ -702,6 +702,7 @@ SHOW CATALOGS;"></textarea>
                 <button class="jg-refresh-btn" onclick="refreshJobGraphList()" style="margin-left:6px;">⟳ Refresh Jobs</button>
                 <button class="jg-refresh-btn" onclick="reloadCurrentJgView()" style="margin-left:2px;">↺ Reload</button>
                 <button class="jg-refresh-btn danger" id="jg-cancel-btn" onclick="cancelSelectedJob()"
+                        data-session-check="true"
                         style="margin-left:2px;display:none;background:rgba(255,80,80,0.12);color:#ff5050;border-color:rgba(255,80,80,0.3);">
                   Cancel Job
                 </button>
@@ -1018,6 +1019,9 @@ SHOW CATALOGS;"></textarea>
 
 <!-- 17. Admin session UI: topbar badge, admin sessions btn, report options -->
 <script src="js/admin.js"></script>
+
+<!-- 18. Smart result coloring, pipeline detection, dual-line live chart fix -->
+<script src="js/results-intelligence.js"></script>
 
 </body>
 </html>

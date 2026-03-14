@@ -354,3 +354,87 @@ function _asStat(label, val, color) {
     const t = setInterval(() => { if (_installJobListFilter()) clearInterval(t); }, 500);
   }
 })();
+
+// ── Patch: checkpoint panel should use ALL running jobs (not session-filtered)
+// Checkpoints are cluster-level infrastructure — we always want to show them.
+// perf.js picks runningJob from perf.lastJobs which gets filtered by our override.
+// We patch refreshCheckpointPanel to also try unfiltered jobs when filtered gives nothing.
+(function() {
+  function _patchCheckpoints() {
+    if (typeof refreshCheckpointPanel !== 'function') return false;
+    if (typeof jmApi !== 'function') return false;
+    const _origCP = refreshCheckpointPanel;
+    window.refreshCheckpointPanel = async function(jid) {
+      // If jid is provided and valid, use it directly
+      if (jid) { return _origCP(jid); }
+      // No jid — try to find first running job from ALL cluster jobs (unfiltered)
+      try {
+        const data = await jmApi('/jobs/overview');
+        if (data && data.jobs) {
+          const running = data.jobs.find(j => j.state === 'RUNNING');
+          if (running) return _origCP(running.jid);
+        }
+      } catch(_) {}
+      return _origCP(jid); // fallback
+    };
+    return true;
+  }
+  if (!_patchCheckpoints()) {
+    const t = setInterval(() => { if (_patchCheckpoints()) clearInterval(t); }, 600);
+  }
+})();
+
+// ── Patch: refreshPerf checkpoint lookup for non-admin sessions ───────────────
+// perf.js does: const runningJob = perf.lastJobs.find(j => j.state==='RUNNING')
+// But perf.lastJobs only has session-filtered jobs for non-admin.
+// We patch refreshPerf to also refresh checkpoints from unfiltered cluster jobs.
+(function() {
+  function _patchRefreshPerf() {
+    if (typeof refreshPerf !== 'function') return false;
+    const _orig = refreshPerf;
+    window.refreshPerf = async function() {
+      await _orig.apply(this, arguments);
+      // After perf refresh, ensure checkpoint panel has data from actual running jobs
+      if (typeof jmApi !== 'function') return;
+      try {
+        const data = await jmApi('/jobs/overview');
+        if (!data || !data.jobs) return;
+        const running = data.jobs.find(j => j.state === 'RUNNING');
+        if (running && typeof refreshCheckpointPanel === 'function') {
+          refreshCheckpointPanel(running.jid);
+        }
+      } catch(_) {}
+    };
+    return true;
+  }
+  if (!_patchRefreshPerf()) {
+    const t = setInterval(() => { if (_patchRefreshPerf()) clearInterval(t); }, 600);
+  }
+})();
+
+// ── Cancel button: only show for jobs owned by this session (or admin) ────────
+// jobgraph.js shows the cancel btn for any RUNNING/RESTARTING job.
+// We override onJgJobChange to additionally hide it for jobs from other sessions.
+(function() {
+  function _patchOnJgJobChange() {
+    if (typeof onJgJobChange !== 'function') return false;
+    const _orig = onJgJobChange;
+    window.onJgJobChange = function(jid) {
+      _orig.apply(this, arguments);
+      if (!jid) return;
+      const cancelBtn = document.getElementById('jg-cancel-btn');
+      if (!cancelBtn) return;
+      // Admin can cancel any job; non-admin only own session's jobs
+      if (state.isAdminSession) return; // admin: jobgraph.js controls visibility
+      const session = state.sessions.find(s => s.handle === state.activeSession);
+      const owns = session && (session.jobIds || []).includes(jid);
+      if (!owns && cancelBtn.style.display !== 'none') {
+        cancelBtn.style.display = 'none';
+      }
+    };
+    return true;
+  }
+  if (!_patchOnJgJobChange()) {
+    const t = setInterval(() => { if (_patchOnJgJobChange()) clearInterval(t); }, 600);
+  }
+})();
