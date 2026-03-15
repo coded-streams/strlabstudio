@@ -1,5 +1,5 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# FlinkSQL Studio — OSS docker-compose.yml
+# Str:::lab Studio — OSS docker-compose.yml
 #
 # ── Quick start (connect to existing cluster) ────────────────────────────────
 #   FLINK_GATEWAY_HOST=my-cluster.example.com \
@@ -17,12 +17,12 @@
 services:
 
   # ══════════════════════════════════════════
-  #  FlinkSQL Studio  (always started)
+  #  Str:::lab Studio  (always started)
   # ══════════════════════════════════════════
-  flinksql-studio:
-    image: codedstreams/flinksql-studio:latest
+  strlabstudio:
+    image: codedstreams/strlabstudio:latest
     # build: .    # uncomment to build from source
-    container_name: flinksql-studio
+    container_name: strlabstudio
     restart: unless-stopped
     ports:
       - "${STUDIO_PORT:-3030}:80"

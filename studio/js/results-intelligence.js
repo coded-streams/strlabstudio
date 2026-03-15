@@ -1,8 +1,47 @@
-/* FlinkSQL Studio — Results Intelligence v3
+/* Str:::lab Studio — Results Intelligence v3
  * Fixes: button style toggle, legend visibility when pagination hidden,
  *        clearSmartColoring full reset, column header parsing with type suffix.
  * Button renamed to "✦ Colour Describe"
  */
+
+
+// ── Brand name patch: intercept window.open to rewrite brand in PDF reports ──
+// perf.js generates the PDF by opening a new window and calling .write(html)
+// We intercept window.open and document.write on the new window to replace
+// any residual "FlinkSQL Studio" brand references before the user prints.
+(function() {
+    const _origOpen = window.open.bind(window);
+    window.open = function(url, name, features) {
+        const win = _origOpen(url, name, features);
+        if (!win) return win;
+
+        // Wrap document.write to intercept the HTML perf.js writes
+        const _origWrite = win.document.write.bind(win.document);
+        win.document.write = function(html) {
+            if (typeof html === 'string') {
+                html = html
+                    .replace(/FlinkSQL Studio — Results Export/g, 'Str:::lab Studio — Results Export')
+                    .replace(/FlinkSQL Studio/g,  'Str:::lab Studio')
+                    .replace(/FlinkSQL/g,         'Str:::lab');
+            }
+            return _origWrite(html);
+        };
+
+        // Also patch writeln just in case
+        const _origWriteln = win.document.writeln.bind(win.document);
+        win.document.writeln = function(html) {
+            if (typeof html === 'string') {
+                html = html
+                    .replace(/FlinkSQL Studio — Results Export/g, 'Str:::lab Studio — Results Export')
+                    .replace(/FlinkSQL Studio/g,  'Str:::lab Studio')
+                    .replace(/FlinkSQL/g,         'Str:::lab');
+            }
+            return _origWriteln(html);
+        };
+
+        return win;
+    };
+})();
 
 window._smartColorEnabled = false;
 

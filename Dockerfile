@@ -1,22 +1,22 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# FlinkSQL Studio — Dockerfile
-# Builds a tiny nginx image that serves the IDE and proxies API calls.
+# Str:::lab Studio — Dockerfile
+# Builds a minimal nginx image that serves the IDE and proxies API calls.
 #
-# Build:  docker build -t codedstreams/flinksql-studio:latest .
+# Build:  docker build -t codedstreams/strlabstudio:latest .
 # Run:    docker run -p 3030:80 \
 #           -e FLINK_GATEWAY_HOST=flink-gateway \
 #           -e FLINK_GATEWAY_PORT=8083 \
 #           -e JOBMANAGER_HOST=flink-jobmanager \
 #           -e JOBMANAGER_PORT=8081 \
-#           codedstreams/flinksql-studio:latest
+#           codedstreams/strlabstudio:latest
 # ─────────────────────────────────────────────────────────────────────────────
 
 FROM nginx:1.25-alpine
 
-LABEL org.opencontainers.image.title="FlinkSQL Studio"
-LABEL org.opencontainers.image.description="Browser-based SQL IDE for Apache Flink"
+LABEL org.opencontainers.image.title="Str:::lab Studio"
+LABEL org.opencontainers.image.description="SQL Studio for real-time Flink streaming pipelines"
 LABEL org.opencontainers.image.authors="Nestor A. A <nestorabiawuh@gmail.com>"
-LABEL org.opencontainers.image.source="https://github.com/coded-streams/flinksql-studio"
+LABEL org.opencontainers.image.source="https://github.com/coded-streams/strlabstudio"
 LABEL org.opencontainers.image.licenses="Apache-2.0"
 
 # envsubst for runtime config substitution, wget for healthcheck

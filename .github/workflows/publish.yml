@@ -24,7 +24,7 @@ on:
   workflow_dispatch:
 
 env:
-  IMAGE_NAME: codedstreams/flinksql-studio
+  IMAGE_NAME: codedstreams/strlabstudio
 
 jobs:
 
@@ -114,7 +114,7 @@ jobs:
   deploy-docs:
     name: Deploy to GitHub Pages
     runs-on: ubuntu-latest
-    needs: build-docs        # depends on build-docs, not build-and-push
+    needs: build-docs
     permissions:
       contents: read
       pages: write

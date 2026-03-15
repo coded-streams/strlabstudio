@@ -1,4 +1,4 @@
-/* FlinkSQL Studio — UDF Manager
+/* Str:::lab Studio — UDF Manager
  * A full User-Defined Function management feature.
  * Provides: Library (browse + quick-insert), Register (JAR/class),
  *           SQL UDF creator, and a professional Templates library.
@@ -359,7 +359,7 @@ DROP FUNCTION IF EXISTS prod_catalog.prod_db.mask_pii;
 
 -- Best practice for production pipelines:
 -- Register permanent UDFs in your catalog before submitting jobs
--- Use TEMPORARY for exploratory development in FlinkSQL Studio`,
+-- Use TEMPORARY for exploratory development in Str:::lab Studio`,
             },
             {
                 name: 'UDF best practices and performance',
@@ -483,7 +483,7 @@ function _buildUdfManagerModal() {
           <!-- How it works -->
           <div style="background:rgba(79,163,224,0.06);border:1px solid rgba(79,163,224,0.2);padding:12px 14px;border-radius:var(--radius);margin-bottom:14px;font-size:12px;color:var(--text1);line-height:1.8;">
             <strong style="color:var(--blue,#4fa3e0);">How JAR upload works</strong><br>
-            FlinkSQL Studio uploads your JAR directly to the Flink JobManager via
+            Str:::lab Studio uploads your JAR directly to the Flink JobManager via
             <code style="color:var(--accent);">POST /jars/upload</code> — the same endpoint the Flink Web UI uses.
             The JAR is available to all TaskManagers immediately. No SSH, no restart.<br><br>
             <strong style="color:var(--yellow,#f5a623);">JobManager URL is separate from the SQL Gateway.</strong>
@@ -1787,14 +1787,14 @@ mvn clean package -DskipTests
 # The shaded JAR is at:
 #   target/${jarName}
 
-# 2. Upload to Flink cluster via FlinkSQL Studio
+# 2. Upload to Flink cluster via Str:::lab Studio
 #    Open ⨍ UDFs → ⬆ Upload JAR → drop target/${jarName}
 
 # 3. (Alternative) Copy directly to Flink lib directory
 #    for self-hosted / Docker clusters:
 cp target/${jarName} /opt/flink/lib/
 
-# 4. Register the function in FlinkSQL Studio
+# 4. Register the function in Str:::lab Studio
 #    Open ⨍ UDFs → ＋ Register UDF, then fill in:
 #      Function Name:  your_function_name
 #      Class Path:     ${inp.groupId}.YourUDFClass
@@ -1810,14 +1810,14 @@ cp target/${jarName} /opt/flink/lib/
 # The shaded JAR is at:
 #   build/libs/${jarName}
 
-# 2. Upload to Flink cluster via FlinkSQL Studio
+# 2. Upload to Flink cluster via Str:::lab Studio
 #    Open ⨍ UDFs → ⬆ Upload JAR → drop build/libs/${jarName}
 
 # 3. (Alternative) Copy directly to Flink lib directory
 #    for self-hosted / Docker clusters:
 cp build/libs/${jarName} /opt/flink/lib/
 
-# 4. Register the function in FlinkSQL Studio
+# 4. Register the function in Str:::lab Studio
 #    Open ⨍ UDFs → ＋ Register UDF, then fill in:
 #      Function Name:  your_function_name
 #      Class Path:     ${inp.groupId}.YourUDFClass
@@ -1839,14 +1839,14 @@ function _mvnCopyConfig() {
 // ── Local UDF registry (descriptions persist across sessions) ─────────────────
 function _saveUdfToLocalRegistry(entry) {
     try {
-        const raw  = localStorage.getItem('flinksql_udf_registry') || '[]';
+        const raw  = localStorage.getItem('strlabstudio_udf_registry') || '[]';
         const list = JSON.parse(raw);
         const idx  = list.findIndex(e => e.name === entry.name);
         if (idx >= 0) list[idx] = entry; else list.push(entry);
-        localStorage.setItem('flinksql_udf_registry', JSON.stringify(list));
+        localStorage.setItem('strlabstudio_udf_registry', JSON.stringify(list));
     } catch(_) {}
 }
 
 function _loadUdfLocalRegistry() {
-    try { return JSON.parse(localStorage.getItem('flinksql_udf_registry') || '[]'); } catch(_) { return []; }
+    try { return JSON.parse(localStorage.getItem('strlabstudio_udf_registry') || '[]'); } catch(_) { return []; }
 }

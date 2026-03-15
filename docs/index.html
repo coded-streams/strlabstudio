@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>FlinkSQL Studio — Documentation</title>
+  <title>Str:::lab Studio — Documentation</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
@@ -185,7 +185,7 @@
         <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
       </svg>
     </div>
-    <span class="logo-text">FlinkSQL<span class="logo-ver">Studio</span></span>
+    <span class="logo-text">Str:::lab<span class="logo-ver">Studio</span></span>
   </a>
   <ul class="nav-links">
     <li><a href="#about">About</a></li>
@@ -202,7 +202,7 @@
     <li><a href="#changelog">Changelog</a></li>
   </ul>
   <div class="nav-right">
-    <a href="https://github.com/coded-streams/flinksql-studio" target="_blank" class="nav-btn">
+    <a href="https://github.com/coded-streams/strlabstudio" target="_blank" class="nav-btn">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12c0 4.42 2.87 8.17 6.84 9.49.5.09.68-.22.68-.48v-1.69c-2.78.6-3.37-1.34-3.37-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.89 1.52 2.34 1.08 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02A9.56 9.56 0 0112 6.8c.85.004 1.71.115 2.51.337 1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85v2.74c0 .27.18.58.69.48A10.01 10.01 0 0022 12c0-5.52-4.48-10-10-10z"/></svg>
       GitHub
     </a>
@@ -217,9 +217,9 @@
         <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
       </svg>
     </div>
-    <div class="hero-title">FlinkSQL <span>Studio</span></div>
+    <div class="hero-title">Str:::lab <span>Studio</span></div>
   </div>
-  <p class="hero-sub">A zero-dependency, browser-based IDE purpose-built for Apache Flink SQL. Write, test, visualize, and monitor streaming pipelines — against any Flink cluster.</p>
+  <p class="hero-sub">A zero-dependency, browser-based SQL Studio for writing, testing, visualising, and monitoring streaming pipelines — connects to any Flink SQL Gateway.</p>
   <div class="hero-badges">
     <span class="badge teal">Single HTML file</span>
     <span class="badge green">MIT License</span>
@@ -234,7 +234,7 @@
   <div class="hero-cta">
     <a href="#quickstart" class="btn btn-primary">Get Started →</a>
     <a href="../studio/index.html" target="_blank" class="btn btn-outline">Open IDE ↗</a>
-    <a href="https://github.com/coded-streams/flinksql-studio" target="_blank" class="btn btn-outline">GitHub ↗</a>
+    <a href="https://github.com/coded-streams/strlabstudio" target="_blank" class="btn btn-outline">GitHub ↗</a>
   </div>
 </div>
 
@@ -242,7 +242,7 @@
   <aside class="toc">
     <div class="toc-section">
       <span class="toc-label">About</span>
-      <a href="#about">About FlinkSQL Studio</a>
+      <a href="#about">About Str:::lab Studio</a>
     </div>
     <div class="toc-section">
       <span class="toc-label">Getting Started</span>
@@ -273,7 +273,7 @@
     </div>
     <div class="toc-section">
       <span class="toc-label">Deployment</span>
-      <a href="#operator">FlinkSQL Studio Kube Operator</a>
+      <a href="#operator">Str:::lab Studio Kube Operator</a>
       <a href="#deploy">Deploy Options</a>
     </div>
     <div class="toc-section">
@@ -286,8 +286,8 @@
 
     <!-- ABOUT -->
     <section class="doc-section" id="about">
-      <h2><span class="si">ℹ</span>About FlinkSQL Studio</h2>
-      <p>FlinkSQL Studio is a browser-based SQL IDE purpose-built for Apache Flink. It provides a complete development, monitoring, and administration experience — without the overhead of a full platform deployment. Connect it to any Flink SQL Gateway: local Docker, remote Kubernetes, Confluent Cloud, or any self-hosted cluster.</p>
+      <h2><span class="si">ℹ</span>About Str:::lab Studio</h2>
+      <p>Str:::lab Studio is a browser-based SQL Studio that connects to any Flink SQL Gateway. It provides a complete development, monitoring, and administration experience — without the overhead of a full platform deployment. Works with local Docker, Kubernetes, and any self-hosted Flink cluster.</p>
       <div class="about-grid">
         <div class="about-card">
           <h3>What it is</h3>
@@ -299,15 +299,15 @@
         </div>
         <div class="about-card">
           <h3>Open source</h3>
-          <p>Created by <strong style="color:var(--text0);">Nestor A. A</strong> — open source project under the MIT license. Community contributions and issue reports welcome at <a href="https://github.com/coded-streams/flinksql-studio" target="_blank">github.com/coded-streams/flinksql-studio</a>.</p>
+          <p>Created by <strong style="color:var(--text0);">Nestor A. A</strong> — open source project under the MIT license. Community contributions and issue reports welcome at <a href="https://github.com/coded-streams/strlabstudio" target="_blank">github.com/coded-streams/strlabstudio</a>.</p>
         </div>
         <div class="about-card">
           <h3>Kube Operator</h3>
-          <p>The <strong style="color:var(--text0);">FlinkSQL Studio Kube Operator</strong> manages Studio deployments as first-class Kubernetes CRDs. Install via Helm from <a href="https://github.com/coded-streams/flinksql-studio-operator" target="_blank">flinksql-studio-operator</a>.</p>
+          <p>The <strong style="color:var(--text0);">Str:::lab Studio Kube Operator</strong> manages Studio deployments as first-class Kubernetes CRDs. Install via Helm from <a href="https://github.com/coded-streams/strlabstudio-operator" target="_blank">strlabstudio-operator</a>.</p>
         </div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;">
-        <span style="background:rgba(0,212,170,0.1);border:1px solid rgba(0,212,170,0.3);color:var(--accent);font-size:10px;padding:3px 8px;border-radius:2px;font-family:var(--mono);">Apache Flink 1.16+</span>
+        <span style="background:rgba(0,212,170,0.1);border:1px solid rgba(0,212,170,0.3);color:var(--accent);font-size:10px;padding:3px 8px;border-radius:2px;font-family:var(--mono);">Flink 1.16+</span>
         <span style="background:rgba(0,151,255,0.1);border:1px solid rgba(0,151,255,0.3);color:var(--blue);font-size:10px;padding:3px 8px;border-radius:2px;font-family:var(--mono);">Zero dependencies</span>
         <span style="background:rgba(57,211,83,0.1);border:1px solid rgba(57,211,83,0.3);color:var(--green);font-size:10px;padding:3px 8px;border-radius:2px;font-family:var(--mono);">MIT License</span>
         <span style="background:rgba(245,166,35,0.1);border:1px solid rgba(245,166,35,0.3);color:var(--yellow);font-size:10px;padding:3px 8px;border-radius:2px;font-family:var(--mono);">Docker · K8s · Cloud</span>
@@ -325,8 +325,8 @@
           <button class="tab-btn" onclick="switchTab(this,'qs-k8s')">Kubernetes</button>
         </div>
         <div id="qs-docker" class="tab-pane active">
-          <pre><code>git clone https://github.com/coded-streams/flinksql-studio
-cd flinksql-studio
+          <pre><code>git clone https://github.com/coded-streams/strlabstudio
+cd strlabstudio
 docker compose up -d
 open http://localhost:3030</code></pre>
           <p>Starts: JobManager, TaskManager(s), SQL Gateway, CORS proxy, and the Studio nginx container. On first load, a <strong>Tips &amp; Concepts</strong> modal walks you through key features.</p>
@@ -336,13 +336,13 @@ open http://localhost:3030</code></pre>
 # Open studio/index.html — use Direct Gateway mode</code></pre>
         </div>
         <div id="qs-k8s" class="tab-pane">
-          <pre><code>helm repo add flinksql https://coded-streams.github.io/flinksql-studio-operator/charts
-helm install flinksql-studio-operator flinksql/flinksql-studio-operator \
+          <pre><code>helm repo add strlabstudio https://coded-streams.github.io/strlabstudio-operator/charts
+helm install strlabstudio-operator strlabstudio/strlabstudio-operator \
   --namespace flinksql-system --create-namespace
 
 kubectl apply -f - &lt;&lt;EOF
 apiVersion: codedstreams.io/v1alpha1
-kind: FlinkSQLStudio
+kind: StrlabStudio
 metadata:
   name: my-studio
   namespace: flink
@@ -387,7 +387,7 @@ EOF</code></pre>
     <!-- ARCHITECTURE -->
     <section class="doc-section" id="architecture">
       <h2><span class="si">🏗</span>Architecture</h2>
-      <p>FlinkSQL Studio is a static HTML file served by nginx. All SQL execution happens via the Flink SQL Gateway REST API. The browser manages all session state client-side.</p>
+      <p>Str:::lab Studio is a static HTML file served by nginx. All SQL execution happens via the Flink SQL Gateway REST API. The browser manages all session state client-side.</p>
       <div class="mermaid-wrap">
         <div class="mermaid">
           flowchart TD
@@ -455,7 +455,7 @@ EOF</code></pre>
         <div class="feature-card"><span class="fci">🔄</span><h3>Session Persistence</h3><p>Sessions never expire from the IDE side due to inactivity — the heartbeat keeps them alive. Only explicit disconnect or connection loss ends a session.</p></div>
         <div class="feature-card"><span class="fci">📋</span><h3>Load Existing Sessions</h3><p>After testing the connection, the IDE fetches all existing sessions from the gateway and presents them in a dropdown — no UUID copy-paste needed.</p></div>
         <div class="feature-card"><span class="fci">🔗</span><h3>Session-Scoped Jobs</h3><p>Each regular session sees only the jobs it submitted. This prevents clutter from other users' pipelines. Admin sessions see all jobs across all sessions.</p></div>
-        <div class="feature-card"><span class="fci">🏷</span><h3>Job Tagging</h3><p>Every INSERT INTO pipeline automatically tags the Flink job name with the session label via <code>pipeline.name</code>, making jobs traceable in the Flink UI and FlinkSQL Studio.</p></div>
+        <div class="feature-card"><span class="fci">🏷</span><h3>Job Tagging</h3><p>Every INSERT INTO pipeline automatically tags the Flink job name with the session label via <code>pipeline.name</code>, making jobs traceable in the Flink UI and Str:::lab Studio.</p></div>
       </div>
 
       <h3 id="job-graph">Job Graph</h3>
@@ -484,7 +484,7 @@ EOF</code></pre>
 
       <h3>Themes &amp; UX</h3>
       <div class="feature-grid">
-        <div class="feature-card"><span class="fci">⬡</span><h3>Project Manager</h3><p>Save, load, run, and delete named FlinkSQL projects. Each project stores all editor tabs, SET configuration, catalog context, and metadata. Export to JSON for sharing or backup. Tracks storage usage per project.</p></div>
+        <div class="feature-card"><span class="fci">⬡</span><h3>Project Manager</h3><p>Save, load, run, and delete named Str:::lab projects. Each project stores all editor tabs, SET configuration, catalog context, and metadata. Export to JSON for sharing or backup. Tracks storage usage per project.</p></div>
         <div class="feature-card"><span class="fci">⨍</span><h3>UDF Manager</h3><p>Browse all registered functions, register JAR-based or Python UDFs, create SQL UDFs without writing a single line of Java, and insert professional UDF templates directly into the editor.</p></div>
         <div class="feature-card"><span class="fci">💡</span><h3>Tips &amp; Concepts Modal</h3><p>On first connect, a paginated modal walks through IDE features, Flink architecture, window types, state, connectors, and performance tips — like IntelliJ's "Tip of the Day".</p></div>
         <div class="feature-card"><span class="fci">🎨</span><h3>6 Themes</h3><p>Dark (default), Light, Monokai, Dracula, Nord, Contrast. Preference persisted across sessions.</p></div>
@@ -532,7 +532,7 @@ EOF</code></pre>
     <!-- TIPS MODAL -->
     <section class="doc-section" id="tips-modal">
       <h2><span class="si">💡</span>Tips &amp; Concepts Modal</h2>
-      <p>On first connection, FlinkSQL Studio displays a paginated <strong>Tips &amp; Concepts</strong> modal — inspired by JetBrains IDE "Tip of the Day". It covers 16 topics across 6 categories:</p>
+      <p>On first connection, Str:::lab Studio displays a paginated <strong>Tips &amp; Concepts</strong> modal — inspired by JetBrains "Tip of the Day". It covers 16 topics across 6 categories:</p>
       <div class="table-wrap">
         <table>
           <thead><tr><th>Category</th><th>Topics Covered</th></tr></thead>
@@ -619,7 +619,7 @@ USER flink</code></pre>
     <!-- PIPELINE DEMO -->
     <section class="doc-section" id="pipeline">
       <h2><span class="si">🔀</span>Full Pipeline Demo</h2>
-      <p>A complete multi-stage streaming pipeline built entirely in FlinkSQL Studio: datagen source → Kafka → enrichment with branching → windowed aggregation → live preview.</p>
+      <p>A complete multi-stage streaming pipeline built entirely in Str:::lab Studio: datagen source → Kafka → enrichment with branching → windowed aggregation → live preview.</p>
       <div class="mermaid-wrap">
         <div class="mermaid">
           flowchart LR
@@ -678,7 +678,7 @@ SET 'execution.checkpointing.interval' = '10000';</code></pre>
             <pre><code>INSERT INTO trade_events_kafka
 SELECT trade_id, symbol, side, quantity, price, exchange, event_time
 FROM trade_gen;</code></pre>
-            <p style="font-size:12px;color:var(--text3);">Job Graph tab auto-opens. Studio tags the Flink job as <code>[session-name] FlinkSQL Studio Pipeline</code>.</p>
+            <p style="font-size:12px;color:var(--text3);">Job Graph tab auto-opens. Studio tags the Flink job as <code>[session-name] Str:::lab Studio Pipeline</code>.</p>
           </div>
         </div>
         <div class="step">
@@ -733,15 +733,15 @@ FROM enriched_trades_view;</code></pre>
 
     <!-- KUBERNETES OPERATOR -->
     <section class="doc-section" id="operator">
-      <h2><span class="si">☸️</span>FlinkSQL Studio Kube Operator</h2>
-      <p>The <strong>FlinkSQL Studio Kube Operator</strong> manages FlinkSQL Studio deployments as first-class Kubernetes CRDs. Deploy and lifecycle-manage Studio instances with a single <code>kubectl apply</code>. Built with <a href="https://kopf.readthedocs.io/" target="_blank">Kopf</a> (Python).</p>
-      <p>Repository: <a href="https://github.com/coded-streams/flinksql-studio-operator" target="_blank">github.com/coded-streams/flinksql-studio-operator</a></p>
+      <h2><span class="si">☸️</span>Str:::lab Studio Kube Operator</h2>
+      <p>The <strong>Str:::lab Studio Kube Operator</strong> manages Str:::lab Studio deployments as first-class Kubernetes CRDs. Deploy and lifecycle-manage Studio instances with a single <code>kubectl apply</code>. Built with <a href="https://kopf.readthedocs.io/" target="_blank">Kopf</a> (Python).</p>
+      <p>Repository: <a href="https://github.com/coded-streams/strlabstudio-operator" target="_blank">github.com/coded-streams/strlabstudio-operator</a></p>
 
       <div class="mermaid-wrap">
         <div class="mermaid">
           flowchart TD
-          CR["FlinkSQLStudio CR\nkubectl apply"]
-          OP["FlinkSQL Studio\nKube Operator\nKopf controller"]
+          CR["StrlabStudio CR\nkubectl apply"]
+          OP["Str:::lab Studio\nKube Operator\nKopf controller"]
           DEP["Deployment\nnginx pods"]
           SVC["Service\nClusterIP/NodePort/LB"]
           POD["nginx Pod\nIDE + reverse proxy"]
@@ -763,7 +763,7 @@ FROM enriched_trades_view;</code></pre>
         </div>
       </div>
 
-      <h3>CRD Reference — <code>FlinkSQLStudio</code></h3>
+      <h3>CRD Reference — <code>StrlabStudio</code></h3>
       <p>Short name: <code>kubectl get fss</code> &nbsp;·&nbsp; Group: <code>codedstreams.io/v1alpha1</code></p>
       <div class="table-wrap">
         <table>
@@ -773,7 +773,7 @@ FROM enriched_trades_view;</code></pre>
           <tr><td><code>spec.gateway.port</code></td><td>integer</td><td>—</td><td><code>8083</code></td><td>SQL Gateway port</td></tr>
           <tr><td><code>spec.jobmanager.host</code></td><td>string</td><td>—</td><td><code>localhost</code></td><td>JobManager REST hostname</td></tr>
           <tr><td><code>spec.jobmanager.port</code></td><td>integer</td><td>—</td><td><code>8081</code></td><td>JobManager REST port</td></tr>
-          <tr><td><code>spec.image</code></td><td>string</td><td>—</td><td><code>codedstreams/flinksql-studio:latest</code></td><td>IDE Docker image</td></tr>
+          <tr><td><code>spec.image</code></td><td>string</td><td>—</td><td><code>codedstreams/strlabstudio:latest</code></td><td>IDE Docker image</td></tr>
           <tr><td><code>spec.replicas</code></td><td>integer</td><td>—</td><td><code>1</code></td><td>Pod count (1–10)</td></tr>
           <tr><td><code>spec.service.type</code></td><td>string</td><td>—</td><td><code>ClusterIP</code></td><td><code>ClusterIP</code>, <code>NodePort</code>, or <code>LoadBalancer</code></td></tr>
           <tr><td><code>spec.service.port</code></td><td>integer</td><td>—</td><td><code>80</code></td><td>Service port</td></tr>
@@ -792,17 +792,17 @@ FROM enriched_trades_view;</code></pre>
           <button class="tab-btn" onclick="switchTab(this,'op-prod')">Production</button>
         </div>
         <div id="op-install" class="tab-pane active">
-          <pre><code>helm repo add flinksql https://coded-streams.github.io/flinksql-studio-operator/charts
+          <pre><code>helm repo add strlabstudio https://coded-streams.github.io/strlabstudio-operator/charts
 helm repo update
-helm install flinksql-studio-operator flinksql/flinksql-studio-operator \
+helm install strlabstudio-operator strlabstudio/strlabstudio-operator \
   --namespace flinksql-system --create-namespace
 
 kubectl get pods -n flinksql-system
-kubectl get crd flinksqlstudios.codedstreams.io</code></pre>
+kubectl get crd strlabstudio.codedstreams.io</code></pre>
         </div>
         <div id="op-basic" class="tab-pane">
           <pre><code>apiVersion: codedstreams.io/v1alpha1
-kind: FlinkSQLStudio
+kind: StrlabStudio
 metadata:
   name: dev-studio
   namespace: flink
@@ -816,7 +816,7 @@ spec:
         </div>
         <div id="op-nodeport" class="tab-pane">
           <pre><code>apiVersion: codedstreams.io/v1alpha1
-kind: FlinkSQLStudio
+kind: StrlabStudio
 metadata:
   name: dev-studio
   namespace: flink
@@ -831,12 +831,12 @@ spec:
         </div>
         <div id="op-prod" class="tab-pane">
           <pre><code>apiVersion: codedstreams.io/v1alpha1
-kind: FlinkSQLStudio
+kind: StrlabStudio
 metadata:
   name: prod-studio
   namespace: flink
 spec:
-  image: codedstreams/flinksql-studio:v1.0.21
+  image: codedstreams/strlabstudio:v1.0.22
   replicas: 2
   gateway:
     host: flink-sql-gateway
@@ -872,10 +872,10 @@ spec:
         </div>
         <div class="deploy-card">
           <span class="deploy-card-icon">☸️</span>
-          <h3>FlinkSQL Studio Kube Operator</h3>
+          <h3>Str:::lab Studio Kube Operator</h3>
           <p>CRD-based deployment via Helm. GitOps-friendly. No PVC required.</p>
-          <pre style="margin:0"><code>helm install flinksql-studio-operator \
-  flinksql/flinksql-studio-operator</code></pre>
+          <pre style="margin:0"><code>helm install strlabstudio-operator \
+  strlabstudio/strlabstudio-operator</code></pre>
         </div>
         <div class="deploy-card">
           <span class="deploy-card-icon">☁️</span>
@@ -889,7 +889,7 @@ spec:
     <section class="doc-section" id="project-manager">
       <h2><span class="si">⬡</span>Project Manager</h2>
       <p>
-        The <strong>Project Manager</strong> lets you save, load, run, and organise your FlinkSQL work as named projects.
+        The <strong>Project Manager</strong> lets you save, load, run, and organise your Str:::lab work as named projects.
         Access it from the topbar via the <code style="background:rgba(0,212,170,0.12);color:var(--accent);padding:2px 7px;border-radius:3px;">⬡ Projects</code> button.
         Projects are stored in browser <code>localStorage</code> and can be exported and imported as JSON files.
       </p>
@@ -947,7 +947,7 @@ spec:
       <h2><span class="si">⨍</span>UDF Manager</h2>
       <p>
         The <strong>UDF Manager</strong> is a dedicated feature for the complete User-Defined Function
-        lifecycle — from building to uploading to registering to using — without leaving FlinkSQL Studio.
+        lifecycle — from building to uploading to registering to using — without leaving Str:::lab Studio.
         Access it from the topbar via the <code style="background:rgba(79,163,224,0.12);color:#4fa3e0;padding:2px 7px;border-radius:3px;">⨍ UDFs</code> button.
         It has five tabs.
       </p>
@@ -990,7 +990,7 @@ spec:
       <!-- Tab: Upload JAR -->
       <h3 style="margin-top:24px;color:var(--text0);font-size:15px;">⬆ Upload JAR Tab — Deploy Directly to the Cluster</h3>
       <p>
-        FlinkSQL Studio can upload a JAR file directly to the Flink JobManager via the same REST endpoint
+        Str:::lab Studio can upload a JAR file directly to the Flink JobManager via the same REST endpoint
         that the Flink Web UI uses: <code>POST /jars/upload</code>. No SSH, no manual file copying.
         Once uploaded, the JAR is available to all TaskManagers immediately.
       </p>
@@ -1382,79 +1382,83 @@ FROM cleansed_source;</pre>
       <div class="version-list">
         <div class="version-card">
           <div class="version-header">
-            <span class="version-tag">v1.0.21</span>
+            <span class="version-tag">v1.0.22</span>
             <span class="version-date">March 2026</span>
             <span class="version-label current">current</span>
           </div>
           <ul>
-            <li><strong>UDF Manager</strong> — full user-defined function lifecycle feature: Library (browse + quick-insert), Register (JAR/Python with live SQL preview), SQL UDF creator (no JAR needed), and professional Templates library with 10 annotated examples across 5 groups</li>
-            <li><strong>✦ Colour Describe</strong> — intelligent row coloring toggle in the results toolbar; detects column semantics (status, fraud, signal quality, severity, latency, packet loss) and applies colour coding with PDF-safe inline styles; legend appears inline with the pagination bar</li>
-            <li><strong>Meaningful job names</strong> — pipeline.name now derives from the sink table name (e.g. <code>[session] trade_events_kafka</code>) instead of a generic label</li>
-            <li><strong>Per-job checkboxes</strong> in the Job Resource Comparison chart — toggle individual job lines on/off</li>
-            <li><strong>Metric selector wired</strong> in expanded comparison modal — dropdown now triggers chart redraw correctly</li>
-            <li><strong>Dual-line live events chart</strong> — IN (blue) and OUT (teal) lines both visible with correct fill areas</li>
-            <li><strong>Tips expanded</strong> — added UDFs (4 tips with 3-step auto-slider), Pipeline Design (3), Flink APIs (3), Flink CEP (5) categories; all connector tips made fully generic with auth patterns shown</li>
-            <li><strong>Audit log</strong> — cancel job actions now recorded in the admin audit trail immediately</li>
-            <li><strong>Gateway session discovery</strong> — admin sidebar fetches all sessions from <code>GET /v1/sessions</code> with multi-format response handling</li>
+            <li><strong>Brand rename</strong> — product renamed from FlinkSQL Studio to <strong>Str:::lab Studio</strong> across all UI, docs, localStorage keys (<code>strlabstudio_*</code>), export filenames, and Kubernetes CRDs; Apache Flink trademark attribution added to footer</li>
+            <li><strong>PDF report heading fixed</strong> — <code>window.open</code> interceptor rewrites any residual brand references in the generated PDF before printing, including the report H1 heading and all inline text</li>
+            <li><strong>LinkedIn banner</strong> — 1200×627px SVG brand image generated for social media (Str:::lab Studio wordmark with feature pills and mock terminal)</li>
           </ul>
         </div>
         <div class="version-card">
           <div class="version-header">
-            <div class="version-card">
-              <div class="version-header">
-                <span class="version-tag">v1.0.20</span>
-                <span class="version-date">March 2026</span>
-              </div>
-              <ul>
-                <li><strong>⬡ Project Manager</strong> — create, load, run, save, and delete FlinkSQL projects; each project stores SQL tabs, SET config, catalog/database context, and metadata; export/import as JSON; storage usage tracking with per-project breakdown</li>
-                <li><strong>JAR Upload fix</strong> — FormData now sends <code>application/x-java-archive</code> Content-Type on the jarfile part (fixes HTTP 500 from Flink JobManager); configurable JobManager URL override field added for direct/remote clusters on non-standard ports</li>
-                <li><strong>_getJmBase() rewrite</strong> — correctly resolves JobManager URL in proxy mode (nginx swap), direct mode (port swap to 8081), and remote mode (user override field); no longer crashes with red error on tab open when not connected</li>
-                <li><strong>Maven / Gradle tab</strong> — generates complete <code>pom.xml</code> / <code>build.gradle</code> with correct provided/compileOnly scopes, shade/shadow plugin, and build commands; explains why Flink JARs must not be bundled</li>
-              </ul>
-            </div>
-            <div class="version-card">
-              <div class="version-header">
-                <span class="version-tag">v1.0.19</span>
-                <span class="version-date">March 2026</span>
-              </div>
-              <ul>
-                <li><strong>Admin Session</strong> — privileged connect mode with full cluster job visibility, admin badge in topbar, session activity modal, technical and business/management PDF reports</li>
-                <li><strong>Admin passcode management</strong> — default <code>admin1234</code>, changeable via Admin Settings modal after connecting</li>
-                <li><strong>Job scoping</strong> — regular sessions only see their own jobs; admin sees all cluster jobs with session attribution</li>
-                <li><strong>Duplicate submission guard</strong> — INSERT INTO / pipeline queries blocked if same statement already running</li>
-                <li><strong>Job tagging</strong> — <code>pipeline.name</code> SET injected automatically before INSERT statements with session label prefix</li>
-                <li><strong>Cancel job confirmation modal</strong> — explicit "Are you sure?" dialog before sending cancel signal to JobManager</li>
-                <li><strong>Tips &amp; Concepts modal</strong> — 16 tips across 6 categories: IDE features, Flink architecture, window types, state, connectors, performance, admin</li>
-                <li><strong>Load existing sessions</strong> — connect screen auto-fetches sessions from gateway after Test Connection for dropdown selection</li>
-                <li><strong>Session persistence</strong> — heartbeat keeps sessions alive indefinitely; no idle expiry unless explicitly disconnected</li>
-              </ul>
-            </div>
-            <div class="version-card">
-              <div class="version-header"><span class="version-tag">v1.0.18</span><span class="version-date">March 2026</span></div>
-              <ul>
-                <li><strong>Results display fixed</strong> — <code>NOT_READY</code> / <code>EOS</code> handling; Kafka SELECT rows reliably stream into Results tab</li>
-                <li><strong>Mouse wheel zoom</strong> on Job Graph (20%–300%) with zoom-toward-cursor and % indicator</li>
-                <li><strong>Catalog context fix</strong> — sidebar refresh no longer hijacks active USE CATALOG context</li>
-                <li>Named workspace export, session isolation, Cancel Job button, full session export</li>
-                <li>⚡ Recommended Streaming Config snippet, INSERT auto-redirect to Job Graph</li>
-              </ul>
-            </div>
-            <div class="version-card">
-              <div class="version-header"><span class="version-tag">v1.0.17</span><span class="version-date">February 2026</span></div>
-              <ul>
-                <li>Job Graph DAG — drag-to-pan, animated edges, fault highlighting, node double-click detail</li>
-                <li>Tab rename (double-click), per-session workspace isolation</li>
-              </ul>
-            </div>
-            <div class="version-card">
-              <div class="version-header"><span class="version-tag">v1.0.1 – v1.0.16</span><span class="version-date">December 2025 – January 2026</span></div>
-              <ul>
-                <li>Initial build: SQL editor, session management, Results / Log / Operations tabs</li>
-                <li>Snippet library, query history, catalog browser, performance tracking panel</li>
-                <li>Dark/light theme toggle, workspace export/import, Job Graph tab first visual pipeline monitoring</li>
-              </ul>
-            </div>
+            <span class="version-tag">v1.0.21</span>
+            <span class="version-date">March 2026</span>
           </div>
+          <ul>
+            <li><strong>⬡ Project Manager</strong> — create, load, run, save, and delete named Str:::lab projects; stores SQL tabs, SET config, catalog context, run count; export/import as JSON; per-project storage breakdown; name uniqueness enforced on create and import</li>
+            <li><strong>Tooltips</strong> on all Project Manager buttons, checkboxes, and tab headers</li>
+            <li><strong>JAR Upload fix</strong> — FormData now sends <code>application/x-java-archive</code> Content-Type (fixes Flink HTTP 500); configurable JobManager URL override field for non-standard ports</li>
+            <li><strong>Maven / Gradle tab</strong> — generates complete <code>pom.xml</code> / <code>build.gradle</code> with correct provided/compileOnly scopes, shade/shadow plugin, and annotated build commands</li>
+          </ul>
+        </div>
+        <div class="version-card">
+          <div class="version-header">
+            <span class="version-tag">v1.0.20</span>
+            <span class="version-date">March 2026</span>
+          </div>
+          <ul>
+            <li><strong>⬡ Project Manager</strong> — create, load, run, save, and delete Str:::lab projects; each project stores SQL tabs, SET config, catalog/database context, and metadata; export/import as JSON; storage usage tracking with per-project breakdown</li>
+            <li><strong>JAR Upload fix</strong> — FormData now sends <code>application/x-java-archive</code> Content-Type on the jarfile part (fixes HTTP 500 from Flink JobManager); configurable JobManager URL override field added for direct/remote clusters on non-standard ports</li>
+            <li><strong>_getJmBase() rewrite</strong> — correctly resolves JobManager URL in proxy mode (nginx swap), direct mode (port swap to 8081), and remote mode (user override field); no longer crashes with red error on tab open when not connected</li>
+            <li><strong>Maven / Gradle tab</strong> — generates complete <code>pom.xml</code> / <code>build.gradle</code> with correct provided/compileOnly scopes, shade/shadow plugin, and build commands; explains why Flink JARs must not be bundled</li>
+          </ul>
+        </div>
+        <div class="version-card">
+          <div class="version-header">
+            <span class="version-tag">v1.0.19</span>
+            <span class="version-date">March 2026</span>
+          </div>
+          <ul>
+            <li><strong>Admin Session</strong> — privileged connect mode with full cluster job visibility, admin badge in topbar, session activity modal, technical and business/management PDF reports</li>
+            <li><strong>Admin passcode management</strong> — default <code>admin1234</code>, changeable via Admin Settings modal after connecting</li>
+            <li><strong>Job scoping</strong> — regular sessions only see their own jobs; admin sees all cluster jobs with session attribution</li>
+            <li><strong>Duplicate submission guard</strong> — INSERT INTO / pipeline queries blocked if same statement already running</li>
+            <li><strong>Job tagging</strong> — <code>pipeline.name</code> SET injected automatically before INSERT statements with session label prefix</li>
+            <li><strong>Cancel job confirmation modal</strong> — explicit "Are you sure?" dialog before sending cancel signal to JobManager</li>
+            <li><strong>Tips &amp; Concepts modal</strong> — 16 tips across 6 categories: IDE features, Flink architecture, window types, state, connectors, performance, admin</li>
+            <li><strong>Load existing sessions</strong> — connect screen auto-fetches sessions from gateway after Test Connection for dropdown selection</li>
+            <li><strong>Session persistence</strong> — heartbeat keeps sessions alive indefinitely; no idle expiry unless explicitly disconnected</li>
+          </ul>
+        </div>
+        <div class="version-card">
+          <div class="version-header"><span class="version-tag">v1.0.18</span><span class="version-date">March 2026</span></div>
+          <ul>
+            <li><strong>Results display fixed</strong> — <code>NOT_READY</code> / <code>EOS</code> handling; Kafka SELECT rows reliably stream into Results tab</li>
+            <li><strong>Mouse wheel zoom</strong> on Job Graph (20%–300%) with zoom-toward-cursor and % indicator</li>
+            <li><strong>Catalog context fix</strong> — sidebar refresh no longer hijacks active USE CATALOG context</li>
+            <li>Named workspace export, session isolation, Cancel Job button, full session export</li>
+            <li>⚡ Recommended Streaming Config snippet, INSERT auto-redirect to Job Graph</li>
+          </ul>
+        </div>
+        <div class="version-card">
+          <div class="version-header"><span class="version-tag">v1.0.17</span><span class="version-date">February 2026</span></div>
+          <ul>
+            <li>Job Graph DAG — drag-to-pan, animated edges, fault highlighting, node double-click detail</li>
+            <li>Tab rename (double-click), per-session workspace isolation</li>
+          </ul>
+        </div>
+        <div class="version-card">
+          <div class="version-header"><span class="version-tag">v1.0.1 – v1.0.16</span><span class="version-date">December 2025 – January 2026</span></div>
+          <ul>
+            <li>Initial build: SQL editor, session management, Results / Log / Operations tabs</li>
+            <li>Snippet library, query history, catalog browser, performance tracking panel</li>
+            <li>Dark/light theme toggle, workspace export/import, Job Graph tab first visual pipeline monitoring</li>
+          </ul>
+        </div>
+      </div>
     </section>
 
   </main>
@@ -1467,15 +1471,15 @@ FROM cleansed_source;</pre>
         <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
       </svg>
     </div>
-    <span class="logo-text">FlinkSQL<span class="logo-ver">Studio</span></span>
+    <span class="logo-text">Str:::lab<span class="logo-ver">Studio</span></span>
   </div>
   <p>Built for streaming engineers, by a streaming engineer.</p>
   <p>
-    <a href="https://github.com/coded-streams/flinksql-studio" target="_blank">GitHub — FlinkSQL Studio</a> ·
-    <a href="https://github.com/coded-streams/flinksql-studio-operator" target="_blank">FlinkSQL Studio Kube Operator</a> ·
-    MIT License · Powered by <a href="https://flink.apache.org" target="_blank">Apache Flink</a>
+    <a href="https://github.com/coded-streams/strlabstudio" target="_blank">GitHub — Str:::lab Studio</a> ·
+    <a href="https://github.com/coded-streams/strlabstudio-operator" target="_blank">Str:::lab Studio Kube Operator</a> ·
+    MIT License · Uses <a href="https://flink.apache.org" target="_blank">Apache Flink</a> under the Apache License 2.0
   </p>
-  <p style="margin-top:6px;font-size:11px">Apache Flink is a trademark of the Apache Software Foundation.</p>
+  <p style="margin-top:6px;font-size:11px">Apache Flink is a trademark of the Apache Software Foundation. Str:::lab Studio is an independent project and is not affiliated with or endorsed by the Apache Software Foundation.</p>
 </footer>
 
 <script>

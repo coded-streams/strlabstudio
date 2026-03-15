@@ -1,12 +1,12 @@
-/* FlinkSQL Studio — Project Manager v1.0.21
- * Create, load, save, run, and delete FlinkSQL projects.
+/* Str:::lab Studio — Project Manager v1.0.21
+ * Create, load, save, run, and delete Str:::lab projects.
  * Projects store: name, description, tabs (SQL + title), session config (SET statements),
- * table definitions, and metadata. Stored in localStorage under flinksql_projects.
+ * table definitions, and metadata. Stored in localStorage under strlabstudio_projects.
  * Memory usage is tracked and displayed. Projects can be exported/imported as JSON.
  */
 
-const PM_STORAGE_KEY = 'flinksql_projects';
-const PM_ACTIVE_KEY  = 'flinksql_active_project';
+const PM_STORAGE_KEY = 'strlabstudio_projects';
+const PM_ACTIVE_KEY  = 'strlabstudio_active_project';
 
 // ── Storage helpers ───────────────────────────────────────────────────────────
 function _pmLoad() {
@@ -99,7 +99,7 @@ function _pmBuildModal() {
           <div style="font-size:14px;font-weight:700;color:var(--text0);display:flex;align-items:center;gap:8px;">
             <span style="color:var(--accent);">⬡</span> Project Manager
           </div>
-          <div style="font-size:10px;color:var(--accent);letter-spacing:1px;text-transform:uppercase;margin-top:2px;">FlinkSQL Projects</div>
+          <div style="font-size:10px;color:var(--accent);letter-spacing:1px;text-transform:uppercase;margin-top:2px;">Str:::lab Projects</div>
         </div>
         <button class="modal-close" onclick="closeModal('modal-project-manager')">×</button>
       </div>
@@ -249,7 +249,7 @@ function _pmCreateProject() {
         description: desc,
         created:     new Date().toISOString(),
         modified:    new Date().toISOString(),
-        version:     '1.0.21',
+        version:     '1.0.22',
         tabs:        snapTabs   ? _pmSnapshotTabs()   : [{ id: 'tab-1', title: 'Query 1', sql: '' }],
         config:      snapConfig ? _pmSnapshotConfig() : '',
         sessionName: typeof state !== 'undefined' ? (state.sessionName || '') : '',
@@ -456,10 +456,10 @@ function _pmDeleteProject(id, name) {
 function _pmExportProject(id) {
     const p = _pmLoad().find(proj => proj.id === id);
     if (!p) return;
-    const json = JSON.stringify({ flinksqlStudioProject: true, version: '1.0.21', exportedAt: new Date().toISOString(), project: p }, null, 2);
+    const json = JSON.stringify({ strlabStudioProject: true, version: '1.0.22', exportedAt: new Date().toISOString(), project: p }, null, 2);
     const a    = document.createElement('a');
     a.href     = 'data:application/json;charset=utf-8,' + encodeURIComponent(json);
-    a.download = p.name.replace(/[^a-z0-9]/gi, '_').toLowerCase() + '-flinksql-project.json';
+    a.download = p.name.replace(/[^a-z0-9]/gi, '_').toLowerCase() + '-strlab-project.json';
     a.click();
     toast('Project "' + p.name + '" exported', 'ok');
 }
@@ -467,10 +467,10 @@ function _pmExportProject(id) {
 function _pmExportAll() {
     const projects = _pmLoad();
     if (!projects.length) { toast('No projects to export', 'info'); return; }
-    const json = JSON.stringify({ flinksqlStudioProject: true, version: '1.0.21', exportedAt: new Date().toISOString(), projects }, null, 2);
+    const json = JSON.stringify({ strlabStudioProject: true, version: '1.0.22', exportedAt: new Date().toISOString(), projects }, null, 2);
     const a    = document.createElement('a');
     a.href     = 'data:application/json;charset=utf-8,' + encodeURIComponent(json);
-    a.download = 'flinksql-projects-' + new Date().toISOString().slice(0,10) + '.json';
+    a.download = 'strlab-projects-' + new Date().toISOString().slice(0,10) + '.json';
     a.click();
     toast(projects.length + ' project(s) exported', 'ok');
 }

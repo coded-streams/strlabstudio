@@ -6,7 +6,7 @@
 // via the 🛡 Settings badge after connecting.
 const ADMIN_DEFAULT_PASSCODE = 'admin1234';
 let _adminPasscode = (() => {
-  try { return localStorage.getItem('flinksql_admin_pass') || ADMIN_DEFAULT_PASSCODE; } catch(_) { return ADMIN_DEFAULT_PASSCODE; }
+  try { return localStorage.getItem('strlabstudio_admin_pass') || ADMIN_DEFAULT_PASSCODE; } catch(_) { return ADMIN_DEFAULT_PASSCODE; }
 })();
 
 function toggleProps() {
@@ -89,7 +89,7 @@ async function testConnection() {
     }
     const info = await resp.json();
     const ver = info.flinkVersion || info.version || 'unknown';
-    setConnectStatus('ok', `✓ Gateway reachable! &nbsp; Apache Flink ${ver} &nbsp; — click Connect`);
+    setConnectStatus('ok', `✓ Gateway reachable! &nbsp; Flink ${ver} &nbsp; — click Connect`);
     toast('Connection test passed', 'ok');
     // Also load existing sessions now
     loadExistingSessionsFromGateway(baseUrl);
@@ -282,26 +282,26 @@ function launchApp(host, port) {
   _applyAdminUI();
 
   try {
-    const savedTheme = localStorage.getItem('flinksql_theme');
+    const savedTheme = localStorage.getItem('strlabstudio_theme');
     if (savedTheme) state.theme = savedTheme;
   } catch(_) {}
   applyTheme();
 
   // Workspace restore logic
-  const savedSessionName = (() => { try { return localStorage.getItem('flinksql_last_session_name') || ''; } catch(_) { return ''; } })();
+  const savedSessionName = (() => { try { return localStorage.getItem('strlabstudio_last_session_name') || ''; } catch(_) { return ''; } })();
   const sessionName = (() => { try { return document.getElementById('inp-session-name')?.value.trim() || ''; } catch(_) { return ''; } })();
   const isNewNamedSession = sessionName && sessionName !== savedSessionName;
 
   if (isNewNamedSession) {
     if (state.tabs.length > 0) {
-      try { localStorage.setItem('flinksql_workspace_backup', JSON.stringify({ tabs: state.tabs, savedAt: Date.now() })); } catch(_) {}
+      try { localStorage.setItem('strlabstudio_workspace_backup', JSON.stringify({ tabs: state.tabs, savedAt: Date.now() })); } catch(_) {}
     }
     state.tabs = []; state.activeTab = null; state.history = [];
     state.logLines = []; state.operations = []; state.results = []; state.resultColumns = [];
     window._workspaceRestored = true;
     addTab('Query 1');
     setTimeout(() => toast(`New session "${sessionName}" — fresh workspace started`, 'ok'), 500);
-    try { localStorage.setItem('flinksql_last_session_name', sessionName); } catch(_) {}
+    try { localStorage.setItem('strlabstudio_last_session_name', sessionName); } catch(_) {}
   } else {
     if (!window._workspaceRestored) {
       restoreWorkspace();
@@ -311,7 +311,7 @@ function launchApp(host, port) {
         setTimeout(() => toast(`${count} tab${count>1?'s':''} restored`, 'info'), 800);
       }
     }
-    if (sessionName) { try { localStorage.setItem('flinksql_last_session_name', sessionName); } catch(_) {} }
+    if (sessionName) { try { localStorage.setItem('strlabstudio_last_session_name', sessionName); } catch(_) {} }
   }
 
   if (state.tabs.length === 0) addTab('Query 1');
@@ -454,7 +454,7 @@ function saveAdminSettings() {
       statusEl.style.color = 'var(--red)'; statusEl.textContent = '✗ Passcodes do not match.'; return;
     }
     _adminPasscode = newPass;
-    try { localStorage.setItem('flinksql_admin_pass', newPass); } catch(_) {}
+    try { localStorage.setItem('strlabstudio_admin_pass', newPass); } catch(_) {}
     statusEl.style.color = 'var(--green)'; statusEl.textContent = '✓ Passcode updated successfully.';
     toast('Admin passcode updated', 'ok');
     return;
@@ -491,7 +491,7 @@ function disconnectAll(silent = false, prefillName = '') {
   if (sbAdmin) sbAdmin.remove();
   // Pre-fill session name
   const nameInput = document.getElementById('inp-session-name');
-  const savedName = prefillName || (() => { try { return localStorage.getItem('flinksql_last_session_name') || ''; } catch(_) { return ''; } })();
+  const savedName = prefillName || (() => { try { return localStorage.getItem('strlabstudio_last_session_name') || ''; } catch(_) { return ''; } })();
   if (nameInput && savedName) nameInput.value = savedName;
   const handleInput = document.getElementById('inp-session-handle');
   if (handleInput && state._lastSessionHandle) handleInput.value = state._lastSessionHandle;
@@ -527,7 +527,7 @@ function startHeartbeat() {
     const idleSecs = (Date.now() - _lastActivityTime) / 1000;
     const hasJobs  = _hasRunningJobs();
     if (!hasJobs && idleSecs > IDLE_EXPIRE_MS / 1000) {
-      const sname = (() => { try { return localStorage.getItem('flinksql_last_session_name') || ''; } catch(_) { return ''; } })();
+      const sname = (() => { try { return localStorage.getItem('strlabstudio_last_session_name') || ''; } catch(_) { return ''; } })();
       addLog('WARN', `Auto-disconnecting after ${Math.round(idleSecs/60)}min idle.`);
       toast('Idle disconnect — click reconnect to resume', 'info');
       disconnectAll(true, sname);
@@ -919,7 +919,7 @@ SET 'table.optimizer.agg-phase-strategy'  = 'TWO_PHASE';</pre>`
   {
     icon: '🚫', category: 'Performance Tips',
     title: 'Avoid duplicate pipeline submissions',
-    body: `FlinkSQL Studio blocks re-submitting the same INSERT INTO while it's already RUNNING. But if you restart the IDE, the guard resets. Always check the <strong>Job Graph</strong> tab before submitting — if the job is RUNNING, do not re-submit. Duplicate pipelines consume double the slots, produce duplicate records in your sinks, and cause state corruption.`
+    body: `Str:::lab Studio blocks re-submitting the same INSERT INTO while it's already RUNNING. But if you restart the IDE, the guard resets. Always check the <strong>Job Graph</strong> tab before submitting — if the job is RUNNING, do not re-submit. Duplicate pipelines consume double the slots, produce duplicate records in your sinks, and cause state corruption.`
   },
 
 
@@ -1412,14 +1412,14 @@ function showTipsModal() {
     modal.addEventListener('click', e => { if (e.target === modal) closeModal('modal-tips'); });
   }
 
-  const dontShow = (() => { try { return localStorage.getItem('flinksql_tips_hide') === '1'; } catch(_) { return false; } })();
+  const dontShow = (() => { try { return localStorage.getItem('strlabstudio_tips_hide') === '1'; } catch(_) { return false; } })();
   if (dontShow) return;
 
   const dontShowCb = document.getElementById('tips-dontshow');
   if (dontShowCb) {
     dontShowCb.checked = false;
     dontShowCb.onchange = () => {
-      try { localStorage.setItem('flinksql_tips_hide', dontShowCb.checked ? '1' : '0'); } catch(_) {}
+      try { localStorage.setItem('strlabstudio_tips_hide', dontShowCb.checked ? '1' : '0'); } catch(_) {}
     };
   }
 

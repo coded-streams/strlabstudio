@@ -1,93 +1,54 @@
-# FlinkSQL Studio
+# Str:::lab Studio
 
-> A zero-dependency, modular browser IDE for Apache Flink SQL — built for engineers who want a real query interface without leaving their laptop.
+> A zero-dependency, modular browser SQL Studio for Flink SQL pipelines — built for engineers who want a real query interface without leaving their laptop.
 
-![License](https://img.shields.io/badge/license-MIT-green)
-![Flink](https://img.shields.io/badge/Apache%20Flink-1.19%2B-orange)
+![License](https://img.shields.io/badge/license-Apache%202.0-green)
+![Flink](https://img.shields.io/badge/Flink%20SQL%20Gateway-1.19%2B-orange)
 ![Docker](https://img.shields.io/badge/docker-ready-blue)
-![Admin](https://img.shields.io/badge/admin-session-yellow)
+![Version](https://img.shields.io/badge/version-v1.0.22-teal)
+
+> **Apache Flink** is a trademark of the Apache Software Foundation.
+> Str:::lab Studio is an independent open-source project that uses the Flink SQL Gateway REST API.
+> It is not affiliated with or endorsed by the Apache Software Foundation.
 
 ---
 
 ## What is it?
 
-FlinkSQL Studio is a self-hosted web IDE that connects to the **Flink SQL Gateway** and lets you:
+Str:::lab Studio is a self-hosted web IDE that connects to the **Flink SQL Gateway** and lets you:
 
-- Write and run Flink SQL in a multi-tab editor with **live streaming results from Kafka**
+- Write and run Flink SQL in a multi-tab editor with **live streaming results from streaming systems like Kafka**
 - Visualise running job DAGs with real-time metrics, fault highlighting, and animated edges
 - Manage multiple sessions — each session has its own isolated workspace (tabs, logs, history, jobs)
 - Monitor cluster health: backpressure, checkpoints, slot utilisation, JVM heap, records/s
 - Connect to Kafka with or without Schema Registry, sink to S3/MinIO, and run ML inference pipelines
+- Manage **User-Defined Functions** — SQL UDFs, JAR upload to cluster, Maven/Gradle build config
+- Organise work as named **Projects** — save, load, run, and export your pipelines
 - Use **Admin Session** for full cluster visibility, cross-session oversight, and professional reports
 - Generate PDF reports — standard session reports, or admin-grade Technical / Business reports
 
 ---
-
-## Project Structure
-
-```
-flinksql-studio/
-│
-├── index.html              # Entry point — HTML structure + modal markup only (no inline logic)
-│
-├── css/
-│   ├── theme.css           # CSS variables: dark, light, monokai, dracula, nord, contrast
-│   ├── layout.css          # Connection screen, topbar, sidebar, editor, results, statusbar
-│   └── panels.css          # Performance panel, Job Graph panel, Node Detail modal
-│
-├── js/
-│   ├── state.js            # Global state, constants (MAX_ROWS), SNIPPETS library, api()
-│   ├── connection.js       # Connect screen: modes, auth, doConnect(), heartbeat, tips modal,
-│   │                       #   admin session, existing session loader, session renewal
-│   ├── tabs.js             # Tab add / rename / switch / close
-│   ├── editor.js           # SQL editor: line numbers, format, Ctrl+/ comment, keyboard shortcuts
-│   ├── execution.js        # runSQL(), pollOperation(), duplicate submission guard, job tagging
-│   ├── results.js          # Result table render, pagination, CSV export, stream slot selector
-│   ├── log.js              # Log panel, operations list, query history, error parsing
-│   ├── catalog.js          # Catalog browser: refresh, tree render, table detail
-│   ├── session.js          # Session CRUD, job scoping, cancel confirmation, audit trail,
-│   │                       #   admin session detail inspector, duplicate guard helpers
-│   ├── perf.js             # KPIs, sparklines, gauges, checkpoints, cluster resources, reports
-│   ├── theme.js            # Theme select, applyTheme(), persist
-│   ├── workspace.js        # Workspace export/import JSON, restoreWorkspace()
-│   ├── modals.js           # Error modal, job list, cancelSelectedJob(), admin sessions overview
-│   ├── jobgraph.js         # DAG render, zoom/pan, node detail, live metrics, vertex timeline
-│   ├── timeline.js         # Vertex status timeline chart (Gantt-style)
-│   ├── misc.js             # togglePerfLive(), filterPerfQueries(), init
-│   └── admin.js            # Admin badge, Sessions button, report UI, Flink docs links,
-│                           #   query count hook, launchApp/disconnectAll patch
-│
-├── docs/
-│   ├── index.html                  # Documentation site
-│   ├── demo-datagen-kafka.sql      # Simple demo pipeline
-│   └── full-pipeline.sql           # Full multi-node pipeline
-│
-├── nginx/studio.conf               # nginx reverse proxy config
-├── scripts/
-│   ├── setup.sh / setup.ps1        # Quickstart scripts
-│   └── download-connectors.sh/.ps1 # Auto-download matching connector JARs
-├── k8s/
-│   ├── manifests/deployment.yaml
-│   └── helm/flinksql-studio/
-├── Dockerfile
-├── docker-compose.yml
-├── CONTRIBUTING.md
-├── LICENSE
-└── README.md
-```
-
----
-
 ## Quickstart
 
 ```bash
-git clone https://github.com/coded-streams/flinksql-studio
-cd flinksql-studio
+git clone https://github.com/coded-streams/strlabstudio
+cd strlabstudio
 docker compose up -d
 open http://localhost:3030
 ```
 
-On first connect, a **Tips & Concepts** modal walks you through the IDE and key Flink concepts — with SQL code examples for every tip.
+Or pull the image directly:
+
+```bash
+docker run -p 3030:80 \
+  -e FLINK_GATEWAY_HOST=your-gateway-host \
+  -e FLINK_GATEWAY_PORT=8083 \
+  -e JOBMANAGER_HOST=your-jobmanager-host \
+  -e JOBMANAGER_PORT=8081 \
+  codedstreams/strlabstudio:latest
+```
+
+On first connect, a **Tips & Concepts** modal walks you through the IDE and key Flink SQL concepts — with runnable SQL examples for every tip.
 
 ---
 
@@ -96,7 +57,7 @@ On first connect, a **Tips & Concepts** modal walks you through the IDE and key 
 | Mode | When to use | Auth |
 |------|-------------|------|
 | **Via Studio** | Local Docker — routes through nginx at `localhost:3030` | None |
-| **Direct Gateway** | Remote clusters, Confluent Cloud, AWS Managed Flink | Bearer token or Basic |
+| **Direct Gateway** | Remote clusters, custom Flink deployments, cloud-managed Flink | Bearer token or Basic |
 | **🛡 Admin Session** | Platform operators — full cluster visibility, professional reports | Passcode |
 
 > **Test Connection first** — the IDE auto-fetches existing sessions from the gateway and populates a dropdown so you can reconnect without copy-pasting UUIDs.
@@ -119,55 +80,71 @@ Connect using the **🛡 Admin** button on the connect screen and enter the admi
 
 ### Sessions Panel (Admin view)
 
-When connected as admin, the **Sessions panel** (sidebar) and the **🛡 Sessions** topbar button both show all registered sessions with live counts:
+When connected as admin, the **Sessions panel** (sidebar) and the **🛡 Sessions** topbar button both show all registered sessions with live counts — queries run, jobs submitted, and an ⚠ badge for sessions where admin has taken action.
 
-- **Queries run** — total queries executed in that session
-- **Jobs** — total submitted / currently running
-- **⚠ Admin activity** — red badge appears on sessions where an admin has taken action
-
-Click **🔍 Inspect** on any session to open the **Session Inspector** — a tabbed modal showing:
-
-- **Overview** — stats, session info, open tab names and line counts
-- **Queries** — full query history with timestamps and status
-- **Jobs** — live job list with inline Cancel buttons
-- **Audit Log** — every admin action (cancel, delete, inspect) with admin name and timestamp
+Click **🔍 Inspect** on any session for the **Session Inspector** — Overview, Queries, Jobs, and Audit Log tabs.
 
 ### Audit Trail
 
-Every admin action records:
+Every admin action records a timestamped entry:
 
 ```
 🛡 John Smith — Cancel Job  at 14:32:07
 🛡 John Smith — Session Deleted  at 14:35:12
 ```
 
-This notice appears on the session card in the sidebar so any user reconnecting to that session can see what changed and when.
-
 ### Admin Reports
-
-From **Performance → Report**, admin sees two report type options:
 
 | Report Type | Audience | Content |
 |-------------|----------|---------|
-| **Technical Report** | Engineering teams | Vertex-level metrics, JVM heap, checkpoint durations, per-session job breakdown, exact SQL statements |
-| **Business / Management Report** | Non-technical stakeholders | Self-explaining resource utilisation %, job health summaries, throughput in plain language, no SQL or technical jargon |
-
-Both reports carry the **admin's name, session ID, and generation timestamp** in the header.
+| **Technical Report** | Engineering teams | Vertex metrics, JVM heap, checkpoint durations, per-session job breakdown, SQL |
+| **Business / Management Report** | Non-technical stakeholders | Resource utilisation %, health summaries, throughput in plain language |
 
 ---
 
-## Session Model
+## UDF Manager
 
-- **Regular sessions** see only the jobs they submitted — jobs are tagged with the session name via `pipeline.name` SET before every INSERT.
-- Sessions are kept alive by a 30-second heartbeat. They do **not** expire from the IDE due to inactivity — only an explicit disconnect or container restart ends them.
-- **Duplicate submission guard** — submitting the same INSERT INTO while it's already RUNNING is blocked with a clear warning message.
-- **Cancel confirmation modal** — cancelling any job shows "Are you sure?" before sending the signal to JobManager.
+Access via **⨍ UDFs** in the topbar. Five tabs for the complete UDF lifecycle:
+
+| Tab | Purpose |
+|-----|---------|
+| **📚 Library** | Browse all registered functions, search/filter, click to insert at cursor |
+| **⬆ Upload JAR** | Upload a JAR directly to the Flink JobManager via `POST /jars/upload` — no SSH needed |
+| **⬡ Maven / Gradle** | Generate correct `pom.xml` or `build.gradle` with provided/compileOnly scopes and shade plugin |
+| **＋ Register UDF** | Register a JAR-based or Python UDF with live SQL preview |
+| **✎ SQL UDF** | Write a UDF entirely in SQL — no JAR, no Java (Flink 1.17+) |
+| **⊞ Templates** | 10 production-ready annotated templates: scalar, UDTF, UDAGG, async lookup, best practices |
+
+### SQL UDF example (no JAR required)
+
+```sql
+CREATE TEMPORARY FUNCTION classify_risk(score DOUBLE)
+RETURNS STRING LANGUAGE SQL AS $$
+  CASE
+    WHEN score >= 0.80 THEN 'CRITICAL'
+    WHEN score >= 0.55 THEN 'HIGH'
+    WHEN score >= 0.30 THEN 'MEDIUM'
+    ELSE 'LOW'
+  END
+$$;
+
+SELECT event_id, risk_score, classify_risk(risk_score) AS tier
+FROM transactions;
+```
+
+---
+
+## Project Manager
+
+Access via **⬡ Projects** in the topbar. Save, load, run, and organise your Flink SQL work as named projects stored in browser `localStorage`.
+
+Each project stores: SQL tabs, SET configuration, catalog/database context, run count, and metadata. Projects can be exported as JSON for backup or sharing, and imported on any Studio instance.
 
 ---
 
 ## Connector JARs
 
-Connector JARs **must match your Flink version exactly**. Wrong version → `NoClassDefFoundError: guava30/.../Closer` on every INSERT job.
+Connector JARs **must match your Flink version exactly**. Wrong version → `NoClassDefFoundError` on every INSERT job.
 
 | Flink version | Kafka connector JAR |
 |---|---|
@@ -197,58 +174,65 @@ CREATE TABLE kafka_events (
   WATERMARK FOR event_time AS event_time - INTERVAL '5' SECOND
 ) WITH (
   'connector'                    = 'kafka',
-  'topic'                        = 'user-events',
-  'properties.bootstrap.servers' = 'kafka-01:29092',
-  'properties.group.id'          = 'flink-consumer-01',
+  'topic'                        = 'your-topic-name',
+  'properties.bootstrap.servers' = 'your-broker-host:9092',
+  'properties.group.id'          = 'strlab-consumer-01',
   'scan.startup.mode'            = 'latest-offset',
   'format'                       = 'json'
 );
+
+-- For production clusters with SASL/SSL authentication:
+-- 'properties.security.protocol'  = 'SASL_SSL',
+-- 'properties.sasl.mechanism'     = 'PLAIN',
+-- 'properties.sasl.jaas.config'   = 'org.apache.kafka.common.security.plain.PlainLoginModule required username="YOUR_API_KEY" password="YOUR_API_SECRET";',
 ```
 
 ---
 
-## Connecting to Confluent Schema Registry (Avro)
+## Connecting to a Schema Registry (Avro)
 
 Requires: `flink-sql-avro-confluent-registry-<ver>.jar` and `flink-sql-avro-<ver>.jar` in `/opt/flink/lib/`.
+Works with Confluent Schema Registry, Apicurio, AWS Glue Schema Registry, and any Confluent-compatible endpoint.
 
 ```sql
-CREATE TABLE payments_avro (
-  payment_id STRING,
-  amount     DOUBLE,
-  currency   STRING,
-  ts         TIMESTAMP(3),
+CREATE TABLE events_avro (
+  event_id STRING,
+  amount   DOUBLE,
+  ts       TIMESTAMP(3),
   WATERMARK FOR ts AS ts - INTERVAL '3' SECOND
 ) WITH (
   'connector'                    = 'kafka',
-  'topic'                        = 'payments',
-  'properties.bootstrap.servers' = 'kafka-01:29092',
-  'properties.group.id'          = 'flink-payments-01',
+  'topic'                        = 'your-avro-topic',
+  'properties.bootstrap.servers' = 'your-broker-host:9092',
   'format'                       = 'avro-confluent',
-  'avro-confluent.url'           = 'http://schemaregistry0-01:8081',
+  'avro-confluent.url'           = 'https://your-schema-registry-host',
+  -- For secured registries:
+  -- 'avro-confluent.basic-auth.credentials-source' = 'USER_INFO',
+  -- 'avro-confluent.basic-auth.user-info'           = 'YOUR_API_KEY:YOUR_API_SECRET',
   'scan.startup.mode'            = 'earliest-offset'
 );
 ```
 
 ---
 
-## Checkpointing and Sinking to S3 / MinIO
+## Checkpointing and Sinking to Object Storage
 
 ```sql
--- 1. Enable checkpointing to S3/MinIO
+-- Enable checkpointing to S3-compatible object storage
 SET 'state.backend'         = 'filesystem';
-SET 'state.checkpoints.dir' = 's3://flink-checkpoints/cp';
+SET 'state.checkpoints.dir' = 's3://your-bucket/checkpoints';
 SET 'execution.checkpointing.interval' = '10000';
 
--- 2. Sink results to data lake (Parquet, partitioned)
-CREATE TABLE trade_archive (
-  trade_date STRING,
-  symbol     STRING,
-  volume     DOUBLE,
-  total_usd  DOUBLE
-) PARTITIONED BY (trade_date)
+-- Sink to a partitioned Parquet data lake
+CREATE TABLE events_archive (
+  event_date STRING,
+  event_type STRING,
+  user_id    STRING,
+  amount     DOUBLE
+) PARTITIONED BY (event_date)
 WITH (
   'connector'           = 'filesystem',
-  'path'                = 's3://my-data-lake/trades/',
+  'path'                = 's3://your-bucket/events/',
   'format'              = 'parquet',
   'sink.rolling-policy.rollover-interval' = '10 min',
   'sink.partition-commit.delay'           = '1 min',
@@ -256,11 +240,11 @@ WITH (
 );
 ```
 
-For MinIO, add these to your Flink config:
+For self-hosted MinIO, add to your Flink config:
 ```yaml
 fs.s3a.endpoint: http://minio:9000
-fs.s3a.access-key: minioadmin
-fs.s3a.secret-key: minioadmin
+fs.s3a.access-key: your-access-key
+fs.s3a.secret-key: your-secret-key
 fs.s3a.path.style.access: true
 ```
 
@@ -268,35 +252,35 @@ fs.s3a.path.style.access: true
 
 ## Real-time ML Inference
 
-### Pattern 1 — UDF calling a hosted model REST API
-
-Register a Java/Python UDF that calls your model endpoint (SageMaker, Vertex AI, custom FastAPI):
+### Pattern 1 — SQL UDF calling a hosted model
 
 ```sql
--- Register UDF (JAR must be in /opt/flink/lib/)
-CREATE FUNCTION predict_risk AS 'com.mycompany.flink.RiskScoringUDF';
+-- Register a SQL UDF (no JAR needed for expression-based logic)
+CREATE TEMPORARY FUNCTION classify_risk(score DOUBLE)
+RETURNS STRING LANGUAGE SQL AS $$
+  CASE WHEN score >= 0.8 THEN 'HIGH' WHEN score >= 0.5 THEN 'MEDIUM' ELSE 'LOW' END
+$$;
 
--- Use inline in pipeline — scores every record in real time
-SELECT
-  trade_id,
-  symbol,
-  amount,
-  predict_risk(symbol, amount, volume, volatility) AS risk_score
-FROM enriched_trades_source
-WHERE predict_risk(symbol, amount, volume, volatility) > 0.75;
+-- Or register a Java/Python UDF that calls your model endpoint
+-- (JAR uploaded via ⨍ UDFs → Upload JAR tab, no SSH required)
+CREATE FUNCTION predict_fraud AS 'com.yourcompany.udf.FraudScoringUDF' LANGUAGE JAVA;
+
+SELECT trade_id, amount, predict_fraud(amount, velocity, country) AS fraud_score
+FROM enriched_trades
+WHERE predict_fraud(amount, velocity, country) > 0.75;
 ```
 
 ### Pattern 2 — Feature pipeline → Kafka → Python AI service
 
 ```sql
--- Flink: compute and publish features
+-- Flink: compute and publish rolling features
 INSERT INTO ml_features_kafka
 SELECT
   user_id,
-  COUNT(*)       AS txn_count_5m,
-  SUM(amount)    AS total_spend_5m,
-  MAX(amount)    AS max_txn_5m,
-  window_end     AS feature_time
+  COUNT(*)    AS txn_count_5m,
+  SUM(amount) AS total_spend_5m,
+  MAX(amount) AS max_txn_5m,
+  window_end  AS feature_time
 FROM TABLE(HOP(TABLE transactions, DESCRIPTOR(event_time),
     INTERVAL '1' MINUTE, INTERVAL '5' MINUTE))
 GROUP BY user_id, window_start, window_end;
@@ -304,32 +288,31 @@ GROUP BY user_id, window_start, window_end;
 -- Python AI service consumes 'ml-features', runs model.predict(),
 -- publishes predictions back to 'ml-predictions' topic
 
--- Flink: join predictions back for downstream actions
-SELECT s.user_id, s.amount, p.fraud_score, p.recommendation
+-- Flink: join predictions back for downstream alerting
+SELECT s.user_id, s.amount, p.fraud_score
 FROM transactions s
-JOIN predictions_source p
-  ON s.user_id = p.user_id
-  AND p.ts BETWEEN s.event_time - INTERVAL '10' SECOND
-                AND s.event_time + INTERVAL '10' SECOND;
+JOIN predictions_source p ON s.user_id = p.user_id
+AND p.ts BETWEEN s.event_time - INTERVAL '10' SECOND
+             AND s.event_time + INTERVAL '10' SECOND;
 ```
 
 ---
 
 ## Recommended session setup
 
-Run this at the start of **every** Flink SQL session (available as a snippet under CONFIG → ⚡ Recommended Streaming Config):
+Available as a snippet: **CONFIG → ⚡ Recommended Streaming Config**
 
 ```sql
-SET 'execution.runtime-mode'                     = 'streaming';
-SET 'parallelism.default'                        = '2';
-SET 'execution.checkpointing.interval'           = '10000';
-SET 'execution.checkpointing.mode'               = 'EXACTLY_ONCE';
-SET 'table.exec.state.ttl'                       = '3600000';
-SET 'table.exec.source.idle-timeout'             = '10000';
-SET 'table.exec.mini-batch.enabled'              = 'true';
-SET 'table.exec.mini-batch.allow-latency'        = '500 ms';
-SET 'table.exec.mini-batch.size'                 = '5000';
-SET 'table.optimizer.agg-phase-strategy'         = 'TWO_PHASE';
+SET 'execution.runtime-mode'              = 'streaming';
+SET 'parallelism.default'                 = '2';
+SET 'execution.checkpointing.interval'    = '10000';
+SET 'execution.checkpointing.mode'        = 'EXACTLY_ONCE';
+SET 'table.exec.state.ttl'                = '3600000';
+SET 'table.exec.source.idle-timeout'      = '10000';
+SET 'table.exec.mini-batch.enabled'       = 'true';
+SET 'table.exec.mini-batch.allow-latency' = '500 ms';
+SET 'table.exec.mini-batch.size'          = '5000';
+SET 'table.optimizer.agg-phase-strategy'  = 'TWO_PHASE';
 ```
 
 ---
@@ -340,7 +323,7 @@ SET 'table.optimizer.agg-phase-strategy'         = 'TWO_PHASE';
 Browser (localhost:3030)
     │
     ▼
-[nginx: flink-studio container]
+[nginx: strlabstudio container]
     │  /flink-api/       → flink-sql-gateway:8083
     │  /jobmanager-api/  → flink-jobmanager:8081
     ▼
@@ -366,7 +349,8 @@ Browser (localhost:3030)
 
 ### Results & Streaming
 - Live rows from Kafka stream into Results tab as they arrive
-- INSERT INTO detects Job ID and auto-switches to Job Graph
+- **✦ Colour Describe** — intelligent row coloring by column semantics (status, risk, signal quality, latency, packet loss) with PDF-safe inline styles
+- INSERT INTO auto-switches to Job Graph when the job starts
 - Paginated result table with CSV export and stream slot history
 
 ### Job Graph
@@ -374,85 +358,81 @@ Browser (localhost:3030)
 - Fault node highlighting — pulsing red + error message in node
 - Animated flowing edges (RUNNING) and red dashed edges (FAILED)
 - Drag-to-pan, mouse-wheel zoom (20%–300%), double-click node for detail
-- Cancel Job button — shows confirmation modal before sending cancel signal
+- Cancel Job button — confirmation modal before sending cancel signal
 
 ### Performance
 - Live KPIs: records in/out, backpressure %, slot utilisation, checkpoint health
 - Throughput sparklines, per-query timing bars, cluster resource cards
+- Job Resource Comparison chart with per-job toggle checkboxes
 - Checkpoint history sparkline and detail grid
+
+### UDF Manager
+- Library: browse all registered functions, click to insert at cursor
+- Upload JAR directly to Flink cluster via `POST /jars/upload` (no SSH)
+- Maven / Gradle config generator with correct provided/compileOnly scopes
+- SQL UDF creator (no JAR, no Java — Flink 1.17+)
+- 10 annotated production templates across 5 groups
+
+### Project Manager
+- Named projects storing SQL tabs, SET config, catalog context, and metadata
+- Load, run, save, export (JSON), import with name-collision handling
+- Per-project storage usage breakdown; 5 MB localStorage limit tracked
 
 ### Admin Session
 - Full cluster job visibility with session attribution
 - Session Inspector — queries, jobs, open tabs, audit log per session
 - Audit trail records every admin action with name and timestamp
-- Technical and Business/Management PDF reports with distinct themes
+- Technical and Business/Management PDF reports
 
 ### Tips & Concepts Modal
-- 25+ tips across 7 categories: Getting Started, IDE Tips, Flink Architecture, Flink Concepts, Connectors, AI & ML Workloads, Performance Tips, Admin
-- Every tip includes a SQL code example demonstrating the concept
-- Paginated with progress dots, category tag navigation, "Don't show on startup" option
-
-### About Modal
-- Links to Apache Flink SQL official documentation: SQL Overview, Connectors, Window Aggregation, Checkpointing
+- 40+ tips across 11 categories: Getting Started, IDE Tips, Flink Architecture, Flink Concepts, Connectors, AI & ML Workloads, Pipeline Design, Flink APIs, Flink CEP, UDFs, Performance Tips, Admin
+- Every tip includes a SQL code example
+- UDF category includes a 3-step auto-advancing walkthrough (Write → Register → Use)
 
 ---
 
 ## Saving your work
 
-FlinkSQL Studio auto-saves tabs to `localStorage`. For permanent backup across machines:
+Str:::lab Studio auto-saves tabs to `localStorage`. For permanent backup:
 
-1. Click **Workspace** in the topbar
-2. Enter a filename (e.g. `crypto-pipeline`)
-3. Click **↓ Export Workspace** — saves all tabs, SQL, history, logs, theme
+1. Click **Workspace** in the topbar → **↓ Export Workspace**
+2. Or use **⬡ Projects** → create a named project → export as JSON
 
-To resume: **↑ Import Workspace** → select your `.json` file.
+To resume: **↑ Import Workspace** → select your `.json` file, or **⬡ Projects → Import**.
 
-> Flink sessions are ephemeral — the export saves your *scripts*, not the running session. After importing, re-run your `USE CATALOG` and `CREATE TABLE` statements.
-
----
-
-## Connecting to your cluster
-
-| What | Value |
-|---|---|
-| Internal Kafka bootstrap | `kafka-01:29092` |
-| Schema Registry | `http://schemaregistry0-01:8081` |
-| Kafka UI | `http://localhost:28040` |
-| Flink UI | `http://localhost:8012` |
+> Flink sessions are ephemeral — exports save your *scripts*, not the running session. After importing, re-run your `USE CATALOG` and `CREATE TABLE` statements.
 
 ---
 
 ## Changelog
 
-### v1.0.19 (current)
+### v1.0.22 (current)
+- **Brand rename** — product renamed to **Str:::lab Studio**; Apache Flink trademark attribution added throughout
+- **PDF report heading fixed** — `window.open` interceptor rewrites brand in generated PDFs before printing
+- **LinkedIn banner** — 1200×627px SVG brand asset
 
-- **Admin Session** — 🛡 Admin mode on connect screen with passcode auth
-- **Session Inspector** — tabbed modal: Overview, Queries, Jobs, Audit Log per session
-- **Audit trail** — every admin action recorded with name, timestamp, detail; visible on session cards
-- **Live session stats** — sidebar shows query count and running/total jobs per session
-- **Admin sessions overview** — summary bar with cluster-wide counts (sessions, jobs, running, failed, total queries)
-- **Admin reports** — Technical Report and Business/Management Report with distinct themes and titling
-- **Duplicate submission guard** — blocks re-submitting a running INSERT INTO
-- **Cancel job confirmation modal** — explicit "Are you sure?" before sending cancel signal
-- **Job scoping** — regular sessions see only their own jobs; admin sees all with session attribution
-- **Job tagging** — `pipeline.name` SET injected before INSERT with session label prefix
-- **Load existing sessions** — connect screen auto-fetches sessions dropdown after Test Connection
-- **Tips & Concepts modal** — 25+ tips with SQL code demos: Kafka, S3, Schema Registry, ML inference, AI workloads
-- **Apache Flink SQL docs links** in About modal
-- **Query count tracking** — session cards show live query counts
+### v1.0.21
+- **⬡ Project Manager** — create, load, run, save, delete named projects; export/import JSON; per-project storage breakdown; name uniqueness enforced on create and import; tooltips on all controls
+- **JAR Upload fix** — FormData sends `application/x-java-archive` Content-Type (fixes Flink HTTP 500); configurable JobManager URL override for non-standard ports
+- **⬡ Maven / Gradle tab** — generates `pom.xml` / `build.gradle` with correct scopes and annotated build commands
+
+### v1.0.20
+- **⨍ UDF Manager** — Library, Upload JAR (direct to cluster via REST), Maven/Gradle config generator, Register, SQL UDF creator, Templates
+- **✦ Colour Describe** — smart row coloring by column semantics with PDF-safe inline styles
+
+### v1.0.19
+- **Admin Session** — 🛡 Admin mode, passcode auth, session inspector, audit trail, admin reports
+- **Tips expanded** — UDFs, Pipeline Design, Flink APIs, Flink CEP categories added
+- **Duplicate submission guard**, cancel confirmation, job scoping, job tagging, load existing sessions
 
 ### v1.0.18
-- Streaming results fixed — Kafka SELECT rows reliably stream into Results tab
-- Mouse wheel zoom on Job Graph (20%–300%)
-- Catalog context fix — sidebar refresh no longer hijacks active USE CATALOG context
-- Session isolation — new sessions always start clean
+- Streaming results fixed, mouse wheel zoom on Job Graph, catalog context fix
 
 ### v1.0.17
-- Job Graph DAG with drag-to-pan, animated edges, fault highlighting
-- Tab rename with 20-char limit, per-session workspace isolation
+- Job Graph DAG, tab rename, per-session workspace isolation
 
-### v1.0.16
-- Job Graph tab, multi-session panel, + Catalog / + Database buttons
+### v1.0.1 – v1.0.16
+- Initial build: SQL editor, session management, Results/Log/Operations tabs, snippet library, query history, catalog browser, performance tracking, Job Graph, themes, workspace export/import
 
 ---
 
@@ -461,7 +441,7 @@ To resume: **↑ Import Workspace** → select your `.json` file.
 1. Fork the repo and create a feature branch.
 2. Each JS module has a single clear responsibility — keep it that way.
 3. No build step, no bundler, no dependencies — plain HTML/CSS/JS only.
-4. Test against Flink 1.18+ SQL Gateway.
+4. Test against Flink SQL Gateway 1.17+.
 5. Open a PR with a clear description of what changed and why.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
@@ -470,5 +450,5 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
-Created by **Nestor Martourez. A** · [codedstreams](https://github.com/coded-streams)
+Apache License 2.0 — see [LICENSE](LICENSE).
+Created by **Nestor A. A** · [coded-streams](https://github.com/coded-streams)

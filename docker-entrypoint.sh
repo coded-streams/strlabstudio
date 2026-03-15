@@ -2,7 +2,7 @@
 # docker-entrypoint.sh — substitutes env vars into nginx config at runtime
 set -e
 
-echo "FlinkSQL Studio starting..."
+echo "Str:::lab Studio starting..."
 echo "  Gateway:    ${FLINK_GATEWAY_HOST}:${FLINK_GATEWAY_PORT}"
 echo "  JobManager: ${JOBMANAGER_HOST}:${JOBMANAGER_PORT}"
 
