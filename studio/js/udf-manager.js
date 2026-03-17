@@ -958,9 +958,20 @@ async function _runUdfQuery(sql) {
     const sess = state.activeSession;
     const trimmedSql = sql.trim().replace(/;+$/, '');
 
-    // ✓ FIX: Determine if this is a DDL statement (no result set expected)
-    const isDDL = /^\s*(CREATE|DROP|ALTER|USE|SET|RESET|ADD|REMOVE)\b/i.test(trimmedSql);
+    // Check if this is an ADD JAR statement
+    const isAddJar = /^\s*ADD\s+JAR\s+/i.test(trimmedSql);
+    const isDDL = /^\s*(CREATE|DROP|ALTER|USE|SET|RESET|REMOVE)\b/i.test(trimmedSql);
     const isQuery = /^\s*(SELECT|SHOW|DESCRIBE|DESC|EXPLAIN)\b/i.test(trimmedSql);
+
+    // For ADD JAR, we need to handle it specially
+    if (isAddJar) {
+        // Extract the JAR path
+        const match = trimmedSql.match(/ADD\s+JAR\s+['"](.+)['"]/i);
+        if (match) {
+            const jarPath = match[1];
+            addLog('INFO', `Adding JAR: ${jarPath}`);
+        }
+    }
 
     const stmtResp = await api('POST', `/v1/sessions/${sess}/statements`, {
         statement: trimmedSql,
@@ -968,36 +979,34 @@ async function _runUdfQuery(sql) {
     });
     const op = stmtResp.operationHandle;
 
-    // ✓ FIX: Extended timeout from 60 to 120 iterations (18s to 36s)
+    // Wait for completion
     for (let i = 0; i < 120; i++) {
         await new Promise(r => setTimeout(r, 300));
         const st = await api('GET', `/v1/sessions/${sess}/operations/${op}/status`);
-        const s  = (st.operationStatus || st.status || '').toUpperCase();
+        const s = (st.operationStatus || st.status || '').toUpperCase();
 
         if (s === 'ERROR') {
             throw new Error(_parseUdfError(st.errorMessage || 'Operation failed'));
         }
 
-        // ✓ FIX: Check statement type BEFORE attempting result fetch
         if (s === 'FINISHED') {
-            // DDL operations: FINISHED = success, NO RESULTS TO FETCH
-            if (isDDL) {
-                return { rows: [] };  // ✓ Return immediately
+            // For ADD JAR and DDL, return success without fetching results
+            if (isAddJar || isDDL) {
+                return { rows: [], success: true };
             }
 
-            // Query operations: fetch actual results
+            // For queries, fetch results
             if (isQuery) {
                 try {
                     const r = await api('GET',
                         `/v1/sessions/${sess}/operations/${op}/result/0?rowFormat=JSON&maxFetchSize=500`);
-                    return { rows: _extractUdfRows(r) };
-                } catch (ddlErr) {
-                    const m = (ddlErr.message || '').toLowerCase();
-                    if (m.includes('non-query') || m.includes('illegal context') ||
-                        m.includes('no result')  || m.includes('not a query')) {
-                        return { rows: [] }; // expected for some DDL
+                    return { rows: _extractUdfRows(r), success: true };
+                } catch (err) {
+                    // If result fetch fails but operation succeeded, return empty
+                    if (err.message?.includes('non-query') || err.message?.includes('no result')) {
+                        return { rows: [], success: true };
                     }
-                    throw new Error(_parseUdfError(ddlErr.message));
+                    throw err;
                 }
             }
         }
@@ -1394,12 +1403,27 @@ function _udfTmplInsert(gi, ti) {
 // ── JAR Upload ────────────────────────────────────────────────────────────────
 function _getJmBase() {
     const ov = (document.getElementById('inp-jm-override')?.value || '').trim();
-    if (ov) return ov.replace(/\/$/,'');
+    if (ov) return ov.replace(/\/$/, '');
+
     if (!state.gateway) return null;
+
     const url = state.gateway.baseUrl || '';
-    if (url.includes('/flink-api')) return url.replace('/flink-api','/jobmanager-api');
+
+    // If we're using the proxy (localhost:3030 or similar), derive the jobmanager-api URL
+    if (url.includes('/flink-api')) {
+        // Replace /flink-api with /jobmanager-api
+        return url.replace('/flink-api', '/jobmanager-api');
+    }
+
+    // Fallback to port-based detection
     const port = (document.getElementById('inp-jm-port')?.value || '8081').trim();
-    try { const p=new URL(url); p.port=port; return p.origin; } catch(_) { return '/jobmanager-api'; }
+    try {
+        const p = new URL(url);
+        p.port = port;
+        return p.origin;
+    } catch (_) {
+        return '/jobmanager-api';
+    }
 }
 
 function _jarListOnTabOpen() {
@@ -1570,6 +1594,265 @@ async function _jarUpload() {
         _jarSetStatus('✗ Upload failed: '+msg+hint,'var(--red)');
         addLog('ERR','JAR upload failed: '+msg);
     }
+}
+
+// ── SQL Gateway JAR Management (NEW) ─────────────────────────────────────────
+// The JobManager (port 8081) and SQL Gateway (port 8083) have separate JAR management.
+// This section adds proper SQL Gateway JAR upload and registration.
+
+class SqlGatewayJarManager {
+    constructor() {
+        this.sessionId = null;
+        this.uploadedJars = [];
+    }
+
+    async ensureSession() {
+        if (!state.gateway || !state.activeSession) {
+            throw new Error('Not connected to SQL Gateway');
+        }
+        this.sessionId = state.activeSession;
+        return this.sessionId;
+    }
+
+    // List JARs in SQL Gateway session
+    async listJars() {
+        try {
+            await this.ensureSession();
+            const response = await api('GET', `/v1/sessions/${this.sessionId}/jars`);
+            this.uploadedJars = response.jars || [];
+            return this.uploadedJars;
+        } catch (error) {
+            console.error('Failed to list SQL Gateway JARs:', error);
+            return [];
+        }
+    }
+
+    // Upload JAR directly to SQL Gateway
+    async uploadJar(jarFile) {
+        await this.ensureSession();
+
+        const formData = new FormData();
+        formData.append('jar', jarFile);
+
+        const response = await fetch(
+            `${state.gateway.baseUrl}/v1/sessions/${this.sessionId}/jars`,
+            {
+                method: 'POST',
+                body: formData,
+                headers: this._getAuthHeaders()
+            }
+        );
+
+        if (!response.ok) {
+            const error = await response.text();
+            throw new Error(`Upload failed: ${error}`);
+        }
+
+        const result = await response.json();
+        return result;
+    }
+
+    // Delete JAR from SQL Gateway session
+    async deleteJar(jarId) {
+        await this.ensureSession();
+
+        const response = await fetch(
+            `${state.gateway.baseUrl}/v1/sessions/${this.sessionId}/jars/${jarId}`,
+            {
+                method: 'DELETE',
+                headers: this._getAuthHeaders()
+            }
+        );
+
+        if (!response.ok) {
+            throw new Error(`Delete failed: ${response.status}`);
+        }
+        return true;
+    }
+
+    _getAuthHeaders() {
+        // Reuse existing auth headers from your connection.js
+        if (window.authHeaders) {
+            return window.authHeaders;
+        }
+        return {};
+    }
+}
+
+// Create global instance
+window.sqlGatewayJarManager = new SqlGatewayJarManager();
+
+// ── Update the Upload tab UI to show both JAR locations ─────────────────────
+function _jarLoadSqlGatewayList() {
+    const el = document.getElementById('udf-sqlgateway-jar-list');
+    if (!el) return;
+
+    if (!state.gateway || !state.activeSession) {
+        el.innerHTML = '<div style="font-size:11px;color:var(--text3);">Connect to a session first.</div>';
+        return;
+    }
+
+    el.innerHTML = '<div style="font-size:11px;color:var(--text3);">Loading SQL Gateway JARs…</div>';
+
+    window.sqlGatewayJarManager.listJars()
+        .then(jars => {
+            if (!jars.length) {
+                el.innerHTML = '<div style="font-size:11px;color:var(--text3);">No JARs uploaded to SQL Gateway yet.</div>';
+                return;
+            }
+
+            el.innerHTML = jars.map(jar => `
+                <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:5px;font-size:11px;">
+                    <span style="font-size:16px;flex-shrink:0;">📦</span>
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-family:var(--mono);color:var(--text0);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escHtml(jar.name)}">
+                            ${escHtml(jar.name)}
+                        </div>
+                        <div style="color:var(--text3);margin-top:2px;">
+                            ${jar.size ? _formatBytes(jar.size) : '—'} · Uploaded to SQL Gateway
+                        </div>
+                    </div>
+                    <button onclick="_jarSqlGatewayUseInRegister('${escHtml(jar.name)}')" 
+                            style="font-size:10px;padding:3px 8px;border-radius:2px;border:1px solid var(--border);background:var(--bg3);color:var(--text1);cursor:pointer;white-space:nowrap;flex-shrink:0;">
+                        Use →
+                    </button>
+                    <button onclick="_jarSqlGatewayDelete('${jar.id}','${escHtml(jar.name)}')" 
+                            style="font-size:10px;padding:3px 8px;border-radius:2px;border:1px solid rgba(255,77,109,0.3);background:rgba(255,77,109,0.08);color:var(--red);cursor:pointer;flex-shrink:0;">
+                        Delete
+                    </button>
+                </div>
+            `).join('');
+        })
+        .catch(err => {
+            el.innerHTML = `<div style="font-size:11px;color:var(--yellow,#f5a623);">⚠ Failed to load SQL Gateway JARs: ${escHtml(err.message)}</div>`;
+        });
+}
+
+async function _jarSqlGatewayUpload() {
+    if (!_selectedJarFile) {
+        _jarSetStatus('✗ Select a JAR first.', 'var(--red)');
+        return;
+    }
+
+    if (!state.gateway || !state.activeSession) {
+        _jarSetStatus('✗ Not connected to SQL Gateway.', 'var(--red)');
+        return;
+    }
+
+    const pw = document.getElementById('udf-jar-progress-wrap');
+    const pb = document.getElementById('udf-jar-progress-bar');
+    const pp = document.getElementById('udf-jar-progress-pct');
+
+    if (pw) pw.style.display = 'block';
+    _jarSetStatus(`Uploading ${_selectedJarFile.name} to SQL Gateway…`, 'var(--accent)');
+
+    try {
+        // Simulate progress (since fetch doesn't provide progress)
+        if (pb) pb.style.width = '30%';
+        if (pp) pp.textContent = '30%';
+
+        const result = await window.sqlGatewayJarManager.uploadJar(_selectedJarFile);
+
+        if (pb) pb.style.width = '100%';
+        if (pp) pp.textContent = '100%';
+
+        // Store the successful JAR info for registration
+        window._lastUploadedSqlGatewayJar = {
+            name: _selectedJarFile.name,
+            id: result.id || result.jarId,
+            path: result.path || `/tmp/flink-web-upload/${_selectedJarFile.name}`
+        };
+
+        _jarSetStatus(
+            `✓ ${_selectedJarFile.name} uploaded to SQL Gateway. ` +
+            'Go to ＋ Register UDF → enter the class path → ⚡ Execute Registration.',
+            'var(--green)'
+        );
+
+        toast(`${_selectedJarFile.name} uploaded to SQL Gateway`, 'ok');
+        addLog('OK', `JAR uploaded to SQL Gateway: ${_selectedJarFile.name}`);
+
+        _jarClearSelection();
+        if (pw) setTimeout(() => pw.style.display = 'none', 3000);
+
+        // Refresh both JAR lists
+        setTimeout(() => {
+            _jarLoadList(); // JobManager list
+            _jarLoadSqlGatewayList(); // SQL Gateway list
+        }, 500);
+
+    } catch (err) {
+        if (pw) pw.style.display = 'none';
+        _jarSetStatus(`✗ Upload failed: ${err.message}`, 'var(--red)');
+        addLog('ERR', `SQL Gateway JAR upload failed: ${err.message}`);
+    }
+}
+
+function _jarSqlGatewayUseInRegister(jarName) {
+    switchUdfTab('register');
+    const el = document.getElementById('udf-reg-class');
+    if (el && !el.value) {
+        el.placeholder = 'e.g. com.yourcompany.' + jarName.replace(/\.jar$/, '').replace(/[-_]/g, '.') + '.MyFunction';
+        el.focus();
+    }
+    toast('JAR selected — enter the class path in Register UDF', 'info');
+}
+
+async function _jarSqlGatewayDelete(jarId, jarName) {
+    if (!confirm(`Delete ${jarName} from SQL Gateway session?`)) return;
+
+    try {
+        await window.sqlGatewayJarManager.deleteJar(jarId);
+        toast(`${jarName} deleted from SQL Gateway`, 'ok');
+        addLog('WARN', `JAR deleted from SQL Gateway: ${jarName}`);
+        _jarLoadSqlGatewayList();
+    } catch (err) {
+        toast(`Delete failed: ${err.message}`, 'err');
+    }
+}
+
+// ── Update the Upload tab UI in _buildUdfManagerModal ──────────────────────
+function _updateJarUploadUI() {
+    const container = document.getElementById('udf-jar-list')?.parentNode;
+    if (!container) return;
+
+    // Add SQL Gateway JAR section after the existing JobManager section
+    const existingHtml = container.innerHTML;
+
+    // Check if we already added the SQL Gateway section
+    if (document.getElementById('udf-sqlgateway-jar-section')) return;
+
+    const newHtml = existingHtml + `
+        <div style="margin-top:24px;" id="udf-sqlgateway-jar-section">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                <div>
+                    <div style="font-size:10px;color:var(--blue,#4fa3e0);letter-spacing:1px;text-transform:uppercase;font-weight:700;">
+                        📦 SQL Gateway JARs
+                    </div>
+                    <div style="font-size:9px;color:var(--text3);margin-top:2px;">
+                        JARs uploaded directly to SQL Gateway (port 8083) — available immediately for UDF registration
+                    </div>
+                </div>
+                <button class="btn btn-secondary" style="font-size:10px;padding:3px 10px;" onclick="_jarLoadSqlGatewayList()">⟳ Refresh list</button>
+            </div>
+            <div id="udf-sqlgateway-jar-list">
+                <div style="font-size:11px;color:var(--text3);">Click ⟳ Refresh list to see uploaded JARs.</div>
+            </div>
+        </div>
+    `;
+
+    container.innerHTML = newHtml;
+
+    // Add upload button for SQL Gateway
+    const uploadBtn = document.querySelector('#udf-pane-upload .btn-primary');
+    if (uploadBtn) {
+        uploadBtn.onclick = _jarSqlGatewayUpload;
+    }
+}
+
+// Call this after the modal is built
+if (document.getElementById('modal-udf-manager')) {
+    setTimeout(_updateJarUploadUI, 100);
 }
 
 async function _jarLoadList() {
