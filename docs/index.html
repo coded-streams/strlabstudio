@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Str:::lab Studio — Documentation v1.2.4</title>
+  <title>Str:::lab Studio — Documentation v1.2.6</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
@@ -42,6 +42,24 @@
     .workflow-steps{display:flex;flex-direction:column;gap:0;margin-top:12px}.workflow-step{display:flex;align-items:flex-start;gap:12px;padding:12px 14px;background:var(--bg2);border:1px solid var(--border);border-top:none}.workflow-step:first-child{border-top:1px solid var(--border);border-radius:var(--radius) var(--radius) 0 0}.workflow-step:last-child{border-radius:0 0 var(--radius) var(--radius)}.workflow-num{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;color:#000}
     .path-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:18px 0}.path-card{border-radius:var(--radius);padding:18px;border:1px solid}.path-card.path-a{background:rgba(79,163,224,0.05);border-color:rgba(79,163,224,0.3)}.path-card.path-b{background:rgba(0,212,170,0.05);border-color:rgba(0,212,170,0.3)}.path-card h4{margin:0 0 10px;font-size:13px;font-weight:700;font-family:var(--mono)}.path-card.path-a h4{color:var(--blue)}.path-card.path-b h4{color:var(--accent)}.path-card ul{margin-left:16px}.path-card li{font-size:12px;color:var(--text2);margin-bottom:5px;line-height:1.6}.path-card li strong{color:var(--text1)}
     footer{border-top:1px solid var(--border);background:var(--bg0);padding:36px 32px;text-align:center}.footer-logo{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:10px}footer p{font-size:13px;color:var(--text3);margin-bottom:5px}footer a{color:var(--text2)}footer a:hover{color:var(--accent)}
+
+    /* ── SVG architecture diagrams ─────────────────────────── */
+    .svg-teal   rect, .svg-teal   circle { fill:#0d2e2a; stroke:#00d4aa; }
+    .svg-blue   rect, .svg-blue   circle { fill:#0d1e2e; stroke:#4fa3e0; }
+    .svg-purple rect, .svg-purple circle { fill:#1a1028; stroke:#9b72cf; }
+    .svg-green  rect, .svg-green  circle { fill:#0d2215; stroke:#3fb950; }
+    .svg-amber  rect, .svg-amber  circle { fill:#2a1e08; stroke:#f0a500; }
+    .svg-gray   rect, .svg-gray   circle { fill:#131920; stroke:#4a5568; }
+    .svg-teal   text { fill:#7ee8d0 !important; }
+    .svg-blue   text { fill:#80c4f0 !important; }
+    .svg-purple text { fill:#c4a8e8 !important; }
+    .svg-green  text { fill:#7ee89a !important; }
+    .svg-amber  text { fill:#f5c842 !important; }
+    .svg-gray   text { fill:#8b949e !important; }
+    .svg-arrow  line, .svg-arrow  path { stroke:#4a5568; }
+    .svg-th { font-family:'IBM Plex Mono',monospace; font-size:13px; font-weight:600; }
+    .svg-ts { font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:400; fill:#8b949e; }
+    .svg-label { font-family:'IBM Plex Mono',monospace; font-size:11px; fill:#8b949e; }
     @media(max-width:900px){.toc{display:none}.content{padding:24px 16px 64px}.hero-title{font-size:30px}.about-grid{grid-template-columns:1fr}.path-grid{grid-template-columns:1fr}}
   </style>
 </head>
@@ -82,7 +100,7 @@
     <div class="toc-section"><span class="toc-label">About</span><a href="#about">About Str:::lab Studio</a></div>
     <div class="toc-section"><span class="toc-label">Getting Started</span><a href="#quickstart">Quickstart</a><a href="#connection-modes" class="toc-updated">Connection Modes</a></div>
     <div class="toc-section"><span class="toc-label">Core Concepts</span><a href="#architecture">Architecture</a><a href="#state-management">State &amp; Sessions</a></div>
-    <div class="toc-section"><span class="toc-label">IDE Reference</span><a href="#features">All Features</a><a href="#admin">Admin Session</a><a href="#tips-modal">Tips &amp; Concepts Modal</a><a href="#project-manager">Project Manager</a><a href="#udf-manager" class="toc-updated">UDF Manager</a><a href="#udf-demo" class="toc-new">UDF Demo</a><a href="#colour-describe" class="toc-new">Colour Describe</a><a href="#snippets">Snippets Library</a><a href="#job-graph">Job Graph</a><a href="#performance">Performance</a><a href="#reports">Reports</a></div>
+    <div class="toc-section"><span class="toc-label">IDE Reference</span><a href="#features">All Features</a><a href="#admin">Admin Session</a><a href="#tips-modal">Tips &amp; Concepts Modal</a><a href="#project-manager">Project Manager</a><a href="#udf-manager" class="toc-updated">UDF Manager</a><a href="#udf-jar-gateway" class="toc-new">Gateway Volume Setup</a><a href="#udf-demo" class="toc-new">UDF Demo</a><a href="#colour-describe" class="toc-new">Colour Describe</a><a href="#snippets">Snippets Library</a><a href="#job-graph">Job Graph</a><a href="#performance">Performance</a><a href="#reports">Reports</a></div>
     <div class="toc-section"><span class="toc-label">Data &amp; Connectors</span><a href="#connectors">Connector JARs</a><a href="#pipeline">Full Pipeline Demo</a></div>
     <div class="toc-section"><span class="toc-label">Deployment</span><a href="#operator">Kube Operator</a><a href="#deploy" class="toc-updated">Deploy Options</a></div>
     <div class="toc-section"><span class="toc-label">Reference</span><a href="#changelog">Changelog</a></div>
@@ -224,112 +242,107 @@ EOF</code></pre>
       <p style="color:var(--text2);font-size:13px;margin-bottom:12px">Every browser request routes through the Studio nginx container. No direct browser-to-cluster connection needed.</p>
 
       <div class="arch-diagram-wrap" style="margin:0 0 24px;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--bg2)">
-        <svg width="100%" viewBox="0 0 680 420">
+        <svg width="100%" viewBox="0 0 680 440">
           <defs>
-            <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
               <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
             </marker>
           </defs>
 
-          <!-- Browser box -->
-          <g class="c-teal">
-            <rect x="40" y="40" width="160" height="56" rx="8" stroke-width="0.5"/>
-            <text class="th" x="120" y="63" text-anchor="middle" dominant-baseline="central">Browser</text>
-            <text class="ts" x="120" y="82" text-anchor="middle" dominant-baseline="central">localhost:3030</text>
+          <!-- Browser -->
+          <g class="svg-teal">
+            <rect x="20" y="40" width="140" height="54" rx="8" stroke-width="0.5"/>
+            <text class="svg-th" fill="#7ee8d0" x="90" y="62" text-anchor="middle" dominant-baseline="central">Browser</text>
+            <text class="svg-ts" fill="#4a9a84" x="90" y="80" text-anchor="middle" dominant-baseline="central">localhost:3030</text>
           </g>
 
-          <!-- Studio container (large structural box) -->
-          <g class="c-blue">
-            <rect x="240" y="20" width="220" height="100" rx="10" stroke-width="0.5"/>
-            <text class="th" x="350" y="45" text-anchor="middle" dominant-baseline="central">flink-studio</text>
-            <text class="ts" x="350" y="62" text-anchor="middle" dominant-baseline="central">strlabstudio:latest</text>
+          <!-- Studio outer box -->
+          <g class="svg-blue">
+            <rect x="200" y="20" width="200" height="98" rx="10" stroke-width="0.5"/>
+            <text class="svg-th" fill="#80c4f0" x="300" y="42" text-anchor="middle" dominant-baseline="central">flink-studio</text>
+            <text class="svg-ts" fill="#4a7fa0" x="300" y="58" text-anchor="middle" dominant-baseline="central">strlabstudio:latest</text>
           </g>
-          <!-- nginx inner box -->
-          <g class="c-purple">
-            <rect x="260" y="72" width="180" height="36" rx="6" stroke-width="0.5"/>
-            <text class="th" x="350" y="90" text-anchor="middle" dominant-baseline="central">nginx proxy + IDE</text>
-          </g>
-
-          <!-- Arrow: browser -> studio -->
-          <line x1="200" y1="68" x2="238" y2="68" stroke="var(--s)" stroke-width="1" marker-end="url(#arrow)"/>
-          <text class="ts" x="218" y="62" text-anchor="middle">HTTP</text>
-
-          <!-- SQL Gateway box -->
-          <g class="c-purple">
-            <rect x="500" y="40" width="160" height="56" rx="8" stroke-width="0.5"/>
-            <text class="th" x="580" y="63" text-anchor="middle" dominant-baseline="central">SQL Gateway</text>
-            <text class="ts" x="580" y="82" text-anchor="middle" dominant-baseline="central">flink-sql-gateway:8083</text>
+          <!-- nginx inner -->
+          <g class="svg-purple">
+            <rect x="216" y="68" width="168" height="34" rx="6" stroke-width="0.5"/>
+            <text class="svg-th" fill="#c4a8e8" x="300" y="85" text-anchor="middle" dominant-baseline="central">nginx proxy + IDE</text>
           </g>
 
-          <!-- Arrow: studio -> gateway -->
-          <line x1="460" y1="68" x2="498" y2="68" stroke="var(--s)" stroke-width="1" marker-end="url(#arrow)"/>
-          <text class="ts" x="479" y="62" text-anchor="middle">/flink-api/</text>
+          <!-- Browser → Studio -->
+          <line x1="160" y1="67" x2="198" y2="67" stroke="#4a5568" stroke-width="1" marker-end="url(#arr)"/>
+          <text class="svg-ts" fill="#6a7585" x="178" y="60" text-anchor="middle">HTTP</text>
 
-          <!-- JobManager box -->
-          <g class="c-purple">
-            <rect x="500" y="140" width="160" height="56" rx="8" stroke-width="0.5"/>
-            <text class="th" x="580" y="163" text-anchor="middle" dominant-baseline="central">JobManager</text>
-            <text class="ts" x="580" y="182" text-anchor="middle" dominant-baseline="central">:8081</text>
+          <!-- SQL Gateway -->
+          <g class="svg-purple">
+            <rect x="450" y="20" width="210" height="54" rx="8" stroke-width="0.5"/>
+            <text class="svg-th" fill="#c4a8e8" x="555" y="40" text-anchor="middle" dominant-baseline="central">SQL Gateway</text>
+            <text class="svg-ts" fill="#7a6898" x="555" y="58" text-anchor="middle" dominant-baseline="central">flink-sql-gateway:8083</text>
           </g>
 
-          <!-- Arrow: studio -> jobmanager -->
-          <path d="M350 120 L350 195 L498 170" fill="none" stroke="var(--s)" stroke-width="1" marker-end="url(#arrow)"/>
-          <text class="ts" x="390" y="190" text-anchor="middle">/jobmanager-api/</text>
+          <!-- Studio → Gateway -->
+          <line x1="400" y1="55" x2="448" y2="55" stroke="#4a5568" stroke-width="1" marker-end="url(#arr)"/>
+          <text class="svg-ts" fill="#6a7585" x="424" y="48" text-anchor="middle">/flink-api/</text>
 
-          <!-- Arrow: gateway -> jobmanager -->
-          <line x1="580" y1="96" x2="580" y2="138" stroke="var(--s)" stroke-width="1" marker-end="url(#arrow)"/>
-          <text class="ts" x="618" y="120" text-anchor="start">submit jobs</text>
+          <!-- JobManager -->
+          <g class="svg-purple">
+            <rect x="450" y="130" width="210" height="54" rx="8" stroke-width="0.5"/>
+            <text class="svg-th" fill="#c4a8e8" x="555" y="150" text-anchor="middle" dominant-baseline="central">JobManager</text>
+            <text class="svg-ts" fill="#7a6898" x="555" y="168" text-anchor="middle" dominant-baseline="central">:8081</text>
+          </g>
+
+          <!-- Studio → JobManager -->
+          <path d="M300 118 L300 180 L448 157" fill="none" stroke="#4a5568" stroke-width="1" marker-end="url(#arr)"/>
+          <text class="svg-ts" fill="#6a7585" x="355" y="185" text-anchor="middle">/jobmanager-api/</text>
+
+          <!-- Gateway → JobManager -->
+          <line x1="555" y1="74" x2="555" y2="128" stroke="#4a5568" stroke-width="1" marker-end="url(#arr)"/>
+          <text class="svg-ts" fill="#6a7585" x="600" y="108" text-anchor="start">submit jobs</text>
 
           <!-- TaskManagers -->
-          <g class="c-green">
-            <rect x="460" y="250" width="110" height="44" rx="8" stroke-width="0.5"/>
-            <text class="th" x="515" y="272" text-anchor="middle" dominant-baseline="central">TaskManager 1</text>
+          <g class="svg-green">
+            <rect x="430" y="244" width="110" height="42" rx="8" stroke-width="0.5"/>
+            <text class="svg-th" fill="#7ee89a" x="485" y="265" text-anchor="middle" dominant-baseline="central">TaskManager 1</text>
           </g>
-          <g class="c-green">
-            <rect x="590" y="250" width="110" height="44" rx="8" stroke-width="0.5"/>
-            <text class="th" x="645" y="272" text-anchor="middle" dominant-baseline="central">TaskManager 2</text>
+          <g class="svg-green">
+            <rect x="556" y="244" width="110" height="42" rx="8" stroke-width="0.5"/>
+            <text class="svg-th" fill="#7ee89a" x="611" y="265" text-anchor="middle" dominant-baseline="central">TaskManager 2</text>
           </g>
-
-          <!-- arrows: jm -> tms -->
-          <line x1="555" y1="196" x2="515" y2="248" stroke="var(--s)" stroke-width="1" marker-end="url(#arrow)"/>
-          <line x1="605" y1="196" x2="645" y2="248" stroke="var(--s)" stroke-width="1" marker-end="url(#arrow)"/>
+          <line x1="520" y1="184" x2="485" y2="242" stroke="#4a5568" stroke-width="1" marker-end="url(#arr)"/>
+          <line x1="590" y1="184" x2="611" y2="242" stroke="#4a5568" stroke-width="1" marker-end="url(#arr)"/>
 
           <!-- Kafka + S3 -->
-          <g class="c-amber">
-            <rect x="420" y="350" width="110" height="44" rx="8" stroke-width="0.5"/>
-            <text class="th" x="475" y="372" text-anchor="middle" dominant-baseline="central">Apache Kafka</text>
+          <g class="svg-amber">
+            <rect x="390" y="340" width="120" height="42" rx="8" stroke-width="0.5"/>
+            <text class="svg-th" fill="#f5c842" x="450" y="361" text-anchor="middle" dominant-baseline="central">Apache Kafka</text>
           </g>
-          <g class="c-amber">
-            <rect x="550" y="350" width="110" height="44" rx="8" stroke-width="0.5"/>
-            <text class="th" x="605" y="372" text-anchor="middle" dominant-baseline="central">MinIO / S3</text>
+          <g class="svg-amber">
+            <rect x="530" y="340" width="120" height="42" rx="8" stroke-width="0.5"/>
+            <text class="svg-th" fill="#f5c842" x="590" y="361" text-anchor="middle" dominant-baseline="central">MinIO / S3</text>
           </g>
+          <line x1="485" y1="286" x2="460" y2="338" stroke="#4a5568" stroke-width="1" marker-end="url(#arr)"/>
+          <line x1="611" y1="286" x2="580" y2="338" stroke="#4a5568" stroke-width="1" marker-end="url(#arr)"/>
 
-          <!-- arrows: tms -> kafka/s3 -->
-          <line x1="515" y1="294" x2="490" y2="348" stroke="var(--s)" stroke-width="1" marker-end="url(#arrow)"/>
-          <line x1="645" y1="294" x2="620" y2="348" stroke="var(--s)" stroke-width="1" marker-end="url(#arrow)"/>
-
-          <!-- udf-jars volume -->
-          <g class="c-gray">
-            <rect x="40" y="200" width="160" height="56" rx="8" stroke-width="0.5"/>
-            <text class="th" x="120" y="223" text-anchor="middle" dominant-baseline="central">udf-jars volume</text>
-            <text class="ts" x="120" y="242" text-anchor="middle" dominant-baseline="central">/var/www/udf-jars</text>
+          <!-- UDF jars volume -->
+          <g class="svg-gray">
+            <rect x="20" y="190" width="150" height="54" rx="8" stroke-width="0.5"/>
+            <text class="svg-th" fill="#c9d1d9" x="95" y="210" text-anchor="middle" dominant-baseline="central">udf-jars volume</text>
+            <text class="svg-ts" fill="#8b949e" x="95" y="228" text-anchor="middle" dominant-baseline="central">/var/www/udf-jars</text>
           </g>
 
-          <!-- arrows: studio <-> udf-jars -->
-          <path d="M350 120 L350 228 L202 228" fill="none" stroke="var(--s)" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
-          <text class="ts" x="276" y="220" text-anchor="middle">WebDAV PUT</text>
-          <!-- arrow: udf-jars -> gateway -->
-          <path d="M200 228 L580 228 L580 196" fill="none" stroke="var(--s)" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
-          <text class="ts" x="390" y="222" text-anchor="middle">ADD JAR (shared volume)</text>
+          <!-- Studio → udf-jars (dashed) -->
+          <path d="M300 118 L300 217 L172 217" fill="none" stroke="#4a5568" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arr)"/>
+          <text class="svg-ts" fill="#6a7585" x="236" y="210" text-anchor="middle">WebDAV PUT</text>
+          <!-- udf-jars → gateway (dashed) -->
+          <path d="M170 200 L555 200 L555 130" fill="none" stroke="#4a5568" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arr)"/>
+          <text class="svg-ts" fill="#6a7585" x="362" y="193" text-anchor="middle">ADD JAR (shared volume)</text>
 
-          <!-- optional cors proxy -->
-          <g class="c-gray">
-            <rect x="40" y="310" width="160" height="44" rx="8" stroke-width="0.5"/>
-            <text class="th" x="120" y="332" text-anchor="middle" dominant-baseline="central">CORS proxy</text>
-            <text class="ts" x="120" y="348" text-anchor="middle" dominant-baseline="central">optional &#8212; port 8084</text>
+          <!-- CORS proxy -->
+          <g class="svg-gray">
+            <rect x="20" y="300" width="150" height="42" rx="8" stroke-width="0.5"/>
+            <text class="svg-th" fill="#c9d1d9" x="95" y="318" text-anchor="middle" dominant-baseline="central">CORS proxy</text>
+            <text class="svg-ts" fill="#8b949e" x="95" y="334" text-anchor="middle" dominant-baseline="central">optional — port 8084</text>
           </g>
-          <text class="ts" x="120" y="308" text-anchor="middle">Direct Gateway mode only</text>
-
+          <text class="svg-ts" fill="#6a7585" x="95" y="296" text-anchor="middle">Direct Gateway mode only</text>
         </svg>
       </div>
 
@@ -339,62 +352,79 @@ EOF</code></pre>
       <div class="arch-diagram-wrap" style="margin:0 0 24px;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--bg2)">
         <svg width="100%" viewBox="0 0 680 360">
           <defs>
-            <marker id="arrow2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <marker id="arr2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
               <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
             </marker>
           </defs>
 
-          <!-- OPTION A: Full stack -->
-          <text class="th" x="110" y="28" text-anchor="middle">Option A: full stack</text>
-          <g class="c-teal"><rect x="40" y="40" width="80" height="36" rx="6" stroke-width="0.5"/><text class="ts" x="80" y="58" text-anchor="middle" dominant-baseline="central">Browser</text></g>
-          <g class="c-blue"><rect x="148" y="40" width="80" height="36" rx="6" stroke-width="0.5"/><text class="ts" x="188" y="58" text-anchor="middle" dominant-baseline="central">Studio</text></g>
-          <g class="c-purple"><rect x="148" y="96" width="80" height="36" rx="6" stroke-width="0.5"/><text class="ts" x="188" y="114" text-anchor="middle" dominant-baseline="central">Gateway</text></g>
-          <g class="c-green"><rect x="56" y="96" width="70" height="36" rx="6" stroke-width="0.5"/><text class="ts" x="91" y="114" text-anchor="middle" dominant-baseline="central">JobManager</text></g>
-          <line x1="120" y1="58" x2="146" y2="58" stroke="var(--s)" stroke-width="1" marker-end="url(#arrow2)"/>
-          <line x1="188" y1="76" x2="188" y2="94" stroke="var(--s)" stroke-width="1" marker-end="url(#arrow2)"/>
-          <line x1="148" y1="114" x2="128" y2="114" stroke="var(--s)" stroke-width="1" marker-end="url(#arrow2)"/>
-          <text class="ts" x="110" y="160" text-anchor="middle" style="fill:var(--color-text-success)">&#10003; No CORS proxy needed</text>
-          <text class="ts" x="110" y="176" text-anchor="middle">Via Studio connection mode</text>
+          <!-- ── Column A: Full stack ── -->
+          <text class="svg-th" fill="#c9d1d9" x="110" y="22" text-anchor="middle">Option A: full stack</text>
+          <g class="svg-teal"><rect x="30" y="34" width="80" height="34" rx="6" stroke-width="0.5"/><text class="svg-ts" fill="#7ee8d0" x="70" y="51" text-anchor="middle" dominant-baseline="central">Browser</text></g>
+          <g class="svg-blue"><rect x="126" y="34" width="80" height="34" rx="6" stroke-width="0.5"/><text class="svg-ts" fill="#80c4f0" x="166" y="51" text-anchor="middle" dominant-baseline="central">Studio</text></g>
+          <g class="svg-purple"><rect x="126" y="84" width="80" height="34" rx="6" stroke-width="0.5"/><text class="svg-ts" fill="#c4a8e8" x="166" y="101" text-anchor="middle" dominant-baseline="central">Gateway</text></g>
+          <g class="svg-green"><rect x="30" y="84" width="80" height="34" rx="6" stroke-width="0.5"/><text class="svg-ts" fill="#7ee89a" x="70" y="101" text-anchor="middle" dominant-baseline="central">JobManager</text></g>
+          <line x1="110" y1="51" x2="124" y2="51" stroke="#4a5568" stroke-width="1" marker-end="url(#arr2)"/>
+          <line x1="166" y1="68" x2="166" y2="82" stroke="#4a5568" stroke-width="1" marker-end="url(#arr2)"/>
+          <line x1="126" y1="101" x2="112" y2="101" stroke="#4a5568" stroke-width="1" marker-end="url(#arr2)"/>
+          <text class="svg-ts" fill="#3fb950" x="110" y="142" text-anchor="middle">✓ No CORS proxy needed</text>
+          <text class="svg-ts" fill="#8b949e" x="110" y="158" text-anchor="middle">Via Studio mode</text>
 
-          <!-- OPTION B: Attach to existing -->
-          <text class="th" x="350" y="28" text-anchor="middle">Option B: attach to existing cluster</text>
-          <g class="c-teal"><rect x="252" y="40" width="80" height="36" rx="6" stroke-width="0.5"/><text class="ts" x="292" y="58" text-anchor="middle" dominant-baseline="central">Browser</text></g>
-          <g class="c-blue"><rect x="360" y="40" width="80" height="36" rx="6" stroke-width="0.5"/><text class="ts" x="400" y="58" text-anchor="middle" dominant-baseline="central">Studio</text></g>
-          <g class="c-purple"><rect x="360" y="96" width="80" height="36" rx="6" stroke-width="0.5"/><text class="ts" x="400" y="114" text-anchor="middle" dominant-baseline="central">Your gateway</text></g>
-          <g class="c-green"><rect x="252" y="96" width="80" height="36" rx="6" stroke-width="0.5"/><text class="ts" x="292" y="114" text-anchor="middle" dominant-baseline="central">Your cluster</text></g>
-          <line x1="332" y1="58" x2="358" y2="58" stroke="var(--s)" stroke-width="1" marker-end="url(#arrow2)"/>
-          <line x1="400" y1="76" x2="400" y2="94" stroke="var(--s)" stroke-width="1" marker-end="url(#arrow2)"/>
-          <line x1="360" y1="114" x2="334" y2="114" stroke="var(--s)" stroke-width="1" marker-end="url(#arrow2)"/>
-          <text class="ts" x="340" y="160" text-anchor="middle" style="fill:var(--color-text-success)">&#10003; Point env vars at your containers</text>
-          <text class="ts" x="340" y="176" text-anchor="middle">Join same Docker network</text>
+          <!-- ── Column B: Attach to existing ── -->
+          <text class="svg-th" fill="#c9d1d9" x="340" y="22" text-anchor="middle">Option B: attach to existing</text>
+          <g class="svg-teal"><rect x="258" y="34" width="80" height="34" rx="6" stroke-width="0.5"/><text class="svg-ts" fill="#7ee8d0" x="298" y="51" text-anchor="middle" dominant-baseline="central">Browser</text></g>
+          <g class="svg-blue"><rect x="354" y="34" width="80" height="34" rx="6" stroke-width="0.5"/><text class="svg-ts" fill="#80c4f0" x="394" y="51" text-anchor="middle" dominant-baseline="central">Studio</text></g>
+          <g class="svg-purple"><rect x="354" y="84" width="80" height="34" rx="6" stroke-width="0.5"/><text class="svg-ts" fill="#c4a8e8" x="394" y="101" text-anchor="middle" dominant-baseline="central">Your gateway</text></g>
+          <g class="svg-green"><rect x="258" y="84" width="80" height="34" rx="6" stroke-width="0.5"/><text class="svg-ts" fill="#7ee89a" x="298" y="101" text-anchor="middle" dominant-baseline="central">Your cluster</text></g>
+          <line x1="338" y1="51" x2="352" y2="51" stroke="#4a5568" stroke-width="1" marker-end="url(#arr2)"/>
+          <line x1="394" y1="68" x2="394" y2="82" stroke="#4a5568" stroke-width="1" marker-end="url(#arr2)"/>
+          <line x1="354" y1="101" x2="340" y2="101" stroke="#4a5568" stroke-width="1" marker-end="url(#arr2)"/>
+          <text class="svg-ts" fill="#3fb950" x="340" y="142" text-anchor="middle">✓ Same env vars pattern</text>
+          <text class="svg-ts" fill="#8b949e" x="340" y="158" text-anchor="middle">Join same Docker network</text>
 
-          <!-- OPTION C: Cloud/remote -->
-          <text class="th" x="590" y="28" text-anchor="middle">Option C: cloud / remote</text>
-          <g class="c-teal"><rect x="500" y="40" width="80" height="36" rx="6" stroke-width="0.5"/><text class="ts" x="540" y="58" text-anchor="middle" dominant-baseline="central">Browser</text></g>
-          <g class="c-blue"><rect x="500" y="96" width="80" height="36" rx="6" stroke-width="0.5"/><text class="ts" x="540" y="114" text-anchor="middle" dominant-baseline="central">Studio</text></g>
-          <g class="c-amber"><rect x="600" y="96" width="76" height="36" rx="6" stroke-width="0.5"/><text class="ts" x="638" y="114" text-anchor="middle" dominant-baseline="central">Cloud Flink</text></g>
-          <line x1="540" y1="76" x2="540" y2="94" stroke="var(--s)" stroke-width="1" marker-end="url(#arrow2)"/>
-          <line x1="580" y1="114" x2="598" y2="114" stroke="var(--s)" stroke-width="1" marker-end="url(#arrow2)"/>
-          <text class="ts" x="590" y="160" text-anchor="middle">Direct Gateway mode</text>
-          <text class="ts" x="590" y="176" text-anchor="middle">Bearer token auth</text>
+          <!-- ── Column C: Cloud/remote ── -->
+          <text class="svg-th" fill="#c9d1d9" x="574" y="22" text-anchor="middle">Option C: cloud / remote</text>
+          <g class="svg-teal"><rect x="494" y="34" width="80" height="34" rx="6" stroke-width="0.5"/><text class="svg-ts" fill="#7ee8d0" x="534" y="51" text-anchor="middle" dominant-baseline="central">Browser</text></g>
+          <g class="svg-blue"><rect x="494" y="84" width="80" height="34" rx="6" stroke-width="0.5"/><text class="svg-ts" fill="#80c4f0" x="534" y="101" text-anchor="middle" dominant-baseline="central">Studio</text></g>
+          <g class="svg-amber"><rect x="586" y="84" width="80" height="34" rx="6" stroke-width="0.5"/><text class="svg-ts" fill="#f5c842" x="626" y="101" text-anchor="middle" dominant-baseline="central">Cloud Flink</text></g>
+          <line x1="534" y1="68" x2="534" y2="82" stroke="#4a5568" stroke-width="1" marker-end="url(#arr2)"/>
+          <line x1="574" y1="101" x2="584" y2="101" stroke="#4a5568" stroke-width="1" marker-end="url(#arr2)"/>
+          <text class="svg-ts" fill="#8b949e" x="574" y="142" text-anchor="middle">Direct Gateway mode</text>
+          <text class="svg-ts" fill="#8b949e" x="574" y="158" text-anchor="middle">Bearer token auth</text>
 
-          <!-- Dividers -->
-          <line x1="228" y1="20" x2="228" y2="200" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="3 3"/>
-          <line x1="482" y1="20" x2="482" y2="200" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="3 3"/>
+          <!-- Column dividers -->
+          <line x1="228" y1="14" x2="228" y2="174" stroke="#1e2d3d" stroke-width="0.5" stroke-dasharray="3 3"/>
+          <line x1="462" y1="14" x2="462" y2="174" stroke="#1e2d3d" stroke-width="0.5" stroke-dasharray="3 3"/>
 
-          <!-- UDF JAR volume row -->
-          <text class="th" x="340" y="240" text-anchor="middle">UDF JAR upload flow (shared volume)</text>
-          <g class="c-blue"><rect x="40" y="260" width="100" height="44" rx="6" stroke-width="0.5"/><text class="th" x="90" y="279" text-anchor="middle" dominant-baseline="central">Studio nginx</text><text class="ts" x="90" y="295" text-anchor="middle" dominant-baseline="central">WebDAV PUT</text></g>
-          <g class="c-gray"><rect x="210" y="260" width="100" height="44" rx="6" stroke-width="0.5"/><text class="th" x="260" y="279" text-anchor="middle" dominant-baseline="central">udf-jars</text><text class="ts" x="260" y="295" text-anchor="middle" dominant-baseline="central">Docker volume</text></g>
-          <g class="c-purple"><rect x="380" y="260" width="100" height="44" rx="6" stroke-width="0.5"/><text class="th" x="430" y="279" text-anchor="middle" dominant-baseline="central">SQL Gateway</text><text class="ts" x="430" y="295" text-anchor="middle" dominant-baseline="central">ADD JAR local path</text></g>
-          <g class="c-green"><rect x="550" y="260" width="100" height="44" rx="6" stroke-width="0.5"/><text class="th" x="600" y="279" text-anchor="middle" dominant-baseline="central">Flink cluster</text><text class="ts" x="600" y="295" text-anchor="middle" dominant-baseline="central">UDF loaded</text></g>
-          <line x1="140" y1="282" x2="208" y2="282" stroke="var(--s)" stroke-width="1" marker-end="url(#arrow2)"/>
-          <line x1="310" y1="282" x2="378" y2="282" stroke="var(--s)" stroke-width="1" marker-end="url(#arrow2)"/>
-          <line x1="480" y1="282" x2="548" y2="282" stroke="var(--s)" stroke-width="1" marker-end="url(#arrow2)"/>
-          <text class="ts" x="174" y="272" text-anchor="middle">saves file</text>
-          <text class="ts" x="344" y="272" text-anchor="middle">same path</text>
-          <text class="ts" x="514" y="272" text-anchor="middle">classloader</text>
+          <!-- ── UDF JAR upload flow ── -->
+          <text class="svg-th" fill="#c9d1d9" x="340" y="210" text-anchor="middle">UDF JAR upload flow (shared volume)</text>
 
+          <g class="svg-blue"><rect x="20" y="226" width="118" height="48" rx="6" stroke-width="0.5"/>
+            <text class="svg-th" fill="#80c4f0" x="79" y="244" text-anchor="middle" dominant-baseline="central">Studio nginx</text>
+            <text class="svg-ts" fill="#4a7fa0" x="79" y="260" text-anchor="middle" dominant-baseline="central">WebDAV PUT</text>
+          </g>
+
+          <g class="svg-gray"><rect x="178" y="226" width="118" height="48" rx="6" stroke-width="0.5"/>
+            <text class="svg-th" fill="#c9d1d9" x="237" y="244" text-anchor="middle" dominant-baseline="central">udf-jars</text>
+            <text class="svg-ts" fill="#8b949e" x="237" y="260" text-anchor="middle" dominant-baseline="central">Docker volume</text>
+          </g>
+
+          <g class="svg-purple"><rect x="336" y="226" width="118" height="48" rx="6" stroke-width="0.5"/>
+            <text class="svg-th" fill="#c4a8e8" x="395" y="244" text-anchor="middle" dominant-baseline="central">SQL Gateway</text>
+            <text class="svg-ts" fill="#7a6898" x="395" y="260" text-anchor="middle" dominant-baseline="central">ADD JAR local path</text>
+          </g>
+
+          <g class="svg-green"><rect x="494" y="226" width="166" height="48" rx="6" stroke-width="0.5"/>
+            <text class="svg-th" fill="#7ee89a" x="577" y="244" text-anchor="middle" dominant-baseline="central">Flink cluster</text>
+            <text class="svg-ts" fill="#4a9a64" x="577" y="260" text-anchor="middle" dominant-baseline="central">UDF loaded ✓</text>
+          </g>
+
+          <line x1="138" y1="250" x2="176" y2="250" stroke="#4a5568" stroke-width="1" marker-end="url(#arr2)"/>
+          <line x1="296" y1="250" x2="334" y2="250" stroke="#4a5568" stroke-width="1" marker-end="url(#arr2)"/>
+          <line x1="454" y1="250" x2="492" y2="250" stroke="#4a5568" stroke-width="1" marker-end="url(#arr2)"/>
+
+          <text class="svg-ts" fill="#6a7585" x="157" y="242" text-anchor="middle">saves</text>
+          <text class="svg-ts" fill="#6a7585" x="315" y="242" text-anchor="middle">same path</text>
+          <text class="svg-ts" fill="#6a7585" x="473" y="242" text-anchor="middle">classpath</text>
         </svg>
       </div>
 
@@ -615,7 +645,7 @@ spec:
 kind: StrlabStudio
 metadata: {name: prod-studio, namespace: flink}
 spec:
-  image: codedstreams/strlabstudio:v1.2.4
+  image: codedstreams/strlabstudio:v1.2.6
   replicas: 2
   gateway: {host: flink-sql-gateway, port: 8083}
   service: {type: LoadBalancer, port: 80}
@@ -634,31 +664,36 @@ spec:
         </div>
         <div class="deploy-card">
           <span class="deploy-card-icon">&#128187;</span><h3>docker run (standalone)</h3>
-          <p>Attach to an existing cluster. Requires <code>--network</code> for Via Studio proxy mode.</p>
+          <p>Attach to an existing cluster. Requires <code>--network</code> for Via Studio mode. Points directly at the raw SQL Gateway — Studio nginx handles CORS.</p>
           <pre style="margin:0;font-size:11px"><code>docker run -d -p 3030:80 \
   --name StrLab-Studio-IDE \
   --network kafka-network-02 \
-  -e FLINK_GATEWAY_HOST=flink-gateway-cors-proxy \
-  -e FLINK_GATEWAY_PORT=8084 \
+  -e FLINK_GATEWAY_HOST=flink-sql-gateway \
+  -e FLINK_GATEWAY_PORT=8083 \
   -e JOBMANAGER_HOST=codedstream-jobmanager \
   -e JOBMANAGER_PORT=8081 \
   codedstreams/strlabstudio:latest</code></pre>
         </div>
         <div class="deploy-card">
           <span class="deploy-card-icon">&#128196;</span><h3>docker compose (recommended)</h3>
-          <p>The image includes nginx + proxy + WebDAV. <strong>No extra containers needed</strong> — just Studio, your env vars, and the external network.</p>
+          <p>Points directly at the raw SQL Gateway. Also mounts <code>udf-jars</code> on the gateway service — required for ADD JAR to work.</p>
           <pre style="margin:0;font-size:10px"><code>services:
   flink-studio:
     image: codedstreams/strlabstudio:latest
-    container_name: StrLab-Studio-IDE
     ports: ["3030:80"]
     environment:
-      FLINK_GATEWAY_HOST: flink-gateway-cors-proxy
-      FLINK_GATEWAY_PORT: "8084"
+      FLINK_GATEWAY_HOST: flink-sql-gateway
+      FLINK_GATEWAY_PORT: "8083"
       JOBMANAGER_HOST:    codedstream-jobmanager
       JOBMANAGER_PORT:    "8081"
     volumes:
       - udf-jars:/var/www/udf-jars
+    networks: [kafka-network-02]
+
+  flink-sql-gateway:
+    # ... your existing gateway config ...
+    volumes:
+      - udf-jars:/var/www/udf-jars  # &#8592; required for ADD JAR
     networks: [kafka-network-02]
 
 volumes:
@@ -706,7 +741,7 @@ networks:
 
     <!-- ═══════════════════════ UDF MANAGER v1.2.0 ═══════════════════════════ -->
     <section class="doc-section" id="udf-manager">
-      <h2><span class="si">&#8517;</span>UDF Manager <span class="updated-badge">v1.2.4 &#8212; March 2026</span></h2>
+      <h2><span class="si">&#8517;</span>UDF Manager <span class="updated-badge">v1.2.6 &#8212; March 2026</span></h2>
       <p>Complete User-Defined Function lifecycle &#8212; browsing, building, uploading, and registering &#8212; without leaving Str:::lab Studio. Access via the <code>&#8517; UDFs</code> button. Version 1.2.0 is a complete overhaul of the Register UDF tab with a 3-step guided wizard, confirmed fix for <code>ClassNotFoundException</code>, and full separate-container Docker instructions.</p>
 
       <div class="callout danger">
@@ -1108,7 +1143,17 @@ FROM signals_enriched LIMIT 10;
       <div class="version-list">
 
         <div class="version-card" style="border-color:rgba(63,185,80,0.3);">
-          <div class="version-header"><span class="version-tag">v1.2.4</span><span class="version-date">March 2026</span><span class="version-label current">current</span></div>
+          <div class="version-header"><span class="version-tag">v1.2.6</span><span class="version-date">March 2026</span><span class="version-label current">current</span></div>
+          <ul>
+            <li><strong>nginx proxy_pass variable bug fixed</strong> &#8212; <code>set $flink_gateway</code> inside a location block caused nginx 1.25 to log <em>"uninitialized variable"</em> on the first request and return HTTP 500. Fixed: <code>proxy_pass</code> now uses the substituted literal value directly. No nginx runtime variables involved.</li>
+            <li><strong>Gateway shared volume required for ADD JAR</strong> &#8212; <code>flink-sql-gateway</code> must mount <code>udf-jars:/var/www/udf-jars</code>. Without it the gateway throws <code>FileNotFoundException</code> on every ADD JAR call. New <em>Gateway Volume Setup</em> section added to UDF Manager docs with exact snippet and restart command.</li>
+            <li><strong>Cloud Flink UDF guidance added</strong> &#8212; Confluent Cloud, Ververica Platform, Amazon Managed Flink, and Kubernetes Flink Operator each have different JAR loading mechanisms. New reference table covers all four.</li>
+            <li><strong>FLINK_GATEWAY_HOST corrected throughout</strong> &#8212; all examples now point at <code>flink-sql-gateway:8083</code> directly. Studio nginx adds CORS headers. The CORS proxy is only needed for Direct Gateway mode from an external browser.</li>
+          </ul>
+        </div>
+
+        <div class="version-card">
+          <div class="version-header"><span class="version-tag">v1.2.4</span><span class="version-date">March 2026</span></div>
           <ul>
             <li><strong>nginx WebDAV PUT HTTP 500 fixed</strong> &#8212; JAR upload was failing with 500 because <code>/var/www/udf-jars/</code> was created by root but written to by the nginx worker process (user <code>nginx</code>). Fixed with <code>chown nginx:nginx</code> in <code>docker-entrypoint.sh</code>. Also switched from <code>alias</code> to <code>root</code> in the <code>/udf-jars/</code> location — <code>alias</code> has a known incompatibility with <code>dav_methods</code> on nginx:alpine.</li>
             <li><strong>Via Studio connection (HTTP 500) documented</strong> &#8212; "Via Studio" mode routes API calls through the nginx proxy. This requires the Studio container to be on the <strong>same Docker network</strong> as the Flink cluster. Running the Studio container standalone (without <code>--network</code>) will produce HTTP 500. Use <strong>Direct Gateway</strong> mode when running standalone, or add the Studio container to the Flink Docker Compose network.</li>

@@ -252,30 +252,9 @@ function _buildModal() {
             <span class="udf-chip" onclick="_s1SetPath('/tmp/flink-web-upload/')">/tmp/flink-web-upload/</span>
           </div>
 
-          <details>
-            <summary style="font-size:11px;color:var(--yellow,#f5a623);cursor:pointer;font-weight:600;padding:4px 0;">
-              ⚠ ADD JAR keeps failing? JobManager and Gateway are in different containers — click to fix
-            </summary>
-            <div style="background:var(--bg1);border:1px solid rgba(245,166,35,0.3);border-radius:var(--radius);padding:12px;margin-top:8px;font-size:11px;font-family:var(--mono);color:var(--text1);line-height:2;white-space:pre-wrap;">Option A — Copy JAR directly into Gateway container (quickest fix):
-  # Find gateway container name:
-  docker ps
-
-  # Copy JAR into it:
-  docker cp streams-studio-udf.jar &lt;gateway-container&gt;:/opt/flink/usrlib/
-
-  # Then ADD JAR path = /opt/flink/usrlib/streams-studio-udf.jar
-
-Option B — Shared volume in docker-compose.yml (permanent fix):
-  # Add to BOTH jobmanager and sql-gateway services:
-  volumes:
-    - ./udfs:/opt/flink/usrlib
-
-  # Place JAR at ./udfs/ on host machine.
-  # ADD JAR path = /opt/flink/usrlib/your-udf.jar
-
-Option C — HTTP URL (if Flink can reach your network):
-  ADD JAR 'http://your-file-server/streams-studio-udf.jar';</div>
-          </details>
+          <div style="font-size:11px;color:var(--text3);margin-top:4px;">
+            Path must exist inside the Gateway container. Use the <strong style="color:var(--accent);">Upload JAR</strong> tab to upload and auto-register.
+          </div>
 
           <div id="s1-result" style="display:none;margin-top:10px;border-radius:var(--radius);padding:8px 12px;font-size:11px;font-family:var(--mono);white-space:pre-wrap;line-height:1.8;"></div>
         </div>
@@ -366,34 +345,11 @@ Option C — HTTP URL (if Flink can reach your network):
     <!-- ══════════════════════════════════ UPLOAD JAR ════════════════════ -->
     <div id="udf-pane-upload" style="padding:20px;display:none;">
 
-      <!-- How it works -->
-      <div style="background:rgba(0,212,170,0.06);border:1px solid rgba(0,212,170,0.2);border-radius:var(--radius);padding:11px 14px;margin-bottom:14px;font-size:12px;color:var(--text1);line-height:1.9;">
-        <strong style="color:var(--accent);">How JAR upload works</strong><br>
-        Your JAR is saved to <code>/var/www/udf-jars/</code> on the Studio container via WebDAV PUT.
-        <code>ADD JAR</code> then uses the <strong>local filesystem path</strong> on the Gateway container.
-        For this to work, both containers must share the same volume (see setup below).
-        <span id="upl-svr-status-inline" style="margin-left:8px;font-size:10px;font-family:var(--mono);"></span>
-      </div>
-
-      <!-- Required: shared volume setup -->
-      <div style="background:rgba(245,166,35,0.07);border:1px solid rgba(245,166,35,0.3);border-radius:var(--radius);padding:11px 14px;margin-bottom:14px;font-size:12px;color:var(--text1);line-height:1.8;">
-        <strong style="color:var(--yellow,#f5a623);">⚠ One-time setup required — shared volume</strong><br>
-        Flink 1.19 without Hadoop cannot use <code>ADD JAR 'http://...'</code>.
-        Only local filesystem paths work. Add this to your <code>docker-compose.yml</code> for both services, then run <code>docker compose up -d</code>:
-        <div style="background:var(--bg0);border:1px solid var(--border);border-radius:4px;padding:8px 10px;margin:8px 0;font-family:var(--mono);font-size:11px;color:var(--text1);white-space:pre-wrap;">services:
-  flink-studio:              # Studio/nginx container
-    volumes:
-      - udf-jars:/var/www/udf-jars
-
-  flink-gateway-cors-proxy:  # SQL Gateway container (use your actual service name)
-    volumes:
-      - udf-jars:/var/www/udf-jars
-
-volumes:
-  udf-jars:                  # named volume shared between both</div>
-        After this, uploaded JARs are visible to both containers at <code>/var/www/udf-jars/filename.jar</code>.
-        <code>ADD JAR</code> will use this local path automatically — no Hadoop, no HTTP URLs needed.
-      </div>
+      <!-- Compact info line -->
+      <p style="font-size:12px;color:var(--text2);margin:0 0 14px;line-height:1.7;">
+        Upload a JAR to the Studio container and register it in the active Gateway session.
+        <span id="upl-svr-status-inline" style="margin-left:4px;font-size:10px;font-family:var(--mono);"></span>
+      </p>
 
       <!-- Studio JAR storage status -->
       <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;margin-bottom:14px;">
@@ -750,16 +706,8 @@ async function _s1AddJar() {
         _setBadge('s1-badge', 'err', 'failed');
         _setResultBox('s1-result', 'err',
             `✗ ADD JAR failed: ${e.message}\n\n` +
-            `The path '${path}' does not exist on the SQL Gateway container filesystem.\n\n` +
-            `If JobManager and Gateway are separate Docker containers:\n\n` +
-            `  Option A — Copy JAR into Gateway container:\n` +
-            `    docker cp my-udf.jar <gateway-container>:/opt/flink/usrlib/\n` +
-            `    Then use: /opt/flink/usrlib/my-udf.jar\n\n` +
-            `  Option B — Shared volume in docker-compose.yml:\n` +
-            `    volumes: ['./udfs:/opt/flink/usrlib']\n` +
-            `    Then use: /opt/flink/usrlib/my-udf.jar\n\n` +
-            `  Option C — HTTP URL:\n` +
-            `    ADD JAR 'http://your-server/my-udf.jar'`
+            `The path '${path}' does not exist on the SQL Gateway container filesystem.\n` +
+            `Use the Upload JAR tab — it uploads to the shared volume and runs ADD JAR automatically.`
         );
         addLog('ERR', 'ADD JAR failed: ' + e.message);
     }
@@ -888,20 +836,10 @@ async function _rExecute() {
                     addLog('OK', 'ADD JAR auto-applied: ' + window._lastUploadedJarPath);
                 } catch(addErr) {
                     _setResultBox('udf-reg-result', 'err',
-                        `✗ Cannot register — no JAR on session classpath.\n\n` +
-                        `Tried ADD JAR '${window._lastUploadedJarPath}'\nFailed: ${addErr.message}\n\n` +
-                        `This path is on the JobManager container, not the Gateway container.\n\n` +
-                        `Fix — pick one:\n\n` +
-                        `  A) Copy JAR into Gateway container:\n` +
-                        `     docker cp streams-studio-udf.jar <gateway-container>:/opt/flink/usrlib/\n` +
-                        `     Then in Step 1, enter: /opt/flink/usrlib/streams-studio-udf.jar\n` +
-                        `     and click ADD JAR.\n\n` +
-                        `  B) Shared volume in docker-compose.yml:\n` +
-                        `     volumes: ['./udfs:/opt/flink/usrlib']\n` +
-                        `     Place JAR at ./udfs/ on host machine.\n` +
-                        `     Path: /opt/flink/usrlib/streams-studio-udf.jar\n\n` +
-                        `  C) HTTP URL:\n` +
-                        `     ADD JAR 'http://your-server/streams-studio-udf.jar'`
+                        `✗ Cannot register — ADD JAR failed: ${addErr.message}\n\n` +
+                        `The Gateway container cannot see '${window._lastUploadedJarPath}'.\n` +
+                        `Mount the udf-jars volume on your flink-sql-gateway container,\n` +
+                        `then re-upload using the Upload JAR tab.`
                     );
                     if (btn) { btn.disabled=false; btn.textContent='⚡ Register Function'; }
                     if (b3)  { b3.dataset.s='err'; b3.textContent='failed'; }
@@ -1353,17 +1291,10 @@ async function _jUpload(){
         if(copyBtn) copyBtn.style.display='inline-block';
         if(msgEl) msgEl.innerHTML=
             `<span style="color:var(--green);">✓ JAR saved to Studio: ${escHtml(jarUrl)}</span>\n\n`+
-            `<span style="color:var(--red);">✗ ADD JAR '${escHtml(localJarPath)}' failed:\n${escHtml(addErr.message)}</span>\n\n`+
-            `<strong>The Gateway container cannot see ${escHtml(localJarPath)}.</strong>\n`+
-            `The shared volume is not yet mounted on the Gateway container.\n\n`+
-            `Add this to docker-compose.yml and run docker compose up -d:\n\n`+
-            `  flink-studio:\n`+
-            `    volumes: [udf-jars:/var/www/udf-jars]\n\n`+
-            `  flink-gateway-cors-proxy:  # your gateway service name\n`+
-            `    volumes: [udf-jars:/var/www/udf-jars]\n\n`+
-            `  volumes:\n`+
-            `    udf-jars:\n\n`+
-            `Then upload again — ADD JAR will use the shared local path.`;
+            `<span style="color:var(--red);">✗ ADD JAR failed: ${escHtml(addErr.message)}</span>\n\n`+
+            `The Gateway container cannot see ${escHtml(localJarPath)}.\n`+
+            `Mount the udf-jars volume on your flink-sql-gateway container,\n`+
+            `then upload again — ADD JAR will succeed automatically.`;
         window._lastUploadedJarPath = localJarPath;
         const pathInput=document.getElementById('s1-path'); if(pathInput) pathInput.value=localJarPath;
         _jStatus('⚠ Saved to Studio — ADD JAR failed. Mount shared volume on Gateway (see result above).','var(--yellow,#f5a623)');
