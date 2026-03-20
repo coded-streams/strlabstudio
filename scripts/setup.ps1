@@ -1,6 +1,6 @@
 #!/usr/bin/env pwsh
 # ─────────────────────────────────────────────────────────────────────────────
-# FlinkSQL Studio — Windows PowerShell setup script
+# Str:::Lab Studio — Windows PowerShell setup script
 # Usage:
 #   .\scripts\setup.ps1
 #   .\scripts\setup.ps1 -GatewayHost my-cluster.example.com -GatewayPort 8083
@@ -20,7 +20,7 @@ $Container = "flinksql-studio"
 
 Write-Host ""
 Write-Host "╔══════════════════════════════════════════════╗" -ForegroundColor Cyan
-Write-Host "║   FlinkSQL Studio — Windows Setup            ║" -ForegroundColor Cyan
+Write-Host "║   Str:::Lab Studio — Windows Setup            ║" -ForegroundColor Cyan
 Write-Host "╚══════════════════════════════════════════════╝" -ForegroundColor Cyan
 Write-Host ""
 
@@ -56,7 +56,7 @@ docker run -d `
 if ($LASTEXITCODE -ne 0) { Write-Host "[✗] Failed to start" -ForegroundColor Red; exit 1 }
 
 Write-Host ""
-Write-Host "✅  FlinkSQL Studio is running!" -ForegroundColor Green
+Write-Host "✅  Str:::Lab Studio is running!" -ForegroundColor Green
 Write-Host "   Open:       http://localhost:$StudioPort" -ForegroundColor Green
 Write-Host "   Gateway:    ${GatewayHost}:${GatewayPort}" -ForegroundColor Gray
 Write-Host "   JobManager: ${JobManagerHost}:${JobManagerPort}" -ForegroundColor Gray

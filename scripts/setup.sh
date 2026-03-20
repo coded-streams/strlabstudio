@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
-# FlinkSQL Studio — Linux / macOS setup script
+# Str:::Lab Studio — Linux / macOS setup script
 # Usage:
 #   # Connect to an existing Flink cluster:
 #   ./scripts/setup.sh --gateway my-gateway.example.com:8083 --jm my-jm.example.com:8081
@@ -10,8 +10,8 @@
 # ─────────────────────────────────────────────────────────────────────────────
 set -e
 
-IMAGE="codedstreams/flinksql-studio:latest"
-CONTAINER="flinksql-studio"
+IMAGE="codedstreams/strlabstudio:latest"
+CONTAINER="strlabstudio"
 STUDIO_PORT=3030
 GATEWAY_HOST="localhost"
 GATEWAY_PORT=8083
@@ -31,7 +31,7 @@ done
 
 echo ""
 echo "╔══════════════════════════════════════════════╗"
-echo "║   FlinkSQL Studio — Setup                    ║"
+echo "║   Str:::Lab Studio — Setup                    ║"
 echo "╚══════════════════════════════════════════════╝"
 echo ""
 
@@ -60,7 +60,7 @@ docker run -d \
   "${IMAGE}"
 
 echo ""
-echo "✅  FlinkSQL Studio is running!"
+echo "✅  Str:::Lab Studio is running!"
 echo "   Open:       http://localhost:${STUDIO_PORT}"
 echo "   Gateway:    ${GATEWAY_HOST}:${GATEWAY_PORT}"
 echo "   JobManager: ${JM_HOST}:${JM_PORT}"

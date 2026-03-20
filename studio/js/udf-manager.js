@@ -230,6 +230,55 @@ function openUdfManager() {
     switchUdfTab('register');
 }
 
+// Clear JAR UI state on session change so stale paths don't confuse users
+function _udfClearJarState() {
+    window._lastUploadedJarPath = null;
+    window._lastUploadedJarName = null;
+    window._sessionJarPaths     = [];
+    const s1path = document.getElementById('s1-path');
+    if (s1path) s1path.value = '';
+    const s1badge = document.getElementById('s1-badge');
+    if (s1badge) { s1badge.dataset.s = 'idle'; s1badge.textContent = 'not checked'; }
+    const s1jars = document.getElementById('s1-jars');
+    if (s1jars) { s1jars.style.display = 'none'; s1jars.textContent = ''; }
+    const jarFileInfo = document.getElementById('udf-jar-file-info');
+    if (jarFileInfo) jarFileInfo.style.display = 'none';
+    const jarStatus = document.getElementById('udf-jar-status');
+    if (jarStatus) jarStatus.textContent = '';
+    const jarWrap = document.getElementById('udf-jar-addjar-wrap');
+    if (jarWrap) jarWrap.style.display = 'none';
+    _selJar = null;
+    const fileInput = document.getElementById('udf-jar-input');
+    if (fileInput) fileInput.value = '';
+}
+
+(function() {
+    function _patchRenew() {
+        if (typeof renewSession !== 'function') return false;
+        if (renewSession._udfJarPatched) return true;
+        const _orig = renewSession;
+        window.renewSession = async function() {
+            _udfClearJarState();
+            return _orig.apply(this, arguments);
+        };
+        renewSession._udfJarPatched = true;
+        return true;
+    }
+    function _patchDisconnect() {
+        if (typeof disconnectAll !== 'function') return false;
+        if (disconnectAll._udfJarPatched) return true;
+        const _orig = disconnectAll;
+        window.disconnectAll = function() {
+            _udfClearJarState();
+            return _orig.apply(this, arguments);
+        };
+        disconnectAll._udfJarPatched = true;
+        return true;
+    }
+    if (!_patchRenew())     { const t = setInterval(() => { if (_patchRenew())      clearInterval(t); }, 400); }
+    if (!_patchDisconnect()){ const t = setInterval(() => { if (_patchDisconnect()) clearInterval(t); }, 400); }
+})();
+
 // ═══════════════════════════════════════════════════════════════════════════
 // BUILD MODAL
 // ═══════════════════════════════════════════════════════════════════════════
@@ -289,17 +338,22 @@ function _buildModal() {
           </label>
           <div style="display:flex;gap:6px;margin-bottom:8px;">
             <input id="s1-path" class="field-input" type="text"
-              placeholder="/opt/flink/usrlib/streams-studio-udf.jar"
+              placeholder="/var/www/udf-jars/your-udf.jar  (or /opt/flink/usrlib/ for K8s)"
               style="flex:1;font-size:12px;font-family:var(--mono);" />
             <button class="btn btn-primary" style="font-size:11px;white-space:nowrap;" onclick="_s1AddJar()">▶ ADD JAR</button>
           </div>
 
           <div style="font-size:10px;color:var(--text3);line-height:2;margin-bottom:8px;">
-            Common paths:
-            <span class="udf-chip" onclick="_s1SetPath('/opt/flink/usrlib/')">/opt/flink/usrlib/</span>
-            <span class="udf-chip" onclick="_s1SetPath('/opt/flink/lib/')">/opt/flink/lib/</span>
-            <span class="udf-chip" onclick="_s1SetPath('/tmp/flink-web-upload/')">/tmp/flink-web-upload/</span>
-            <span class="udf-chip" onclick="_s1SetPath('/var/www/udf-jars/')">/var/www/udf-jars/</span>
+            <span style="color:var(--text2);">Container paths by deployment:</span>
+            <span class="udf-chip" onclick="_s1SetPath('/var/www/udf-jars/')" title="Studio Docker shared volume (default)">/var/www/udf-jars/</span>
+            <span class="udf-chip" onclick="_s1SetPath('/opt/flink/usrlib/')" title="K8s PVC mount / docker cp target">/opt/flink/usrlib/</span>
+            <span class="udf-chip" onclick="_s1SetPath('/opt/flink/lib/')" title="Flink lib dir (all jobs)">/opt/flink/lib/</span>
+            <span class="udf-chip" onclick="_s1SetPath('/tmp/flink-web-upload/')" title="JobManager upload dir">/tmp/flink-web-upload/</span>
+          </div>
+          <div style="font-size:10px;color:var(--text3);line-height:1.7;margin-bottom:8px;">
+            ⚠ Enter the path on the <strong style="color:var(--text1);">SQL Gateway container filesystem</strong> — not a browser URL.<br>
+            Studio Docker: use <code>/var/www/udf-jars/</code> (shared volume). &nbsp;
+            K8s / cloud: use <code>/opt/flink/usrlib/</code> (mounted PVC or docker cp).
           </div>
 
           <div id="s1-result" style="display:none;margin-top:10px;border-radius:var(--radius);padding:8px 12px;font-size:11px;font-family:var(--mono);white-space:pre-wrap;line-height:1.8;"></div>
@@ -345,24 +399,23 @@ function _buildModal() {
           </div>
 
           <!-- Class + Method -->
-          <div style="display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap;">
-            <div style="flex:3;">
+          <div style="margin-bottom:10px;">
               <label class="field-label">
                 Class / Module Path *
                 <span id="udf-class-hint" style="font-weight:400;color:var(--text3);font-size:10px;">— full class/module path (case-sensitive)</span>
               </label>
               <input id="udf-reg-class" class="field-input" type="text"
                 placeholder="com.example.udf.MyFunction"
-                style="font-size:12px;font-family:var(--mono);" oninput="_rPreview()" />
+                style="font-size:12px;font-family:var(--mono);width:100%;box-sizing:border-box;" oninput="_rPreview()" />
               <div style="font-size:10px;color:var(--text3);margin-top:3px;">
-                Flink registers the <strong>class</strong>. It auto-discovers the <code>eval()</code> method by matching argument types at runtime.
+                Java/Scala: full class path. Python: module path (e.g. <code>my_package.my_module</code>).
               </div>
             </div>
-            <div style="flex:1;min-width:130px;">
+            <div style="margin-bottom:10px;">
               <label class="field-label">Method / Function Name</label>
-              <input id="udf-reg-method" class="field-input" type="text" value="eval"
+              <input id="udf-reg-method" class="field-input" type="text"
                 placeholder="eval"
-                style="font-size:12px;font-family:var(--mono);" oninput="_rPreview()" />
+                style="font-size:12px;font-family:var(--mono);width:100%;box-sizing:border-box;" oninput="_rPreview()" />
               <div style="font-size:10px;color:var(--text3);margin-top:3px;">Java/Scala: usually <code>eval</code>. Python: the function name inside your module.</div>
             </div>
           </div>
@@ -756,6 +809,12 @@ function switchUdfTab(tab) {
         if (btn)  btn.classList.toggle('active-udf-tab', active);
         if (pane) pane.style.display = active ? 'block' : 'none';
     });
+    // Steps 1-3 belong ONLY to the Register UDF tab — explicitly hide/show them
+    const isRegister = tab === 'register';
+    ['udf-s1','udf-s2','udf-s3'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = isRegister ? 'block' : 'none';
+    });
     if (tab === 'library')     loadUdfLibrary();
     if (tab === 'upload')      { _jSvrPreview(); _jSvrTest(); _jLoadList(); }
     if (tab === 'maven')       _mvnUpdate();
@@ -825,6 +884,35 @@ async function _s1AddJar() {
     const path = (pathInput?.value || '').trim() || window._lastUploadedJarPath || '';
     if (!path) { _setResultBox('s1-result', 'warn', '⚠ Enter a JAR path first.'); return; }
     if (!state.gateway || !state.activeSession) { _setResultBox('s1-result', 'err', '✗ Not connected to a session.'); return; }
+
+    // Detect browser URLs — these cannot be used as ADD JAR paths.
+    // ADD JAR needs a path on the SQL Gateway container filesystem, not a browser URL.
+    if (/^https?:\/\//i.test(path)) {
+        const jarName = path.split('/').pop().split('?')[0];
+        // Try to auto-correct: if it's our own Studio upload URL, convert to container path
+        const isStudioUpload = path.includes('/udf-jars/');
+        const containerPath  = isStudioUpload
+            ? _getContainerJarPath(jarName)
+            : null;
+
+        _setResultBox('s1-result', 'err',
+            `✗ Browser URL detected — ADD JAR requires a container filesystem path.\n\n` +
+            `You entered: ${path}\n\n` +
+            `ADD JAR must receive a path that exists on the SQL Gateway container's\n` +
+            `filesystem, not a browser-accessible URL.\n\n` +
+            (containerPath
+                ? `Auto-corrected path for Studio Docker:\n  ${containerPath}\n\n` +
+                `Click the path above or use the common path chips to set it, then retry.`
+                : `Deployment-specific paths:\n` +
+                `  Docker (Studio shared volume): /var/www/udf-jars/${jarName}\n` +
+                `  K8s / shared PVC:              /opt/flink/usrlib/${jarName}\n` +
+                `  Copied via docker cp:          /opt/flink/usrlib/${jarName}\n\n` +
+                `Use the path chips below the input to set the correct prefix.`)
+        );
+        // Auto-correct the input field if we can
+        if (containerPath && pathInput) pathInput.value = containerPath;
+        return;
+    }
     _setBadge('s1-badge', 'run', 'adding jar…');
     _setResultBox('s1-result', 'info', `Running ADD JAR '${path}'…`);
     try {
@@ -1005,13 +1093,6 @@ async function _rExecute() {
     if (!cls)  { _setResultBox('udf-reg-result', 'err', '✗ Enter the class path in Step 2.'); return; }
     if (!state.gateway || !state.activeSession) { _setResultBox('udf-reg-result', 'err', '✗ Not connected.'); return; }
 
-    // Advisory: if Python selected with JARs on classpath, show info (don't block)
-    if (lang === 'PYTHON' && (window._sessionJarPaths||[]).length > 0) {
-        const jarNames = (window._sessionJarPaths || []).map(p => p.split('/').pop()).join(', ');
-        // Non-blocking info — PyFlink can use JARs too (e.g. connector JARs)
-        addLog('INFO', `Python UDF with JAR(s) on classpath: ${jarNames}. PyFlink must be installed on all TaskManagers.`);
-    }
-
     if (btn) { btn.disabled = true; btn.textContent = 'Registering…'; }
     if (b3)  { b3.dataset.s = 'run'; b3.textContent = 'running…'; }
 
@@ -1027,6 +1108,35 @@ async function _rExecute() {
             const b1 = document.getElementById('s1-badge');
             if (b1) { b1.dataset.s = jarPaths.length ? 'ok' : 'warn'; b1.textContent = jarPaths.length ? `${jarPaths.length} jar(s) ✓` : 'no jars'; }
         } catch(_) {}
+
+        // Language vs JAR validation — runs AFTER SHOW JARS so we have the real classpath.
+        // A Java-compiled .jar cannot be registered as Python or Scala.
+        // Flink may report success but will fail at runtime with ClassNotFoundException.
+        if ((lang === 'PYTHON' || lang === 'SCALA') && jarPaths.length > 0) {
+            const isJavaJar = jarPaths.some(j =>
+                j.endsWith('.jar') &&
+                !j.toLowerCase().includes('pyflink') &&
+                !j.toLowerCase().includes('python')
+            );
+            if (isJavaJar) {
+                const jarNames  = jarPaths.map(p => p.split('/').pop()).join(', ');
+                const langLabel = lang === 'PYTHON' ? 'Python (PyFlink)' : 'Scala';
+                _setResultBox('udf-reg-result', 'err',
+                    `✗ Language mismatch — cannot register as ${langLabel}\n\n` +
+                    `The JAR on your session classpath is Java bytecode:\n  ${jarNames}\n\n` +
+                    `A Java-compiled .jar cannot execute as ${langLabel}.\n\n` +
+                    `Fix:\n` +
+                    (lang === 'PYTHON'
+                        ? `  • Change Language dropdown to Java and register again\n` +
+                        `  • For a real Python UDF: use ADD PYTHON FILE — no JAR needed`
+                        : `  • Change Language dropdown to Java\n` +
+                        `    Scala UDFs compile to JVM bytecode — Flink registers them with LANGUAGE JAVA`)
+                );
+                if (btn) { btn.disabled = false; btn.textContent = '⚡ Register Function'; }
+                if (b3)  { b3.dataset.s = 'err'; b3.textContent = 'lang error'; }
+                return;
+            }
+        }
 
         // Auto ADD JAR if none loaded and we have a recent upload
         if (jarPaths.length === 0 && window._lastUploadedJarPath) {
@@ -1129,7 +1239,23 @@ async function _rExecute() {
 // ═══════════════════════════════════════════════════════════════════════════
 async function _runQ(sql) {
     const sess    = state.activeSession;
-    const trimmed = sql.trim().replace(/;+$/, '');
+    let   trimmed = sql.trim().replace(/;+$/, '');
+
+    // Flink does not support DESCRIBE/DESC on functions — rewrite to SHOW CREATE FUNCTION
+    // e.g.  DESCRIBE my_func  →  SHOW CREATE FUNCTION my_func
+    //        DESC my_func      →  SHOW CREATE FUNCTION my_func
+    const descFnMatch = trimmed.match(/^\s*(?:DESCRIBE|DESC)\s+(\S+)\s*$/i);
+    if (descFnMatch) {
+        const target = descFnMatch[1];
+        // Check if it looks like a function (check user functions list first would be ideal,
+        // but we can detect if it's not a known DDL keyword and rewrite optimistically).
+        // We rewrite only when the target contains no dots (not catalog.db.table)
+        // since DESCRIBE catalog.db.table is valid for tables/views.
+        if (!target.includes('.')) {
+            trimmed = `SHOW CREATE FUNCTION ${target}`;
+        }
+    }
+
     const isDDL   = /^\s*(CREATE|DROP|ALTER|USE|SET|RESET|REMOVE|ADD)\b/i.test(trimmed);
     const isQuery = /^\s*(SELECT|SHOW|DESCRIBE|DESC|EXPLAIN)\b/i.test(trimmed);
 
@@ -1176,6 +1302,10 @@ function _parseErr(raw) {
     if (raw.includes('Cannot run program') && raw.includes('python'))       return `Python not found — Flink fell back to Python because the Java class was not found. Complete Step 1 (ADD JAR) first.`;
     if (raw.includes('FunctionLanguage'))                                    return `Invalid LANGUAGE. Flink supports JAVA, SCALA, PYTHON only.`;
     if (raw.includes('already exist'))                                       return `Function already exists. Use "Drop + Re-create" option.`;
+    if (raw.includes("doesn't exist") || raw.includes("does not exist")) {
+        if (raw.includes('default_catalog') || raw.includes('default_database'))
+            return `DESCRIBE is not supported on functions in Flink SQL.\nUse: SHOW CREATE FUNCTION <name>\nOr:  SHOW USER FUNCTIONS`;
+    }
     const first = raw.split('\n').find(l => l.trim() && !l.includes('at org.') && !l.includes('at java.'));
     return first ? first.trim().slice(0, 300) : raw.slice(0, 300);
 }
@@ -1248,6 +1378,25 @@ function _getJarBase() {
     const ov = (document.getElementById('inp-jar-base')?.value || '').trim();
     if (ov) return ov.replace(/\/+$/, '');
     return window.location.origin + '/udf-jars';
+}
+
+// Returns the container filesystem path for a given jar filename.
+// This is the path ADD JAR must receive — NOT the browser URL.
+// Deployment mapping:
+//   Studio Docker (default)    → /var/www/udf-jars/<name>
+//   Custom upload URL set      → derive from inp-jar-base path portion
+//   K8s / docker cp / usrlib  → user sets manually via path chips
+function _getContainerJarPath(jarName) {
+    const customBase = (document.getElementById('inp-jar-base')?.value || '').trim();
+    if (customBase) {
+        // If user overrode the upload URL, try to extract a container path hint.
+        // e.g. http://my-server/flink-jars/  →  we can't know the container path
+        // So we fall back to the jar name only and let user pick prefix with chips.
+        // But if it's clearly a local path pattern we can use it:
+        if (customBase.startsWith('/')) return customBase.replace(/\/+$/, '') + '/' + jarName;
+    }
+    // Default: Studio Docker shared volume
+    return '/var/www/udf-jars/' + jarName;
 }
 
 function _jSvrPreview() {
@@ -1332,6 +1481,32 @@ async function _jUpload() {
     if (!_selJar) { _jStatus('✗ Select a JAR first.', 'var(--red)'); return; }
     if (!state.gateway) { _jStatus('✗ Not connected to a session.', 'var(--red)'); return; }
 
+    // Check for duplicate before uploading
+    const _dupBase = _getJarBase();
+    const _dupName = _selJar.name;
+    try {
+        const _dupResp = await fetch(_dupBase + '/', { signal: AbortSignal.timeout(4000) });
+        if (_dupResp.ok) {
+            const _dupText = await _dupResp.text();
+            let _existing = [];
+            try { _existing = JSON.parse(_dupText).map(f => f.name || f); } catch(_) {}
+            if (_existing.includes(_dupName)) {
+                const overwrite = confirm(
+                    `A JAR named "${_dupName}" already exists on the Studio container.\n\nOverwrite it?`
+                );
+                if (!overwrite) {
+                    // Pre-fill the path so user can just click ADD JAR
+                    window._lastUploadedJarPath = _getContainerJarPath(_dupName);
+                    window._lastUploadedJarName = _dupName;
+                    const pi = document.getElementById('s1-path');
+                    if (pi) pi.value = window._lastUploadedJarPath;
+                    _jStatus(`"${_dupName}" already exists — path pre-filled in Step 1. Click ADD JAR to load it.`, 'var(--yellow,#f5a623)');
+                    return;
+                }
+            }
+        }
+    } catch(_) {} // list unavailable — proceed with upload
+
     const pw = document.getElementById('udf-jar-progress-wrap');
     const pb = document.getElementById('udf-jar-prog-bar');
     const pp = document.getElementById('udf-jar-prog-pct');
@@ -1379,7 +1554,7 @@ async function _jUpload() {
         return;
     }
 
-    const localJarPath = '/var/www/udf-jars/' + jarName;
+    const localJarPath = _getContainerJarPath(jarName);
     if (pl) pl.textContent = 'Running ADD JAR in Gateway session…';
 
     try {
@@ -1450,7 +1625,7 @@ async function _jLoadList() {
         <span>📦</span>
         <div style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono);color:var(--text0);" title="${escHtml(url)}">${escHtml(name)}</div>
         <span style="color:var(--text3);flex-shrink:0;">${j.size ? _fmtB(j.size) : '—'}</span>
-        <button onclick="_jUseInReg('${escHtml(url)}')" style="font-size:10px;padding:2px 7px;border-radius:2px;border:1px solid var(--border);background:var(--bg3);color:var(--text1);cursor:pointer;">Use →</button>
+        <button onclick="_jUseInReg('${escHtml(url)}','${escHtml(name)}')" style="font-size:10px;padding:2px 7px;border-radius:2px;border:1px solid var(--border);background:var(--bg3);color:var(--text1);cursor:pointer;">Use →</button>
         <button onclick="_jDelete('${escHtml(name)}')" style="font-size:10px;padding:2px 7px;border-radius:2px;border:1px solid rgba(255,77,109,0.3);background:rgba(255,77,109,0.07);color:var(--red);cursor:pointer;">Delete</button>
       </div>`;
         }).join('');
@@ -1459,10 +1634,26 @@ async function _jLoadList() {
     }
 }
 
-function _jUseInReg(url) {
+function _jUseInReg(url, name) {
     switchUdfTab('register');
-    const p = document.getElementById('s1-path'); if (p) p.value = url;
-    toast('Click ADD JAR in Step 1 to load it into the current session', 'info');
+    // Derive the container filesystem path from the jar name.
+    // The browser URL (http://...) is NOT a valid ADD JAR path — Flink needs a
+    // path on the Gateway container filesystem.
+    // Priority:
+    //   1. If this is the jar we just uploaded, use _lastUploadedJarPath (exact)
+    //   2. Otherwise, guess /var/www/udf-jars/<name> (Studio Docker default)
+    //      and let the user adjust using the path chips if needed.
+    const jarName = name || url.split('/').pop().split('?')[0];
+    let containerPath;
+    if (window._lastUploadedJarName === jarName && window._lastUploadedJarPath) {
+        containerPath = window._lastUploadedJarPath;
+    } else {
+        // Default Studio Docker path — user can adjust with path chips for K8s/cloud
+        containerPath = _getContainerJarPath(jarName);
+    }
+    const p = document.getElementById('s1-path');
+    if (p) p.value = containerPath;
+    toast('Path pre-filled — click SHOW JARS to verify, or ADD JAR if not yet loaded', 'info');
 }
 
 async function _jDelete(name) {

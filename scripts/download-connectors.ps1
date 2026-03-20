@@ -58,7 +58,7 @@ if (-not $KafkaConnectorMap.ContainsKey($MinorVersion)) {
 }
 
 Write-Host ""
-Write-Host "=== FlinkSQL Studio Connector Downloader ===" -ForegroundColor Cyan
+Write-Host "=== Str:::Lab Studio Connector Downloader ===" -ForegroundColor Cyan
 Write-Host "  Flink version  : $FlinkVersion"  -ForegroundColor White
 Write-Host "  Kafka connector: $KafkaConnector" -ForegroundColor White
 Write-Host "  Output dir     : $ConnectorsDir"  -ForegroundColor White

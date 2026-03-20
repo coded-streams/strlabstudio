@@ -4,8 +4,8 @@ REM FlinkSQL Studio — Windows CMD setup script
 REM Usage: setup.bat [gateway_host] [gateway_port] [studio_port]
 REM ─────────────────────────────────────────────────────────────────────────────
 
-SET IMAGE=codedstreams/flinksql-studio:latest
-SET CONTAINER=flinksql-studio
+SET IMAGE=codedstreams/strlabstudio:latest
+SET CONTAINER=strlabstudio
 SET GATEWAY_HOST=%1
 SET GATEWAY_PORT=%2
 SET STUDIO_PORT=%3

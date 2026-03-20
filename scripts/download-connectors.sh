@@ -45,7 +45,7 @@ KAFKA_CONNECTOR=$(kafka_connector_for "$FLINK_VERSION")
 mkdir -p "$CONNECTORS_DIR"
 
 echo ""
-echo "=== FlinkSQL Studio Connector Downloader ==="
+echo "=== Str:::Lab Studio Connector Downloader ==="
 echo "  Flink version  : $FLINK_VERSION"
 echo "  Kafka connector: $KAFKA_CONNECTOR"
 echo "  Output dir     : $CONNECTORS_DIR"

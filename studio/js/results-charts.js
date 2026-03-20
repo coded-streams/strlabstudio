@@ -197,15 +197,27 @@ function _crBuildModalHTML() {
 }
 
 // ── Populate slot selector ────────────────────────────────────────────────────
+// Only SELECT-result slots are plottable — filter out SHOW/CREATE/DESC/SET results
+function _crIsPlottable(slot) {
+    if (!slot) return false;
+    if (!slot.rows?.length && slot.status !== 'streaming') return false;
+    const sql = (slot.sql || slot.label || '').replace(/^\/\*[\s\S]*?\*\/|^\s*--.*$/mg, '').trim();
+    if (!sql) return slot.columns?.length > 1; // no SQL: require >1 column (not DDL result)
+    return /^SELECT\b/i.test(sql);
+}
+
 function _crPopulateSlots() {
     const sel = document.getElementById('cr-slot-select');
     if (!sel) return;
 
-    const slots = (typeof state !== 'undefined' && state && state.resultSlots)
+    const allSlots = (typeof state !== 'undefined' && state && state.resultSlots)
         ? state.resultSlots : [];
 
+    // Only show SELECT results — skip SHOW TABLES, CREATE, SET, etc.
+    const slots = allSlots.filter(s => _crIsPlottable(s));
+
     if (!slots.length) {
-        sel.innerHTML = '<option value="">— run a query first —</option>';
+        sel.innerHTML = '<option value="">— run a SELECT query first —</option>';
         return;
     }
 
@@ -690,97 +702,4 @@ function _crExportPDF() {
     };
 })();
 
-// Expose global entry point (called by the 📊 Chart Report button)
 window.openChartReportModal = openChartReportModal;
-
-// ── COLOUR DESCRIBE FIXES ─────────────────────────────────────────────────────
-// Colour Describe lives in results-intelligence.js and is a SEPARATE feature.
-// These patches fix the field dropdown bug (_cdOnSlotChange reads empty columns)
-// by falling back to DOM table headers when slot.columns is missing.
-
-// ── Shared column reader used by both Chart Report and Colour Describe ─────────
-function _getResultColumns(slotId) {
-    const slots = (typeof state !== 'undefined' && state && state.resultSlots)
-        ? state.resultSlots : [];
-    const slot = slotId
-        ? slots.find(s => s.id === slotId)
-        : (slots.find(s => s.id === (typeof state !== 'undefined' && state.activeSlot))
-            || slots.find(s => s.rows && s.rows.length > 0));
-
-    if (slot && slot.columns && slot.columns.length)
-        return slot.columns.map(c => c.name || String(c)).filter(Boolean);
-
-    // DOM fallback — always works when table is visible
-    const table = document.querySelector('#result-table-wrap table');
-    if (table)
-        return Array.from(table.querySelectorAll('thead th'))
-            .slice(1).map(th => th.textContent.trim().split(/\s+/)[0]).filter(Boolean);
-    return [];
-}
-
-// ── Patch _cdOnSlotChange to populate field dropdown via DOM fallback ──────────
-(function() {
-    function _patchCdSlotChange() {
-        if (typeof _cdOnSlotChange !== 'function') return false;
-        if (_cdOnSlotChange._crPatched) return true;
-        const _orig = _cdOnSlotChange;
-        window._cdOnSlotChange = function() {
-            // Run original first
-            _orig.apply(this, arguments);
-            // Then check if field dropdown is empty — if so, fill it via DOM fallback
-            const fieldSel = document.getElementById('cd-field-select');
-            const slotSel  = document.getElementById('cd-slot-select');
-            if (!fieldSel || !slotSel || fieldSel.options.length > 1) return;
-            const cols = _getResultColumns(slotSel.value);
-            if (!cols.length) return;
-            fieldSel.innerHTML = '<option value="">— select field —</option>' +
-                cols.map(c => `<option value="${c}">${c}</option>`).join('');
-        };
-        window._cdOnSlotChange._crPatched = true;
-        return true;
-    }
-    if (!_patchCdSlotChange()) {
-        const t = setInterval(() => { if (_patchCdSlotChange()) clearInterval(t); }, 300);
-    }
-})();
-
-// ── Patch _cdPopulateSlots to auto-select first slot and trigger field fill ───
-(function() {
-    function _patchPopulateSlots() {
-        if (typeof _cdPopulateSlots !== 'function') return false;
-        if (_cdPopulateSlots._crPatched) return true;
-        const _orig = _cdPopulateSlots;
-        window._cdPopulateSlots = function() {
-            _orig.apply(this, arguments);
-            const sel = document.getElementById('cd-slot-select');
-            if (!sel) return;
-            if (!sel.value && sel.options.length > 1) sel.selectedIndex = 1;
-            if (sel.value) setTimeout(() => _cdOnSlotChange && _cdOnSlotChange(), 80);
-        };
-        window._cdPopulateSlots._crPatched = true;
-        return true;
-    }
-    if (!_patchPopulateSlots()) {
-        const t = setInterval(() => { if (_patchPopulateSlots()) clearInterval(t); }, 300);
-    }
-})();
-
-// ── Re-apply Colour Describe colouring after renderResults ────────────────────
-(function() {
-    function _patchRR() {
-        if (typeof renderResults !== 'function' || renderResults._crCdPatched) return false;
-        const _orig = renderResults;
-        window.renderResults = function() {
-            _orig.apply(this, arguments);
-            setTimeout(() => {
-                if (typeof _cdReapplyExistingFromDOM === 'function') _cdReapplyExistingFromDOM();
-                if (typeof _cdRenderLegend === 'function') _cdRenderLegend();
-            }, 80);
-        };
-        renderResults._crCdPatched = true;
-        return true;
-    }
-    if (!_patchRR()) {
-        const t = setInterval(() => { if (_patchRR()) clearInterval(t); }, 400);
-    }
-})();
