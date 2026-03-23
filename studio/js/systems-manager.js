@@ -171,14 +171,14 @@ SELECT * FROM hive_table LIMIT 10;`,
         downloadUrl: null,
         desc: 'Built-in synthetic data generator. No external dependency.',
         sqlExample: `CREATE TABLE orders_datagen (
-  order_id BIGINT,
-  amount   DOUBLE,
-  ts       TIMESTAMP(3),
-  WATERMARK FOR ts AS ts - INTERVAL '1' SECOND
-) WITH (
-  'connector'       = 'datagen',
-  'rows-per-second' = '100'
-);`,
+                                                     order_id BIGINT,
+                                                     amount   DOUBLE,
+                                                     ts       TIMESTAMP(3),
+                                                     WATERMARK FOR ts AS ts - INTERVAL '1' SECOND
+                     ) WITH (
+                           'connector'       = 'datagen',
+                           'rows-per-second' = '100'
+                           );`,
         noJarNeeded: true,
     },
     {
@@ -191,7 +191,7 @@ SELECT * FROM hive_table LIMIT 10;`,
         downloadUrl: null,
         desc: 'Blackhole sink discards all records. Print sink outputs to TaskManager stdout.',
         sqlExample: `CREATE TABLE dev_sink WITH ('connector'='blackhole')
-  LIKE my_source_table (EXCLUDING ALL);`,
+            LIKE my_source_table (EXCLUDING ALL);`,
         noJarNeeded: true,
     },
 ];
@@ -224,26 +224,76 @@ const SYSTEM_DEFS = [
             { id: 'schema_registry_url', label: 'Schema Registry URL (opt)', placeholder: 'http://schema-registry:8081', required: false, hint: 'Leave blank if not using Avro/Schema Registry.' },
         ],
         generateSql: (f, auth) => {
-            const props = [
-                `  'connector'                    = 'kafka'`,
-                `  'topic'                        = '${f.topic || 'YOUR_TOPIC'}'`,
-                `  'properties.bootstrap.servers' = '${f.bootstrap_servers}'`,
-                `  'properties.group.id'          = '${f.group_id || 'flink-group'}'`,
-                `  'scan.startup.mode'            = 'latest-offset'`,
-                `  'format'                       = '${f.format || 'json'}'`,
-            ];
-            if (f.schema_registry_url) props.push(`  'avro-confluent.url'           = '${f.schema_registry_url}'`);
+            const bs    = f.bootstrap_servers || 'kafka:9092';
+            const topic = f.topic || 'YOUR_TOPIC';
+            const tbl   = f.table_name || 'kafka_stream';
+            const fmt   = f.format || 'json';
+            const grp   = f.group_id || 'flink-group-1';
+
+            // Auth properties shared between source and sink
+            const authProps = [];
             if (auth === 'sasl_plain') {
-                props.push(`  'properties.security.protocol' = 'SASL_PLAINTEXT'`);
-                props.push(`  'properties.sasl.mechanism'    = 'PLAIN'`);
-                props.push(`  'properties.sasl.jaas.config'  = 'org.apache.kafka.common.security.plain.PlainLoginModule required username="${f.sasl_user || 'USER'}" password="${f.sasl_pass || 'PASS'}";'`);
+                authProps.push(`  'properties.security.protocol' = 'SASL_PLAINTEXT'`);
+                authProps.push(`  'properties.sasl.mechanism'    = 'PLAIN'`);
+                authProps.push(`  'properties.sasl.jaas.config'  = 'org.apache.kafka.common.security.plain.PlainLoginModule required username="${f.sasl_user || 'USER'}" password="${f.sasl_pass || 'PASS'}";'`);
             } else if (auth === 'sasl_ssl') {
-                props.push(`  'properties.security.protocol'  = 'SASL_SSL'`);
-                props.push(`  'properties.sasl.mechanism'     = 'PLAIN'`);
-                props.push(`  'properties.sasl.jaas.config'   = 'org.apache.kafka.common.security.plain.PlainLoginModule required username="${f.sasl_user || 'API_KEY'}" password="${f.sasl_pass || 'API_SECRET'}";'`);
-                props.push(`  'properties.ssl.endpoint.identification.algorithm' = 'https'`);
+                authProps.push(`  'properties.security.protocol'  = 'SASL_SSL'`);
+                authProps.push(`  'properties.sasl.mechanism'     = 'PLAIN'`);
+                authProps.push(`  'properties.sasl.jaas.config'   = 'org.apache.kafka.common.security.plain.PlainLoginModule required username="${f.sasl_user || 'API_KEY'}" password="${f.sasl_pass || 'API_SECRET'}";'`);
+                authProps.push(`  'properties.ssl.endpoint.identification.algorithm' = 'https'`);
             }
-            return `-- Kafka source table\nCREATE TABLE ${f.table_name || 'kafka_stream'} (\n  id      BIGINT,\n  payload STRING,\n  ts      TIMESTAMP(3),\n  WATERMARK FOR ts AS ts - INTERVAL '5' SECOND\n) WITH (\n${props.join(',\n')}\n);`;
+
+            const srProps = [];
+            if (f.schema_registry_url) {
+                srProps.push(`  'avro-confluent.url'           = '${f.schema_registry_url}'`);
+                if (f.schema_registry_user) srProps.push(`  'avro-confluent.basic-auth.credentials-source' = 'USER_INFO'`);
+                if (f.schema_registry_user) srProps.push(`  'avro-confluent.basic-auth.user-info' = '${f.schema_registry_user}:${f.schema_registry_pass || ''}'`);
+            }
+
+            const sourcePropList = [
+                `  'connector'                    = 'kafka'`,
+                `  'topic'                        = '${topic}'`,
+                `  'properties.bootstrap.servers' = '${bs}'`,
+                `  'properties.group.id'          = '${grp}'`,
+                `  'scan.startup.mode'            = 'latest-offset'`,
+                `  'format'                       = '${fmt}'`,
+                ...authProps,
+                ...srProps,
+            ];
+
+            const sinkPropList = [
+                `  'connector'                    = 'kafka'`,
+                `  'topic'                        = '${topic}'`,
+                `  'properties.bootstrap.servers' = '${bs}'`,
+                `  'format'                       = '${fmt}'`,
+                `  'sink.partitioner'             = 'round-robin'`,
+                ...authProps,
+                ...srProps,
+            ];
+
+            return `-- ─────────────────────────────────────────────────────────────────
+-- Kafka SOURCE (consumer) — reads from topic: ${topic}
+-- ─────────────────────────────────────────────────────────────────
+CREATE TABLE ${tbl}_source (
+  id      BIGINT,
+  payload STRING,
+  ts      TIMESTAMP(3),
+  WATERMARK FOR ts AS ts - INTERVAL '5' SECOND
+) WITH (
+${sourcePropList.join(',\n')}
+);
+
+-- ─────────────────────────────────────────────────────────────────
+-- Kafka SINK (producer) — writes to topic: ${topic}
+-- Copy schema from your source table above; remove WATERMARK line
+-- ─────────────────────────────────────────────────────────────────
+CREATE TABLE ${tbl}_sink (
+  id      BIGINT,
+  payload STRING,
+  ts      TIMESTAMP(3)
+) WITH (
+${sinkPropList.join(',\n')}
+);`;
         },
     },
     {
@@ -399,61 +449,144 @@ const SYSTEM_DEFS = [
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
-// CONNECTIVITY PROBE HELPERS
+// CONNECTIVITY PROBE HELPERS  v1.2
 // ═══════════════════════════════════════════════════════════════════════════
 
+// Resolve the Studio nginx base URL — works regardless of how state.gateway is shaped
+function _sysGatewayBase() {
+    // state.gateway can be: an object {baseUrl:'/flink-api'}, a string, or undefined
+    if (typeof state === 'undefined') return window.location.origin;
+    const gw = state?.gateway;
+    if (!gw) return window.location.origin;
+    // Object form: { baseUrl: '/flink-api' } or { baseUrl: 'http://...' }
+    if (typeof gw === 'object' && gw.baseUrl) {
+        const base = gw.baseUrl.replace(/\/+$/, '').replace('/flink-api', '');
+        // If it's a relative path ('/flink-api'), prefix with origin
+        return base.startsWith('http') ? base : (window.location.origin + base);
+    }
+    // String form
+    if (typeof gw === 'string') {
+        return gw.replace(/\/+$/, '').replace('/flink-api', '').replace('/v1', '');
+    }
+    return window.location.origin;
+}
+
 // Probe an HTTP-accessible service directly from the browser
+// Works for services accessible from the client machine (ES, MinIO, REST catalogs)
 async function _sysProbeHttp(url, label) {
     const cleanUrl = url.replace(/\/+$/, '');
+    // Try mode:'no-cors' first — this works cross-origin and at least confirms the host is alive
     try {
+        // Attempt 1: cors mode — gives us the actual response body
         const r = await fetch(cleanUrl, { signal: AbortSignal.timeout(6000), mode: 'cors' });
         if (r.ok || r.status === 401 || r.status === 403) {
-            let detail = cleanUrl + ' responded HTTP ' + r.status;
-            // Try to get version info from ES/OpenSearch
+            let detail = cleanUrl + ' → HTTP ' + r.status;
             try {
                 const json = await r.json();
                 if (json?.version?.number) detail = 'Version: ' + json.version.number + ' — ' + cleanUrl;
-                else if (json?.tagline) detail = json.tagline + ' — ' + cleanUrl;
+                else if (json?.tagline)    detail = json.tagline + ' — ' + cleanUrl;
+                else if (json?.name)       detail = 'Cluster: ' + json.name + ' — ' + cleanUrl;
             } catch(_) {}
             return { ok: true, msg: label + ' reachable ✓', detail };
         }
-        return { ok: false, msg: 'HTTP ' + r.status + ' from ' + label, detail: cleanUrl + ' responded with an error. Check auth credentials.' };
-    } catch(e) {
-        const isCors = e.message?.toLowerCase().includes('cors') || e.message?.toLowerCase().includes('fetch') || e.message?.toLowerCase().includes('network');
-        if (isCors) {
+        return { ok: false, msg: 'HTTP ' + r.status + ' from ' + label, detail: cleanUrl + ' returned an error. Check auth credentials or network.' };
+    } catch(corsErr) {
+        // Attempt 2: no-cors mode — browser blocks the response but the fetch itself succeeds if host is alive
+        try {
+            const r2 = await fetch(cleanUrl, { signal: AbortSignal.timeout(5000), mode: 'no-cors' });
+            // opaque response = host responded (status 0 is expected with no-cors)
             return {
                 ok: true,
-                msg: label + ' reachable (CORS restricted) ✓',
-                detail: 'Host responded but browser cannot read the response due to CORS policy — this is normal for services not configured for browser access. The service IS reachable.'
+                msg: label + ' reachable ✓ (browser CORS policy applies)',
+                detail: cleanUrl + ' is alive — the host responded.\n'
+                    + 'Note: browser cannot read the response body due to CORS headers on the remote service.\n'
+                    + 'This is normal — it does not affect Flink job execution.'
             };
+        } catch(noCorsErr) {
+            const isNetwork = noCorsErr.name === 'TypeError' || noCorsErr.message?.toLowerCase().includes('failed to fetch')
+                || noCorsErr.message?.toLowerCase().includes('network');
+            if (isNetwork) {
+                return {
+                    ok: false,
+                    msg: label + ' unreachable from this browser',
+                    detail: 'Could not reach ' + cleanUrl + ' from the browser.\n'
+                        + 'If this service is on a private network (Docker, VPN, internal cluster),\n'
+                        + 'it may still be reachable from Flink — use the Studio proxy test below\n'
+                        + 'or verify with: curl -I ' + cleanUrl
+                };
+            }
+            return { ok: false, msg: label + ' error: ' + (noCorsErr.message || 'unknown'), detail: '' };
         }
-        return { ok: false, msg: label + ' unreachable: ' + (e.message || 'timeout'), detail: 'Verify ' + cleanUrl + ' is accessible from your machine.' };
     }
 }
 
-// Probe a TCP service indirectly: test Flink cluster reachability and give the nc command
+// Probe a TCP/non-HTTP service via the Studio nginx proxy → Flink REST
+// Strategy: test the Studio proxy first (works from browser), then also try
+// a direct browser fetch to common HTTP ports as a best-effort confirmation
 async function _sysProbeViaFlink(host, port, label) {
-    try {
-        const flinkBase = (typeof state !== 'undefined' && state?.flinkUrl)
-            ? state.flinkUrl.replace(/\/+$/, '')
-            : (typeof state !== 'undefined' && state?.gateway)
-                ? state.gateway.replace(/\/+$/, '').replace('/v1','')
-                : (window.location.origin);
-        const r = await fetch(flinkBase + '/v1/info', { signal: AbortSignal.timeout(4000) });
-        if (r.ok || r.status < 500) {
+    const studioBase = _sysGatewayBase();
+    const portNum    = parseInt(port) || 0;
+
+    // === STEP 1: Try a direct browser probe first (works when services are accessible from browser) ===
+    // Many Docker setups expose services on localhost — try common HTTP variants
+    const httpVariants = [];
+    if (portNum === 9092 || portNum === 29092) {
+        // Kafka doesn't speak HTTP — skip direct probe, go to proxy
+    } else if (portNum === 5432) {
+        // PostgreSQL doesn't speak HTTP — skip direct probe
+    } else if (portNum === 3306) {
+        // MySQL doesn't speak HTTP — skip direct probe
+    } else if (portNum === 9083) {
+        // Hive Metastore thrift — skip direct probe
+    } else {
+        httpVariants.push(`http://${host}:${port}`);
+        httpVariants.push(`https://${host}:${port}`);
+    }
+
+    for (const variant of httpVariants) {
+        try {
+            const r = await fetch(variant, { signal: AbortSignal.timeout(2500), mode: 'no-cors' });
             return {
                 ok: true,
-                msg: 'Flink cluster reachable ✓ — ' + label + ' probe sent',
-                detail: 'Flink cluster is up. ' + label + ' at ' + host + ':' + port + ' must be tested from inside the Flink container network.\n'
-                    + 'Quick test: docker exec <flink-container> bash -c "nc -zv ' + host + ' ' + port + ' && echo OPEN || echo CLOSED"'
+                msg: label + ' reachable directly from browser ✓',
+                detail: host + ':' + port + ' responded at ' + variant + '\n'
+                    + 'This service is accessible from your browser — Flink can also reach it if on the same network.'
+            };
+        } catch(_) {}
+    }
+
+    // === STEP 2: Probe via Studio nginx → confirms Studio+Flink side reachability ===
+    try {
+        const infoUrl = studioBase + '/flink-api/v1/info';
+        const r = await fetch(infoUrl, { signal: AbortSignal.timeout(5000) });
+        if (r.ok || r.status < 500) {
+            let flinkVer = '';
+            try { const j = await r.json(); flinkVer = j?.['flink-version'] ? ' (Flink ' + j['flink-version'] + ')' : ''; } catch(_) {}
+            return {
+                ok: true,
+                msg: 'Studio→Flink reachable' + flinkVer + ' ✓  |  ' + label + ' network check below',
+                detail: 'Studio proxy is healthy' + flinkVer + '.\n\n'
+                    + 'To verify ' + label + ' (' + host + ':' + port + ') from inside the Flink container:\n'
+                    + '  docker exec <flink-container> bash -c "nc -zv ' + host + ' ' + port + ' && echo OPEN || echo CLOSED"\n\n'
+                    + 'Or with curl (if the service speaks HTTP):\n'
+                    + '  docker exec <flink-container> curl -s http://' + host + ':' + port
             };
         }
-        return { ok: false, msg: 'Flink cluster returned HTTP ' + r.status, detail: 'Cannot probe ' + label + ' without a healthy Flink cluster.' };
-    } catch(e) {
         return {
             ok: false,
-            msg: 'Flink cluster unreachable: ' + (e.message || 'timeout'),
-            detail: 'To test ' + label + ' directly, run from the Flink container:\nnc -zv ' + host + ' ' + port
+            msg: 'Studio→Flink returned HTTP ' + r.status,
+            detail: 'Check that the Flink SQL Gateway is running and the Studio proxy is configured correctly.'
+        };
+    } catch(e) {
+        // === STEP 3: Studio proxy unreachable — give maximum useful info ===
+        return {
+            ok: false,
+            msg: 'Studio proxy unreachable: ' + (e.message || 'timeout'),
+            detail: 'Cannot reach Studio at ' + studioBase + '.\n\n'
+                + 'Manual verification options:\n'
+                + '  1. From your terminal:  nc -zv ' + host + ' ' + port + '\n'
+                + '  2. From Flink container: docker exec <flink-container> bash -c "nc -zv ' + host + ' ' + port + '"\n'
+                + '  3. curl http://' + host + ':' + port + ' (if service speaks HTTP)'
         };
     }
 }
@@ -601,6 +734,33 @@ function _sysBuildModal() {
           <button class="btn btn-secondary" style="font-size:10px;padding:3px 10px;" onclick="_sysJarLoadList()">⟳ Refresh</button>
         </div>
         <div id="sys-jar-list"><div style="font-size:11px;color:var(--text3);">Click ⟳ Refresh to list uploaded JARs.</div></div>
+      </div>
+
+      <!-- ⟳ Restart / Reload Controls -->
+      <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px;">
+        <div style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;">After Uploading JARs — Activate Without SSH</div>
+        <div style="background:rgba(245,166,35,0.06);border:1px solid rgba(245,166,35,0.2);border-radius:var(--radius);padding:11px 14px;font-size:11px;color:var(--text1);line-height:1.8;margin-bottom:12px;">
+          <strong style="color:var(--yellow);">⚠ Connector JARs require a Gateway restart to take effect.</strong><br>
+          Use the buttons below to trigger a graceful restart directly from the UI — no SSH or terminal needed.
+          For cloud/managed deployments, a session reconnect may be sufficient if the platform hot-reloads JARs.
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+          <button class="btn btn-secondary" style="font-size:11px;border-color:rgba(245,166,35,0.4);color:var(--yellow);"
+            onclick="_sysRestartGateway()">
+            ⟳ Restart SQL Gateway session
+          </button>
+          <button class="btn btn-secondary" style="font-size:11px;"
+            onclick="_sysReconnectSession()">
+            ⟲ Reconnect Studio session
+          </button>
+        </div>
+        <div id="sys-restart-status" style="font-size:11px;min-height:14px;font-family:var(--mono);"></div>
+        <div style="font-size:11px;color:var(--text3);line-height:1.8;margin-top:8px;">
+          <strong>How restart works:</strong><br>
+          • <em>Restart SQL Gateway session</em> — closes the current Gateway session and opens a new one. Flink reloads JARs from <code>/opt/flink/lib/</code> at session open. The Studio automatically reconnects.<br>
+          • <em>Reconnect Studio session</em> — reconnects the Studio without restarting Flink. Use this if the Gateway was restarted externally (e.g. <code>docker restart</code>).<br>
+          • For a full container restart (self-hosted Docker): run <code>docker restart flink-sql-gateway</code> in your terminal, then click Reconnect Studio session.
+        </div>
       </div>
     </div>
 
@@ -1151,5 +1311,66 @@ async function _sysJarLoadList() {
       </div>`).join('');
     } catch(e) {
         el.innerHTML = `<div style="font-size:11px;color:var(--text3);">${escHtml(e.message)}</div>`;
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GATEWAY RESTART / SESSION RECONNECT
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function _sysRestartGateway() {
+    const st = document.getElementById('sys-restart-status');
+    if (st) { st.style.color = 'var(--yellow)'; st.textContent = '⟳ Closing current Gateway session…'; }
+
+    try {
+        // Step 1: Close the current session via the Gateway REST API
+        if (typeof state !== 'undefined' && state?.activeSession && state?.gateway) {
+            const gwBase = _sysGatewayBase();
+            try {
+                await fetch(gwBase + '/flink-api/v1/sessions/' + state.activeSession, {
+                    method: 'DELETE',
+                    signal: AbortSignal.timeout(5000)
+                });
+            } catch(_) {} // Session may already be gone — proceed anyway
+        }
+
+        if (st) st.textContent = '⟳ Waiting for Gateway to be ready…';
+        await new Promise(r => setTimeout(r, 3000));
+
+        // Step 2: Reconnect the Studio session
+        if (st) st.textContent = '⟳ Opening new session…';
+        if (typeof renewSession === 'function') {
+            await renewSession();
+            if (st) { st.style.color = 'var(--green)'; st.textContent = '✓ New session opened — JARs are now active. You can close this panel.'; }
+            toast('Gateway session restarted — JARs reloaded', 'ok');
+            addLog('OK', 'Systems Manager: Gateway session restarted and new session opened.');
+        } else if (typeof connectSession === 'function') {
+            await connectSession();
+            if (st) { st.style.color = 'var(--green)'; st.textContent = '✓ Reconnected — close this panel and continue.'; }
+            toast('Reconnected to Gateway', 'ok');
+        } else {
+            if (st) { st.style.color = 'var(--yellow)'; st.textContent = '⚠ Session closed. Refresh the Studio page to reconnect.'; }
+            toast('Session closed — refresh the page to reconnect', 'warn');
+        }
+    } catch(e) {
+        if (st) { st.style.color = 'var(--red)'; st.textContent = '✗ Restart failed: ' + e.message; }
+        addLog('ERR', 'Systems Manager: Gateway restart failed: ' + e.message);
+    }
+}
+
+async function _sysReconnectSession() {
+    const st = document.getElementById('sys-restart-status');
+    if (st) { st.style.color = 'var(--yellow)'; st.textContent = '⟳ Reconnecting…'; }
+    try {
+        if (typeof renewSession === 'function') {
+            await renewSession();
+            if (st) { st.style.color = 'var(--green)'; st.textContent = '✓ Reconnected successfully.'; }
+            toast('Studio session reconnected', 'ok');
+            addLog('OK', 'Systems Manager: Studio session reconnected.');
+        } else {
+            if (st) { st.style.color = 'var(--yellow)'; st.textContent = '⚠ Reconnect function not available — refresh the page.'; }
+        }
+    } catch(e) {
+        if (st) { st.style.color = 'var(--red)'; st.textContent = '✗ Reconnect failed: ' + e.message; }
     }
 }

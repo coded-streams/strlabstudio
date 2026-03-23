@@ -129,13 +129,15 @@ async function runSQL(sql) {
   const statements = splitSQL(sql);
   if (statements.length === 0) return;
 
-  // Duplicate submission guard for INSERT / pipeline statements
+  // Duplicate submission guard — warn but never hard-block.
+  // A pipeline may have been cancelled or finished and the user wants to re-run it.
+  // We log a warning and let the user proceed rather than blocking outright.
   const insertStmts = statements.filter(s => /^\s*(INSERT|EXECUTE\s+STATEMENT)/i.test(s));
   for (const stmt of insertStmts) {
-    if (checkDuplicateSubmission(stmt)) {
-      toast('This pipeline appears to already be running. Check the Job Graph tab before re-submitting.', 'err');
-      addLog('WARN', 'Duplicate submission blocked: this exact INSERT statement is already running. Stop the existing job first.');
-      return;
+    if (checkDuplicateSubmission && checkDuplicateSubmission(stmt)) {
+      addLog('WARN', 'A similar INSERT statement was recently submitted. Proceeding — check the Job Graph to avoid duplicate running jobs.');
+      toast('Note: a similar pipeline was recently submitted. Check Job Graph.', 'warn');
+      // Do NOT return — allow the re-submission
     }
   }
 
@@ -211,7 +213,9 @@ async function submitStatement(sql) {
       if (/^EXECUTE\s+STATEMENT\s+SET/i.test(s)) return 'multi-sink-pipeline';
       return 'pipeline';
     })();
-    const jobName = `[${sessionLabel}] ${derivedName}`;
+    // Append timestamp so re-running a completed or cancelled job is never
+    // blocked by the duplicate-submission guard (which keys on exact SQL match).
+    const jobName = `[${sessionLabel}] ${derivedName} #${Date.now().toString(36).slice(-4)}`;
     try {
       await api('POST', `/v1/sessions/${sessionHandle}/statements`, {
         statement: "SET 'pipeline.name' = '" + jobName.replace(/'/g, "''") + "'",

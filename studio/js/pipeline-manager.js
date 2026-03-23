@@ -316,6 +316,7 @@ const PM_OPERATORS = [
       {id:'topic',              label:'Topic',             type:'text',   required:true,  placeholder:'output-topic'},
       {id:'bootstrap_servers',  label:'Bootstrap Servers', type:'text',   required:true,  placeholder:'kafka:9092'},
       {id:'format',             label:'Format',            type:'select', options:['json','avro','avro-confluent','csv'],value:'json'},
+      {id:'schema',             label:'Schema (name TYPE per line — leave blank to inherit from source)', type:'textarea', placeholder:'id BIGINT\npayload STRING\nts TIMESTAMP(3)'},
       {id:'security_protocol',  label:'Security Protocol', type:'select', options:['','PLAINTEXT','SSL','SASL_PLAINTEXT','SASL_SSL'],value:''},
       {id:'sasl_mechanism',     label:'SASL Mechanism',    type:'select', options:['','PLAIN','SCRAM-SHA-256','SCRAM-SHA-512'],value:''},
       {id:'sasl_username',      label:'SASL Username',     type:'text',   placeholder:'api-key'},
@@ -587,6 +588,16 @@ function _plmBuildModal() {
     <!-- Palette -->
     <div id="plm-palette" style="width:172px;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--border);overflow-y:auto;padding:5px 3px;">
       <div style="font-size:9px;font-weight:700;color:var(--text3);letter-spacing:1.5px;text-transform:uppercase;padding:4px 8px 5px;">OPERATORS</div>
+      <div class="plm-search-wrap">
+        <div class="plm-search-wrap-inner">
+          <svg class="plm-search-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="22" y2="22"/></svg>
+          <input id="plm-palette-search" class="plm-search-input" type="text"
+            placeholder="Search operators…"
+            autocomplete="off"
+            oninput="_plmSearchPalette(this.value)" />
+        </div>
+      </div>
+      <div id="plm-no-results" class="plm-no-results">No operators match</div>
       ${paletteHtml}
       <div style="margin-top:10px;border-top:1px solid var(--border);padding:7px 7px 4px;">
         <div style="font-size:9px;font-weight:700;color:var(--text3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:5px;">EDGE TYPES</div>
@@ -712,13 +723,22 @@ function _plmBuildModal() {
 .plm-toolbar-btn:hover { background:var(--bg2);color:var(--text0); }
 .plm-palette-group { margin-bottom:6px; }
 .plm-palette-group-label { font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);padding:3px 7px 2px; }
-.plm-palette-item { display:flex;align-items:center;gap:6px;padding:4px 7px;border-radius:3px;cursor:grab;font-size:10px;color:var(--text1);transition:background 0.1s;user-select:none; }
+.plm-palette-item { display:flex;align-items:center;gap:6px;padding:5px 7px;border-radius:3px;cursor:grab;font-size:11px;color:var(--text1);transition:background 0.1s;user-select:none; }
 .plm-palette-item:hover { background:rgba(255,255,255,0.05); }
 .plm-palette-item:active { cursor:grabbing; }
+.plm-palette-item.plm-hidden { display:none!important; }
 .plm-palette-icon { flex-shrink:0;display:flex; }
-.plm-palette-label { flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:9px; }
+.plm-palette-label { flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px; }
 .plm-stateful-badge { font-size:7px;font-weight:700;background:rgba(245,166,35,0.2);color:#f5a623;padding:0 3px;border-radius:2px;flex-shrink:0; }
 .plm-connector-badge { font-size:8px;color:#f5a623;flex-shrink:0;opacity:0.8; }
+.plm-search-wrap { padding:5px 6px 5px;border-bottom:1px solid var(--border);flex-shrink:0; }
+.plm-search-wrap-inner { position:relative; }
+.plm-search-icon { position:absolute;left:7px;top:50%;transform:translateY(-50%);pointer-events:none;opacity:0.35; }
+.plm-search-input { width:100%;background:var(--bg1);border:1px solid var(--border2);border-radius:4px;padding:4px 8px 4px 26px;font-size:11px;font-family:var(--mono);color:var(--text1);outline:none;box-sizing:border-box; }
+.plm-search-input:focus { border-color:rgba(0,212,170,0.5);background:var(--bg0); }
+.plm-search-input::placeholder { color:var(--text3); }
+.plm-no-results { font-size:11px;color:var(--text3);padding:12px 8px;text-align:center;display:none; }
+.plm-group-hidden { display:none!important; }
 .plm-edge-type-item { display:flex;align-items:center;gap:7px;padding:3px 3px;border-radius:3px;cursor:pointer;margin-bottom:2px;border:1px solid transparent; }
 .plm-edge-type-item:hover { background:rgba(255,255,255,0.04); }
 .plm-edge-type-item.selected { background:rgba(255,255,255,0.06);border-color:var(--border2); }
@@ -757,7 +777,12 @@ function _plmBuildModal() {
 
   window.addEventListener('keydown', _plmKeyDown);
   // Initialise palette group open states after DOM is ready
-  setTimeout(_plmInitPaletteGroups, 50);
+  setTimeout(() => {
+    _plmInitPaletteGroups();
+    // Clear any stale search from a previous session
+    const searchEl = document.getElementById('plm-palette-search');
+    if (searchEl) { searchEl.value = ''; _plmSearchPalette(''); }
+  }, 50);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1907,6 +1932,51 @@ function _plmTogglePaletteGroup(gi) {
   }
 }
 
+// ── Palette search ────────────────────────────────────────────────────────────
+function _plmSearchPalette(query) {
+  const q = (query || '').trim().toLowerCase();
+  const items    = document.querySelectorAll('#plm-palette .plm-palette-item');
+  const groups   = document.querySelectorAll('#plm-palette .plm-palette-group');
+  const noResult = document.getElementById('plm-no-results');
+  let anyVisible = false;
+
+  if (!q) {
+    // Clear search — restore everything
+    items.forEach(el => el.classList.remove('plm-hidden'));
+    groups.forEach(el => el.classList.remove('plm-group-hidden'));
+    if (noResult) noResult.style.display = 'none';
+    _plmInitPaletteGroups();
+    return;
+  }
+
+  // Hide / show individual items based on label + group match
+  items.forEach(el => {
+    const label = (el.querySelector('.plm-palette-label')?.textContent || '').toLowerCase();
+    const opId  = (el.dataset.opid || '').toLowerCase();
+    const match = label.includes(q) || opId.includes(q);
+    el.classList.toggle('plm-hidden', !match);
+    if (match) anyVisible = true;
+  });
+
+  // Hide groups where ALL items are hidden; expand groups that have matches
+  const numGroups = document.querySelectorAll('#plm-palette .plm-palette-group').length;
+  for (let gi = 0; gi < numGroups; gi++) {
+    const grpEl  = document.getElementById('plm-grp-' + gi);
+    const grpDiv = grpEl?.closest('.plm-palette-group');
+    if (!grpEl || !grpDiv) continue;
+    const visibleInGroup = grpEl.querySelectorAll('.plm-palette-item:not(.plm-hidden)').length;
+    if (visibleInGroup > 0) {
+      grpDiv.classList.remove('plm-group-hidden');
+      // Force group open so matches are visible
+      grpEl.style.maxHeight = grpEl.scrollHeight + 200 + 'px';
+    } else {
+      grpDiv.classList.add('plm-group-hidden');
+    }
+  }
+
+  if (noResult) noResult.style.display = anyVisible ? 'none' : 'block';
+}
+
 // Initialise all palette groups open on first render
 function _plmInitPaletteGroups() {
   const groups = [...new Set(PM_OPERATORS.map(o => o.group))];
@@ -2569,14 +2639,117 @@ async function _plmValidateAndSubmit() {
   const ed=document.getElementById('sql-editor');
   if (ed) { ed.value=sql; if(typeof updateLineNumbers==='function')updateLineNumbers(); }
 
+  // Snapshot the pipeline name before closing
+  const pipelineName = window._plmState.activePipeline?.name || 'Untitled';
+
   closeModal('modal-pipeline-manager');
   toast('Pipeline SQL submitted — executing…','ok');
-  addLog('OK','Pipeline submitted: '+(window._plmState.activePipeline?.name||'Untitled'));
+  addLog('OK','Pipeline submitted: '+pipelineName);
 
   setTimeout(()=>{
     if (typeof executeSQL==='function') executeSQL();
     else toast('SQL inserted — press Ctrl+Enter to run','info');
+    // Start job health monitor ~8s after submit (allow time for job to start)
+    setTimeout(() => _plmStartJobHealthMonitor(pipelineName), 8000);
   }, 300);
+}
+
+// ── Job Health Monitor ────────────────────────────────────────────────────────
+// Polls running jobs after pipeline submission. On unexpected failure, shows
+// a persistent error panel with the full failure cause — visible without
+// needing to open the Job Graph tab.
+window._plmHealthTimers = [];
+
+function _plmStartJobHealthMonitor(pipelineName) {
+  // Find jobs submitted in the last 30s that contain the pipeline name
+  if (!state?.gateway) return;
+  const base = (typeof _sysGatewayBase === 'function') ? _sysGatewayBase() : window.location.origin;
+
+  let polls = 0;
+  const timer = setInterval(async () => {
+    polls++;
+    if (polls > 60) { clearInterval(timer); return; } // stop after 5 minutes
+    try {
+      const r = await fetch(base + '/jobmanager-api/jobs/overview', { signal: AbortSignal.timeout(4000) });
+      if (!r.ok) return;
+      const data = await r.json();
+      const jobs = (data.jobs || []).filter(j =>
+          j.name && (j.name.includes(pipelineName) || pipelineName === 'Untitled')
+      );
+      for (const job of jobs) {
+        if (job.state === 'FAILED') {
+          clearInterval(timer);
+          // Fetch full exception detail
+          try {
+            const excR = await fetch(base + '/jobmanager-api/jobs/' + job.jid + '/exceptions', { signal: AbortSignal.timeout(4000) });
+            const excData = excR.ok ? await excR.json() : null;
+            const rootCause = excData?.['root-exception'] || excData?.exceptions?.[0]?.exception || 'No exception detail available.';
+            _plmShowJobFailurePanel(job.name, job.jid, rootCause);
+          } catch(_) {
+            _plmShowJobFailurePanel(job.name, job.jid, 'Could not fetch exception detail — check the Job Graph tab.');
+          }
+          return;
+        }
+        if (['CANCELED','CANCELLING','FINISHED'].includes(job.state)) {
+          clearInterval(timer); return;
+        }
+      }
+    } catch(_) {}
+  }, 5000);
+  window._plmHealthTimers.push(timer);
+}
+
+function _plmShowJobFailurePanel(jobName, jid, rootCause) {
+  // Remove any existing failure panel
+  document.getElementById('plm-job-failure-panel')?.remove();
+
+  // Friendly first line — strip the Java stack trace, show only the meaningful part
+  const friendlyMsg = rootCause.split('\n').find(l =>
+      l.trim() && !l.trim().startsWith('at ') && !l.trim().startsWith('Caused by:')
+  ) || rootCause.slice(0, 200);
+
+  const panel = document.createElement('div');
+  panel.id = 'plm-job-failure-panel';
+  panel.style.cssText = [
+    'position:fixed', 'bottom:24px', 'right:24px', 'z-index:9999',
+    'width:440px', 'max-width:calc(100vw - 48px)',
+    'background:#140507', 'border:2px solid rgba(255,77,109,0.6)',
+    'border-radius:8px', 'box-shadow:0 8px 32px rgba(255,77,109,0.25)',
+    'font-family:var(--mono)', 'overflow:hidden',
+  ].join(';');
+
+  panel.innerHTML = `
+    <div style="background:rgba(255,77,109,0.12);padding:10px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid rgba(255,77,109,0.3);">
+      <span style="font-size:14px;">⚠</span>
+      <div style="flex:1;">
+        <div style="font-size:12px;font-weight:700;color:#ff4d6d;">Flink Job Failed</div>
+        <div style="font-size:10px;color:var(--text2);margin-top:1px;">${escHtml(jobName.slice(0,50))} · ${jid.slice(0,8)}…</div>
+      </div>
+      <button onclick="document.getElementById('plm-job-failure-panel').remove()"
+        style="background:none;border:none;color:rgba(255,77,109,0.7);cursor:pointer;font-size:18px;line-height:1;">×</button>
+    </div>
+    <div style="padding:12px 14px;">
+      <div style="font-size:11px;color:var(--yellow);margin-bottom:6px;font-weight:600;">Root cause:</div>
+      <div style="font-size:11px;color:var(--text1);line-height:1.6;margin-bottom:8px;word-break:break-word;">${escHtml(friendlyMsg)}</div>
+      <details style="margin-bottom:10px;">
+        <summary style="font-size:10px;color:var(--text3);cursor:pointer;user-select:none;">Full stack trace</summary>
+        <pre style="margin-top:6px;background:var(--bg0);border:1px solid var(--border);border-radius:4px;padding:8px;font-size:9px;color:var(--text2);max-height:160px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;">${escHtml(rootCause.slice(0,2000))}</pre>
+      </details>
+      <div style="display:flex;gap:8px;">
+        <button onclick="if(typeof refreshJobGraphList==='function'){const btn=document.querySelector('[data-tab=jobgraph]')||document.getElementById('jobgraph-tab-btn');if(btn)btn.click();refreshJobGraphList();}document.getElementById('plm-job-failure-panel').remove();"
+          style="flex:1;font-size:11px;padding:6px;border-radius:4px;background:rgba(255,77,109,0.12);border:1px solid rgba(255,77,109,0.3);color:#ff4d6d;cursor:pointer;">
+          Open Job Graph
+        </button>
+        <button onclick="document.getElementById('plm-job-failure-panel').remove()"
+          style="font-size:11px;padding:6px 12px;border-radius:4px;background:var(--bg3);border:1px solid var(--border);color:var(--text1);cursor:pointer;">
+          Dismiss
+        </button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(panel);
+  addLog('ERR', 'Job "' + jobName + '" (' + jid.slice(0,8) + '…) FAILED: ' + friendlyMsg);
+  toast('Flink job failed — see error panel', 'err');
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -2759,15 +2932,24 @@ function _plmNodeToSql(node) {
       const srLines = [];
       if (p.schema_registry_url) srLines.push("  'schema-registry.url'              = '"+p.schema_registry_url+"',");
       if (p.schema_registry_user) srLines.push("  'schema-registry.basic.auth.user.info'= '"+p.schema_registry_user+":"+p.schema_registry_pass+"',");
-      return lbl + '-- Sink: ' + tbl + '\nCREATE TABLE IF NOT EXISTS ' + tbl
-          + " WITH (\n"
-          + "  'connector'                    = 'kafka',\n"
+
+      const withBlock = "  'connector'                    = 'kafka',\n"
           + "  'topic'                        = '" + (p.topic||'output-topic') + "',\n"
           + "  'properties.bootstrap.servers' = '" + (p.bootstrap_servers||'kafka:9092') + "',\n"
-          + "  'format'                       = '" + (p.format||'json') + "'"
+          + "  'format'                       = '" + (p.format||'json') + "',\n"
+          + "  'sink.partitioner'             = 'round-robin'"
           + (authLines.length ? ',\n' + authLines.join('\n') : '')
-          + (srLines.length   ? '\n'  + srLines.join('\n')   : '')
-          + "\n) LIKE " + srcTbl + " (EXCLUDING ALL);";
+          + (srLines.length   ? ',\n' + srLines.join('\n')   : '');
+
+      // If user typed an explicit schema, use it directly; otherwise inherit from source via LIKE
+      if (p.schema && p.schema.trim()) {
+        const schemaCols = p.schema.split('\n').map(l => '  ' + l.trim()).filter(Boolean).join(',\n');
+        return lbl + '-- Sink: ' + tbl + '\nCREATE TABLE IF NOT EXISTS ' + tbl + ' (\n'
+            + schemaCols + '\n) WITH (\n' + withBlock + '\n);';
+      }
+      // No schema typed — inherit via LIKE (copies columns from source, skips watermark/constraints)
+      return lbl + '-- Sink: ' + tbl + '\nCREATE TABLE IF NOT EXISTS ' + tbl + ' WITH (\n'
+          + withBlock + '\n) LIKE ' + srcTbl + ' (EXCLUDING ALL);';
     }
 
     case 'jdbc_sink':

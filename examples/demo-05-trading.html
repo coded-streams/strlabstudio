@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Demo 5 — Trading Analytics Pipeline · Str:::lab Studio</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23090c12'/%3E%3Cpolyline points='20 24 28 16 20 8' fill='none' stroke='%2300d4aa' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpolyline points='12 8 4 16 12 24' fill='none' stroke='%2300d4aa' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{--bg0:#090c12;--bg1:#0d1117;--bg2:#131920;--bg3:#1a2130;--border:#1e2d3d;--border2:#253348;--accent:#00d4aa;--blue:#4fa3e0;--purple:#9b72cf;--orange:#f0a500;--red:#e05c5c;--green:#3fb950;--yellow:#f0a500;--text0:#f0f6fc;--text1:#c9d1d9;--text2:#8b949e;--text3:#4a5568;--mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',sans-serif;--radius:8px;--nav-h:58px;}
+    *{box-sizing:border-box;margin:0;padding:0}html{scroll-behavior:smooth}body{font-family:var(--sans);background:var(--bg1);color:var(--text1);line-height:1.7;font-size:15px}a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:var(--bg1)}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+    .nav{position:sticky;top:0;z-index:100;height:var(--nav-h);background:rgba(9,12,18,0.95);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 32px;gap:0}
+    .nav-logo{display:flex;align-items:center;gap:10px;margin-right:24px;text-decoration:none;flex-shrink:0}.logo-mark{width:26px;height:26px;background:#0c1018;border:1px solid rgba(0,212,170,0.35);clip-path:polygon(0 0,80% 0,100% 20%,100% 100%,20% 100%,0 80%);display:flex;align-items:center;justify-content:center}.logo-text{font-family:var(--mono);font-size:14px;font-weight:600;color:var(--text0)}.logo-ver{font-size:9px;color:var(--text3);margin-left:4px}
+    .nav-demos{display:flex;align-items:center;gap:2px;flex:1;overflow-x:auto}.nav-demos a{font-size:11px;color:var(--text2);padding:5px 10px;border-radius:5px;white-space:nowrap;font-family:var(--mono)}.nav-demos a:hover,.nav-demos a.active{color:var(--text0);background:var(--bg3);text-decoration:none}.nav-demos a.active{color:var(--accent)}
+    .demo-pill{font-family:var(--mono);font-size:10px;padding:3px 10px;border-radius:20px;border:1px solid rgba(245,166,35,0.4);color:var(--orange);background:rgba(245,166,35,0.06);margin-left:auto;flex-shrink:0}
+    .hero{background:var(--bg0);padding:52px 40px 40px;border-bottom:1px solid var(--border);position:relative;overflow:hidden}
+    .hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 70% 60% at 20% 0%,rgba(245,166,35,0.07),transparent 65%);pointer-events:none}
+    .demo-number{font-family:var(--mono);font-size:11px;color:var(--orange);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+    .demo-number::before{content:'';width:32px;height:1px;background:var(--orange);opacity:0.5}
+    .hero-title{font-family:var(--mono);font-size:32px;font-weight:700;color:var(--text0);letter-spacing:-1px;line-height:1.2;margin-bottom:12px}
+    .hero-sub{font-size:15px;color:var(--text2);max-width:660px;line-height:1.8;margin-bottom:20px}
+    .prereq-strip{display:flex;gap:8px;flex-wrap:wrap}
+    .prereq{display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:4px;font-size:11px;font-family:var(--mono)}
+    .prereq.ok{background:rgba(63,185,80,0.08);border:1px solid rgba(63,185,80,0.3);color:var(--green)}
+    .prereq.need{background:rgba(245,166,35,0.08);border:1px solid rgba(245,166,35,0.3);color:var(--yellow)}
+    .page{display:flex;max-width:1200px;margin:0 auto}
+    .toc{width:210px;flex-shrink:0;position:sticky;top:var(--nav-h);height:calc(100vh - var(--nav-h));overflow-y:auto;padding:24px 0 24px 16px;border-right:1px solid var(--border)}
+    .toc-label{font-size:9px;font-family:var(--mono);font-weight:700;color:var(--text3);letter-spacing:1.5px;text-transform:uppercase;padding:0 8px;margin-bottom:5px;display:block;margin-top:16px}
+    .toc a{display:block;font-size:12px;color:var(--text2);padding:4px 8px;border-radius:4px;border-left:2px solid transparent;transition:all .12s}.toc a:hover{color:var(--text0);text-decoration:none}.toc a.active{color:var(--accent);border-left-color:var(--accent);background:rgba(0,212,170,0.05)}
+    .content{flex:1;min-width:0;padding:40px 48px 96px}
+    .section{margin-bottom:56px}
+    h2{font-size:20px;font-weight:700;color:var(--text0);margin-bottom:8px;padding-bottom:10px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+    .sn{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:12px;font-weight:700;color:#000;flex-shrink:0}
+    p{color:var(--text2);margin-bottom:10px;font-size:14px;line-height:1.8}
+    ul{margin:6px 0 12px 20px}li{font-size:14px;color:var(--text2);margin-bottom:5px;line-height:1.7}li strong{color:var(--text1)}
+    code{font-family:var(--mono);font-size:12px;color:var(--accent);background:rgba(0,212,170,0.08);border:1px solid rgba(0,212,170,0.15);padding:1px 6px;border-radius:4px}
+    pre{background:var(--bg0);border:1px solid var(--border);border-left:3px solid var(--orange);border-radius:var(--radius);padding:16px 20px;overflow-x:auto;margin:10px 0}pre code{background:none;border:none;padding:0;font-size:12px;color:var(--text1);line-height:1.7}
+    .callout{border-radius:var(--radius);padding:11px 15px;margin:10px 0;font-size:13px;line-height:1.7;display:flex;gap:10px}
+    .callout-icon{font-size:15px;flex-shrink:0}.callout-body{flex:1}.callout-body strong{display:block;margin-bottom:2px}
+    .callout.tip{background:rgba(0,212,170,0.06);border:1px solid rgba(0,212,170,0.2)}.callout.tip strong{color:var(--accent)}
+    .callout.warn{background:rgba(245,166,35,0.06);border:1px solid rgba(245,166,35,0.2)}.callout.warn strong{color:var(--yellow)}
+    .callout.info{background:rgba(79,163,224,0.06);border:1px solid rgba(79,163,224,0.2)}.callout.info strong{color:var(--blue)}
+    .callout.ok{background:rgba(63,185,80,0.06);border:1px solid rgba(63,185,80,0.2)}.callout.ok strong{color:var(--green)}
+    .steps{margin:16px 0}
+    .step{display:flex;gap:16px;margin-bottom:0;position:relative}
+    .step+.step{margin-top:28px}
+    .step::before{content:'';position:absolute;left:15px;top:40px;width:2px;bottom:-28px;background:var(--border);z-index:0}
+    .step:last-child::before{display:none}
+    .step-num{width:32px;height:32px;border-radius:50%;background:var(--bg2);border:2px solid var(--orange);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:12px;font-weight:700;color:var(--orange);flex-shrink:0;z-index:1;margin-top:2px}
+    .step-body{flex:1;min-width:0}
+    .step-body h4{font-size:14px;font-weight:700;color:var(--text0);margin:0 0 8px}
+    .node-config{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius);padding:14px 16px;margin:10px 0}
+    .node-config-title{font-size:10px;font-family:var(--mono);font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;display:flex;align-items:center;gap:7px}
+    .node-config-title span{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0}
+    .field-row{display:flex;margin-bottom:6px;gap:8px;font-size:13px;align-items:flex-start}
+    .field-key{color:var(--text3);font-family:var(--mono);font-size:11px;min-width:140px;flex-shrink:0;padding-top:2px}
+    .field-val{color:var(--text0);font-family:var(--mono);font-size:12px;background:rgba(0,212,170,0.06);border:1px solid rgba(0,212,170,0.15);padding:1px 7px;border-radius:3px}
+    .field-val.schema{display:block;white-space:pre;background:var(--bg0);border-color:var(--border);color:var(--text1);padding:7px 10px;margin-top:3px;line-height:1.7}
+    .field-val.expr{display:block;white-space:pre;background:var(--bg0);border-color:var(--border);color:#c9a0ff;padding:7px 10px;margin-top:3px;line-height:1.7}
+    .edge-tag{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:3px;font-size:10px;font-family:var(--mono);font-weight:700}
+    .edge-forward{background:rgba(79,163,224,0.1);border:1px solid rgba(79,163,224,0.3);color:#4fa3e0}
+    .edge-broadcast{background:rgba(155,114,207,0.1);border:1px solid rgba(155,114,207,0.3);color:#9b72cf}
+    .edge-hash{background:rgba(63,185,80,0.1);border:1px solid rgba(63,185,80,0.3);color:var(--green)}
+    /* Pipeline flow diagram */
+    .pipeline-flow{background:var(--bg0);border:1px solid var(--border);border-radius:var(--radius);padding:20px 24px;margin:14px 0;overflow-x:auto}
+    .pf-row{display:flex;align-items:center;gap:0;flex-wrap:nowrap;min-width:max-content;margin-bottom:10px}
+    .pf-row:last-child{margin-bottom:0}
+    .pf-node{display:flex;flex-direction:column;align-items:center;gap:3px;flex-shrink:0}
+    .pf-box{padding:6px 12px;border-radius:5px;font-family:var(--mono);font-size:10px;font-weight:700;text-align:center;line-height:1.4;min-width:80px}
+    .pf-lbl{font-size:9px;color:var(--text3);font-family:var(--mono);text-align:center;max-width:88px}
+    .pf-arrow{display:flex;flex-direction:column;align-items:center;gap:1px;flex-shrink:0;padding:0 5px}
+    .pf-line{height:2px;width:30px}
+    .pf-elbl{font-size:8px;font-family:var(--mono);font-weight:700}
+    .pf-pipe-label{font-size:9px;font-family:var(--mono);font-weight:700;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px}
+    .pf-divider{border-top:1px dashed var(--border);margin:10px 0 12px}
+    /* Tab group */
+    .tab-group{margin:14px 0}.tab-nav{display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:-1px}
+    .tab-btn{font-family:var(--mono);font-size:11px;padding:6px 14px;border-radius:6px 6px 0 0;border:1px solid transparent;border-bottom:none;background:transparent;color:var(--text2);cursor:pointer}
+    .tab-btn.active{background:var(--bg0);border-color:var(--border);color:var(--orange);border-bottom-color:var(--bg0)}.tab-pane{display:none;padding-top:1px}.tab-pane.active{display:block}
+    /* Pipeline separator */
+    .pipeline-sep{background:rgba(245,166,35,0.06);border:1px solid rgba(245,166,35,0.2);border-radius:var(--radius);padding:8px 14px;margin:18px 0;font-size:12px;font-family:var(--mono);color:var(--orange);display:flex;align-items:center;gap:8px}
+    .topic-tag{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:3px;font-size:10px;font-family:var(--mono);background:rgba(245,166,35,0.1);border:1px solid rgba(245,166,35,0.25);color:var(--orange)}
+    footer{border-top:1px solid var(--border);background:var(--bg0);padding:24px 32px;display:flex;align-items:center;justify-content:space-between}footer p{font-size:12px;color:var(--text3)}footer a{color:var(--text2);font-size:12px}
+    .demo-nav-bottom{display:flex;gap:12px;justify-content:space-between;margin-top:40px;padding-top:24px;border-top:1px solid var(--border)}
+    .demo-nav-btn{font-family:var(--mono);font-size:12px;padding:8px 18px;border-radius:6px;border:1px solid var(--border2);background:var(--bg2);color:var(--text1);text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+    .demo-nav-btn.primary{background:var(--orange);color:#000;border-color:var(--orange);font-weight:700}
+    @media(max-width:900px){.toc{display:none}.content{padding:24px 16px 64px}.hero-title{font-size:24px}}
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <a href="index.html" class="nav-logo">
+    <div class="logo-mark"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00d4aa" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
+    <span class="logo-text">Str:::lab<span class="logo-ver">Studio</span></span>
+  </a>
+  <div class="nav-demos">
+    <a href="demo-01-fanout.html">Demo 1 — Fanout</a>
+    <a href="demo-02-kafka.html">Demo 2 — Kafka</a>
+    <a href="demo-03-connector.html">Demo 3 — Connector</a>
+    <a href="demo-04-catalog.html">Demo 4 — Catalog</a>
+    <a href="demo-05-trading.html" class="active">Demo 5 — Trading</a>
+    <a href="docs-pipeline.html">Pipeline Docs</a>
+  </div>
+  <span class="demo-pill">◈ Multi-Pipeline</span>
+</nav>
+
+<div class="hero">
+  <div class="demo-number">Demo 05 of 05</div>
+  <h1 class="hero-title">Real-Time Trading Analytics<br>— 4 Pipelines, 5 Kafka Topics</h1>
+  <p class="hero-sub">A complete end-to-end production-grade streaming architecture built entirely in Pipeline Manager. Datagen produces synthetic trade events into Kafka. Three consumer pipelines read from the same enriched topic and fan out to: an alerts sink for high-value trades, a 1-minute OHLCV window aggregation, and an exchange routing breakdown. A fifth pipeline provides a live preview in the Results tab.</p>
+  <div class="prereq-strip">
+    <span class="prereq ok">✓ Flink session connected</span>
+    <span class="prereq need">⚠ Kafka JAR required</span>
+    <span class="prereq need">⚠ 5 Kafka topics pre-created</span>
+  </div>
+</div>
+
+<div class="page">
+<aside class="toc">
+  <span class="toc-label">This Demo</span>
+  <a href="#overview">Architecture Overview</a>
+  <a href="#prereqs">Prerequisites</a>
+  <span class="toc-label">Setup</span>
+  <a href="#kafka-topics">Create Kafka Topics</a>
+  <a href="#session-settings">Session Settings</a>
+  <span class="toc-label">Pipeline A — Producer</span>
+  <a href="#pipelineA">Datagen → raw topic</a>
+  <span class="toc-label">Pipeline B — Enricher</span>
+  <a href="#pipelineB">Raw → enriched topic</a>
+  <span class="toc-label">Pipeline C — Branching</span>
+  <a href="#pipelineC-alerts">Alerts sink</a>
+  <a href="#pipelineC-window">Tumble Window (OHLCV)</a>
+  <a href="#pipelineC-exchange">Exchange routing</a>
+  <span class="toc-label">Live Preview</span>
+  <a href="#live-preview">Results tab SELECT</a>
+  <span class="toc-label">Verify</span>
+  <a href="#verify">Job Graph &amp; output</a>
+  <a href="#generated-sql">All Generated SQL</a>
+</aside>
+
+<main class="content">
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section class="section" id="overview">
+  <h2><span class="sn" style="background:var(--orange);">▦</span> Architecture Overview</h2>
+  <p>Five separate pipelines run as independent Flink jobs. They are connected through Kafka topics — not through Flink directly. This is the production pattern: each job can be scaled, restarted, or upgraded without affecting the others.</p>
+
+  <div class="pipeline-flow">
+    <div class="pf-pipe-label">Pipeline A — Producer (Job 1)</div>
+    <div class="pf-row">
+      <div class="pf-node"><div class="pf-box" style="background:#0d2a1a;border:1px solid #2d8a4e;color:#57c764;">⚙ Datagen<br><span style="font-weight:400;color:#8b949e">trade_generator</span></div><div class="pf-lbl">10 rows/sec</div></div>
+      <div class="pf-arrow"><div class="pf-line" style="background:#4fa3e0"></div><div class="pf-elbl" style="color:#4fa3e0">FWD</div></div>
+      <div class="pf-node"><div class="pf-box" style="background:#001a3a;border:1px solid #1a6fa8;color:#4e9de8;">⇩ Kafka<br><span style="font-weight:400;color:#8b949e">raw_trades_sink</span></div><div class="pf-lbl"><span class="topic-tag">demo.trades.raw</span></div></div>
+    </div>
+    <div class="pf-divider"></div>
+    <div class="pf-pipe-label">Pipeline B — Enricher (Job 2)</div>
+    <div class="pf-row">
+      <div class="pf-node"><div class="pf-box" style="background:#001a3a;border:1px solid #1a6fa8;color:#4e9de8;">⇩ Kafka<br><span style="font-weight:400;color:#8b949e">raw_trades_source</span></div><div class="pf-lbl"><span class="topic-tag">demo.trades.raw</span></div></div>
+      <div class="pf-arrow"><div class="pf-line" style="background:#c9a0ff"></div><div class="pf-elbl" style="color:#c9a0ff">PROJECT</div></div>
+      <div class="pf-node"><div class="pf-box" style="background:#001a3a;border:1px solid #0a3a6a;color:#4e9de8;">⇩ Kafka<br><span style="font-weight:400;color:#8b949e">enriched_sink</span></div><div class="pf-lbl"><span class="topic-tag">demo.trades.enriched</span></div></div>
+    </div>
+    <div class="pf-divider"></div>
+    <div class="pf-pipe-label">Pipeline C — Branching consumers (Jobs 3, 4, 5)</div>
+    <div class="pf-row" style="gap:0;align-items:flex-start;flex-direction:column">
+      <div style="display:flex;align-items:center;gap:0;margin-bottom:8px">
+        <div class="pf-node"><div class="pf-box" style="background:#001a3a;border:1px solid #1a6fa8;color:#4e9de8;">⇩ Kafka src<br><span style="font-weight:400;color:#8b949e">enriched_source</span></div><div class="pf-lbl"><span class="topic-tag">demo.trades.enriched</span></div></div>
+        <div class="pf-arrow"><div class="pf-line" style="background:#3fb950"></div><div class="pf-elbl" style="color:#3fb950">FILTER</div></div>
+        <div class="pf-node"><div class="pf-box" style="background:#1a0505;border:1px solid #5a1a1a;color:#e05c5c;">⇩ Kafka<br><span style="font-weight:400;color:#8b949e">high_alerts_sink</span></div><div class="pf-lbl"><span class="topic-tag">demo.alerts.high</span></div></div>
+        <div style="font-size:10px;color:var(--text3);font-family:var(--mono);padding:0 12px;">— Job 3</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:0;margin-bottom:8px">
+        <div class="pf-node"><div class="pf-box" style="background:#001a3a;border:1px solid #1a6fa8;color:#4e9de8;">⇩ Kafka src<br><span style="font-weight:400;color:#8b949e">enriched_source</span></div><div class="pf-lbl"><span class="topic-tag">demo.trades.enriched</span></div></div>
+        <div class="pf-arrow"><div class="pf-line" style="background:#f0a500"></div><div class="pf-elbl" style="color:#f0a500">TUMBLE</div></div>
+        <div class="pf-node"><div class="pf-box" style="background:#1a1500;border:1px solid #8a6a00;color:#c8a020;">▦ 1-min agg</div><div class="pf-lbl">OHLCV window</div></div>
+        <div class="pf-arrow"><div class="pf-line" style="background:#f0a500"></div><div class="pf-elbl" style="color:#f0a500">HASH</div></div>
+        <div class="pf-node"><div class="pf-box" style="background:#001a3a;border:1px solid #0a3a6a;color:#4e9de8;">⇩ Kafka<br><span style="font-weight:400;color:#8b949e">summary_sink</span></div><div class="pf-lbl"><span class="topic-tag">demo.trades.summary</span></div></div>
+        <div style="font-size:10px;color:var(--text3);font-family:var(--mono);padding:0 12px;">— Job 4</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:0">
+        <div class="pf-node"><div class="pf-box" style="background:#001a3a;border:1px solid #1a6fa8;color:#4e9de8;">⇩ Kafka src<br><span style="font-weight:400;color:#8b949e">enriched_source</span></div><div class="pf-lbl"><span class="topic-tag">demo.trades.enriched</span></div></div>
+        <div class="pf-arrow"><div class="pf-line" style="background:#c9a0ff"></div><div class="pf-elbl" style="color:#c9a0ff">PROJECT</div></div>
+        <div class="pf-node"><div class="pf-box" style="background:#001a3a;border:1px solid #0a3a6a;color:#4e9de8;">⇩ Kafka<br><span style="font-weight:400;color:#8b949e">by_exchange_sink</span></div><div class="pf-lbl"><span class="topic-tag">demo.trades.byexch</span></div></div>
+        <div style="font-size:10px;color:var(--text3);font-family:var(--mono);padding:0 12px;">— Job 5</div>
+      </div>
+    </div>
+  </div>
+
+  <p><strong>Concepts practised:</strong> Kafka source and sink configuration, chained producer → consumer pipelines, Filter node, Project node with CASE WHEN expressions, Tumble Window with aggregations, edge types, multiple independent pipelines sharing a Kafka topic, live preview from a reader table.</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section class="section" id="prereqs">
+  <h2><span class="sn" style="background:var(--orange);">!</span> Prerequisites</h2>
+  <ul>
+    <li><strong>Kafka JAR</strong> — <code>flink-sql-connector-kafka-x.x.x.jar</code> in <code>/opt/flink/lib/</code>. Use <strong>⊙ Systems → Upload JAR</strong> if not yet installed.</li>
+    <li><strong>Five Kafka topics</strong> created before any pipeline runs — see the next step.</li>
+    <li><strong>Studio connected</strong> — active Flink session in the topbar.</li>
+    <li><strong>Run session settings first</strong> — the SET statements must be run once per session before any pipeline is submitted.</li>
+  </ul>
+  <div class="callout warn">
+    <span class="callout-icon">⚠</span>
+    <div class="callout-body"><strong>Run in order.</strong> Pipeline A must be running and producing data before Pipeline B is submitted. Pipeline B must be running before Pipelines C (Jobs 3, 4, 5) are submitted. Allow ~15–30 seconds between each before submitting the next.</div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section class="section" id="kafka-topics">
+  <h2><span class="sn" style="background:var(--orange);">0</span> Create Kafka Topics</h2>
+  <p>Before building any pipeline, create the five Kafka topics. Run this command from your terminal (replace <code>kafka-01</code> with your Kafka container name):</p>
+  <pre><code>docker exec -it kafka-01 bash -c "
+  for topic in demo.trades.raw demo.trades.enriched \
+               demo.trades.summary demo.alerts.high demo.trades.byexch; do
+    kafka-topics.sh --bootstrap-server localhost:9092 --create \
+      --topic \$topic --partitions 4 --replication-factor 1
+  done
+  echo 'Topics created'"</code></pre>
+  <p>Verify they exist:</p>
+  <pre><code>docker exec -it kafka-01 kafka-topics.sh \
+  --bootstrap-server localhost:9092 --list | grep demo</code></pre>
+  <p>You should see all five topics listed.</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section class="section" id="session-settings">
+  <h2><span class="sn" style="background:var(--orange);">⚙</span> Session Settings</h2>
+  <p>Open a new tab in Studio and run these SET statements once per session before submitting any pipeline. These configure checkpointing and performance optimisations that apply to all pipelines in this session.</p>
+  <pre><code>USE CATALOG default_catalog;
+USE `default`;
+
+SET 'execution.runtime-mode'                   = 'streaming';
+SET 'parallelism.default'                      = '2';
+SET 'pipeline.operator-chaining'               = 'false';
+SET 'execution.checkpointing.interval'         = '15000';
+SET 'execution.checkpointing.mode'             = 'EXACTLY_ONCE';
+SET 'execution.checkpointing.timeout'          = '60000';
+SET 'execution.checkpointing.min-pause'        = '5000';
+SET 'table.exec.state.ttl'                     = '3600000';
+SET 'table.exec.source.idle-timeout'           = '10000';
+SET 'table.exec.mini-batch.enabled'            = 'true';
+SET 'table.exec.mini-batch.allow-latency'      = '2000 ms';
+SET 'table.exec.mini-batch.size'               = '500';</code></pre>
+  <div class="callout tip">
+    <span class="callout-icon">💡</span>
+    <div class="callout-body"><strong>Shortcut:</strong> these SET statements are available as a snippet in Studio. Click <strong>Snippets → ⚡ Recommended Streaming Config</strong> and they will be inserted into the current tab automatically.</div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section class="section" id="pipelineA">
+  <h2><span class="sn" style="background:var(--orange);">A</span> Pipeline A — Datagen Producer → <code>demo.trades.raw</code></h2>
+  <div class="pipeline-sep">⬆ JOB 1 · trade_generator → raw_trades_sink · topic: demo.trades.raw</div>
+
+  <div class="steps">
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <h4>Open Pipeline Manager and create a new pipeline</h4>
+      <p>Click <strong>◈ Pipeline</strong> in the topbar. Rename the pipeline to <code>trading-producer</code>. Click <strong>⚙ Settings</strong> and set Parallelism to <code>2</code> and Checkpoint Interval to <code>15000</code>.</p>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <h4>Add Datagen source</h4>
+      <p>Drag <strong>Sources → Datagen</strong> onto the canvas. Click <strong>✏ edit</strong>:</p>
+      <div class="node-config">
+        <div class="node-config-title"><span style="background:#2d8a4e"></span>Datagen Source</div>
+        <div class="field-row"><span class="field-key">Table Name</span><span class="field-val">trade_generator</span></div>
+        <div class="field-row"><span class="field-key">Rows / sec</span><span class="field-val">10</span></div>
+        <div class="field-row"><span class="field-key">Schema</span><span class="field-val schema">trade_id    STRING
+user_id     STRING
+symbol_id   INT
+side_id     INT
+quantity    DOUBLE
+price       DOUBLE
+exchange_id INT
+category_id INT
+event_time  TIMESTAMP(3)</span></div>
+        <div class="field-row"><span class="field-key">Watermark Col</span><span class="field-val">event_time</span></div>
+        <div class="field-row"><span class="field-key">Watermark Delay</span><span class="field-val">3</span></div>
+      </div>
+      <p>Click <strong>✓ Apply</strong>.</p>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <h4>Add Project transform — decode INT fields to strings</h4>
+      <p>Drag <strong>Transformations → Project</strong>. Click <strong>✏ edit</strong>. The Project operator's single parameter is the SELECT expression list — one expression per line:</p>
+      <div class="node-config">
+        <div class="node-config-title"><span style="background:#2a5a8a"></span>Project — decode symbol, side, exchange, category</div>
+        <div class="field-row"><span class="field-key">Node Label</span><span class="field-val">decode_fields</span></div>
+        <div class="field-row"><span class="field-key" style="padding-top:6px">SELECT Expressions<br><span style="font-weight:400;opacity:0.6">(one per line)</span></span><span class="field-val expr">trade_id,
+user_id,
+CASE symbol_id WHEN 1 THEN 'BTC' WHEN 2 THEN 'ETH'
+  WHEN 3 THEN 'SOL' WHEN 4 THEN 'AAPL'
+  WHEN 5 THEN 'TSLA' ELSE 'NVDA' END AS symbol,
+CASE side_id WHEN 1 THEN 'BUY' ELSE 'SELL' END AS side,
+quantity,
+price,
+CASE exchange_id WHEN 1 THEN 'BINANCE'
+  WHEN 2 THEN 'COINBASE' WHEN 3 THEN 'NYSE'
+  ELSE 'NASDAQ' END AS exchange,
+CASE category_id WHEN 1 THEN 'CRYPTO'
+  WHEN 2 THEN 'EQUITY' ELSE 'ETF' END AS category,
+event_time</span></div>
+      </div>
+      <p>Click <strong>✓ Apply</strong>.</p>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">4</div>
+    <div class="step-body">
+      <h4>Add Kafka Sink — write to raw topic</h4>
+      <p>Drag <strong>Sinks → Kafka Sink</strong>. Click <strong>✏ edit</strong>:</p>
+      <div class="node-config">
+        <div class="node-config-title"><span style="background:#1a6fa8"></span>Kafka Sink</div>
+        <div class="field-row"><span class="field-key">Table Name</span><span class="field-val">raw_trades_sink</span></div>
+        <div class="field-row"><span class="field-key">Topic</span><span class="field-val">demo.trades.raw</span></div>
+        <div class="field-row"><span class="field-key">Bootstrap Servers</span><span class="field-val">kafka-01:29092</span></div>
+        <div class="field-row"><span class="field-key">Format</span><span class="field-val">json</span></div>
+        <div class="field-row"><span class="field-key">Schema</span><span class="field-val schema">trade_id   STRING
+user_id    STRING
+symbol     STRING
+side       STRING
+quantity   DOUBLE
+price      DOUBLE
+exchange   STRING
+category   STRING
+event_time TIMESTAMP(3)</span></div>
+      </div>
+      <p>Click <strong>⊙ Test Connectivity</strong> to verify the Kafka broker, then <strong>✓ Apply</strong>.</p>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">5</div>
+    <div class="step-body">
+      <h4>Connect, Layout, Submit</h4>
+      <p>Draw edges:</p>
+      <ul>
+        <li><code>trade_generator</code> → <code>decode_fields</code> — <span class="edge-tag edge-forward">FORWARD</span></li>
+        <li><code>decode_fields</code> → <code>raw_trades_sink</code> — <span class="edge-tag edge-forward">FORWARD</span></li>
+      </ul>
+      <p>Click <strong>Layout</strong> → <strong>▶ Run</strong> to check animation → <strong>Submit</strong>.</p>
+      <div class="callout ok">
+        <span class="callout-icon">✓</span>
+        <div class="callout-body"><strong>Wait ~15 seconds</strong> after submitting Pipeline A before building Pipeline B. The <code>demo.trades.raw</code> topic needs data in it before the consumer can start.</div>
+      </div>
+    </div>
+  </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section class="section" id="pipelineB">
+  <h2><span class="sn" style="background:var(--orange);">B</span> Pipeline B — Enricher: raw topic → <code>demo.trades.enriched</code></h2>
+  <div class="pipeline-sep">⬆ JOB 2 · raw_trades_source → (risk scoring) → enriched_sink · topic: demo.trades.enriched</div>
+
+  <p>Create a new pipeline (<strong>📁 Saved → + New</strong>), name it <code>trading-enricher</code>.</p>
+
+  <div class="steps">
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <h4>Add Kafka Source — read from raw topic</h4>
+      <p>Drag <strong>Sources → Kafka</strong>. Click <strong>✏ edit</strong>:</p>
+      <div class="node-config">
+        <div class="node-config-title"><span style="background:#1a6fa8"></span>Kafka Source</div>
+        <div class="field-row"><span class="field-key">Table Name</span><span class="field-val">raw_trades_source</span></div>
+        <div class="field-row"><span class="field-key">Topic</span><span class="field-val">demo.trades.raw</span></div>
+        <div class="field-row"><span class="field-key">Bootstrap Servers</span><span class="field-val">kafka-01:29092</span></div>
+        <div class="field-row"><span class="field-key">Consumer Group</span><span class="field-val">studio-raw-consumer</span></div>
+        <div class="field-row"><span class="field-key">Format</span><span class="field-val">json</span></div>
+        <div class="field-row"><span class="field-key">Startup Mode</span><span class="field-val">earliest-offset</span></div>
+        <div class="field-row"><span class="field-key">Schema</span><span class="field-val schema">trade_id   STRING
+user_id    STRING
+symbol     STRING
+side       STRING
+quantity   DOUBLE
+price      DOUBLE
+exchange   STRING
+category   STRING
+event_time TIMESTAMP(3)</span></div>
+        <div class="field-row"><span class="field-key">Watermark Col</span><span class="field-val">event_time</span></div>
+        <div class="field-row"><span class="field-key">Watermark Delay</span><span class="field-val">5</span></div>
+      </div>
+      <p>Click <strong>✓ Apply</strong>.</p>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <h4>Add Project — compute trade_value and risk_level</h4>
+      <p>Drag <strong>Transformations → Project</strong>. Click <strong>✏ edit</strong>:</p>
+      <div class="node-config">
+        <div class="node-config-title"><span style="background:#2a5a8a"></span>Project — risk scoring</div>
+        <div class="field-row"><span class="field-key">Node Label</span><span class="field-val">risk_enrich</span></div>
+        <div class="field-row"><span class="field-key" style="padding-top:6px">SELECT Expressions</span><span class="field-val expr">trade_id,
+user_id,
+symbol,
+side,
+quantity,
+price,
+exchange,
+category,
+ROUND(quantity * price, 2) AS trade_value,
+CASE
+  WHEN quantity * price > 100000 THEN 'CRITICAL'
+  WHEN quantity * price > 10000  THEN 'HIGH'
+  WHEN quantity * price > 1000   THEN 'MEDIUM'
+  ELSE 'LOW'
+END AS risk_level,
+event_time</span></div>
+      </div>
+      <p>Click <strong>✓ Apply</strong>.</p>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <h4>Add Kafka Sink — write to enriched topic</h4>
+      <div class="node-config">
+        <div class="node-config-title"><span style="background:#0a3a6a"></span>Kafka Sink</div>
+        <div class="field-row"><span class="field-key">Table Name</span><span class="field-val">enriched_sink</span></div>
+        <div class="field-row"><span class="field-key">Topic</span><span class="field-val">demo.trades.enriched</span></div>
+        <div class="field-row"><span class="field-key">Bootstrap Servers</span><span class="field-val">kafka-01:29092</span></div>
+        <div class="field-row"><span class="field-key">Format</span><span class="field-val">json</span></div>
+        <div class="field-row"><span class="field-key">Schema</span><span class="field-val schema">trade_id    STRING
+user_id     STRING
+symbol      STRING
+side        STRING
+quantity    DOUBLE
+price       DOUBLE
+exchange    STRING
+category    STRING
+trade_value DOUBLE
+risk_level  STRING
+event_time  TIMESTAMP(3)</span></div>
+      </div>
+      <p>Click <strong>✓ Apply</strong>.</p>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">4</div>
+    <div class="step-body">
+      <h4>Connect, Layout, Submit</h4>
+      <ul>
+        <li><code>raw_trades_source</code> → <code>risk_enrich</code> — <span class="edge-tag edge-forward">FORWARD</span></li>
+        <li><code>risk_enrich</code> → <code>enriched_sink</code> — <span class="edge-tag edge-forward">FORWARD</span></li>
+      </ul>
+      <p>Click <strong>Layout</strong> → <strong>Submit</strong>. Wait ~30 seconds before building Pipelines C.</p>
+    </div>
+  </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section class="section" id="pipelineC-alerts">
+  <h2><span class="sn" style="background:var(--orange);">C</span> Pipeline C — Three Branching Consumers</h2>
+  <p>Each pipeline below reads from <code>demo.trades.enriched</code> using its own consumer group. They run as three independent Flink jobs. Create a new pipeline for each one.</p>
+
+  <div class="pipeline-sep">⬆ JOB 3 · enriched_source → Filter (trade_value &gt; 50000) → high_alerts_sink</div>
+
+  <p>Name this pipeline <code>trading-alerts</code>.</p>
+
+  <div class="steps">
+  <div class="step" id="pipelineC-alerts">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <h4>Kafka Source — read enriched topic</h4>
+      <div class="node-config">
+        <div class="node-config-title"><span style="background:#1a6fa8"></span>Kafka Source</div>
+        <div class="field-row"><span class="field-key">Table Name</span><span class="field-val">enriched_source</span></div>
+        <div class="field-row"><span class="field-key">Topic</span><span class="field-val">demo.trades.enriched</span></div>
+        <div class="field-row"><span class="field-key">Bootstrap Servers</span><span class="field-val">kafka-01:29092</span></div>
+        <div class="field-row"><span class="field-key">Consumer Group</span><span class="field-val">studio-alerts-consumer</span></div>
+        <div class="field-row"><span class="field-key">Format</span><span class="field-val">json</span></div>
+        <div class="field-row"><span class="field-key">Startup Mode</span><span class="field-val">earliest-offset</span></div>
+        <div class="field-row"><span class="field-key">Schema</span><span class="field-val schema">trade_id    STRING
+user_id     STRING
+symbol      STRING
+side        STRING
+quantity    DOUBLE
+price       DOUBLE
+exchange    STRING
+category    STRING
+trade_value DOUBLE
+risk_level  STRING
+event_time  TIMESTAMP(3)</span></div>
+        <div class="field-row"><span class="field-key">Watermark Col</span><span class="field-val">event_time</span></div>
+        <div class="field-row"><span class="field-key">Watermark Delay</span><span class="field-val">5</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <h4>Filter — only high-value trades</h4>
+      <p>Drag <strong>Transformations → Filter</strong>. Click <strong>✏ edit</strong>:</p>
+      <div class="node-config">
+        <div class="node-config-title"><span style="background:#2a7a3a"></span>Filter</div>
+        <div class="field-row"><span class="field-key">Node Label</span><span class="field-val">filter_high_value</span></div>
+        <div class="field-row"><span class="field-key">WHERE Condition</span><span class="field-val">trade_value &gt; 50000</span></div>
+      </div>
+      <div class="callout info">
+        <span class="callout-icon">ℹ</span>
+        <div class="callout-body"><strong>Filter has one field only — WHERE Condition.</strong> No Table Name. The condition becomes the WHERE clause in the generated INSERT INTO.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <h4>Kafka Sink — alerts topic</h4>
+      <div class="node-config">
+        <div class="node-config-title"><span style="background:#5a1a1a"></span>Kafka Sink</div>
+        <div class="field-row"><span class="field-key">Table Name</span><span class="field-val">high_alerts_sink</span></div>
+        <div class="field-row"><span class="field-key">Topic</span><span class="field-val">demo.alerts.high</span></div>
+        <div class="field-row"><span class="field-key">Bootstrap Servers</span><span class="field-val">kafka-01:29092</span></div>
+        <div class="field-row"><span class="field-key">Format</span><span class="field-val">json</span></div>
+        <div class="field-row"><span class="field-key">Schema</span><span class="field-val schema">trade_id    STRING
+user_id     STRING
+symbol      STRING
+trade_value DOUBLE
+risk_level  STRING
+event_time  TIMESTAMP(3)</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">4</div>
+    <div class="step-body">
+      <h4>Connect and Submit</h4>
+      <ul>
+        <li><code>enriched_source</code> → <code>filter_high_value</code> — <span class="edge-tag edge-forward">FORWARD</span></li>
+        <li><code>filter_high_value</code> → <code>high_alerts_sink</code> — <span class="edge-tag edge-forward">FORWARD</span></li>
+      </ul>
+      <p>Click <strong>Layout</strong> → <strong>Submit</strong>. This is Job 3.</p>
+    </div>
+  </div>
+  </div>
+
+  <!-- OHLCV window -->
+  <div class="pipeline-sep" id="pipelineC-window" style="margin-top:32px">▦ JOB 4 · enriched_source → Tumble 1-min → OHLCV agg → trade_summary_sink</div>
+  <p>Create a new pipeline named <code>trading-ohlcv</code>.</p>
+
+  <div class="steps">
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <h4>Kafka Source — same enriched topic, different consumer group</h4>
+      <p>Drag <strong>Sources → Kafka</strong>. Same schema as the alerts pipeline but with a different Consumer Group:</p>
+      <div class="node-config">
+        <div class="node-config-title"><span style="background:#1a6fa8"></span>Kafka Source</div>
+        <div class="field-row"><span class="field-key">Table Name</span><span class="field-val">enriched_source</span></div>
+        <div class="field-row"><span class="field-key">Topic</span><span class="field-val">demo.trades.enriched</span></div>
+        <div class="field-row"><span class="field-key">Bootstrap Servers</span><span class="field-val">kafka-01:29092</span></div>
+        <div class="field-row"><span class="field-key">Consumer Group</span><span class="field-val">studio-ohlcv-consumer</span></div>
+        <div class="field-row"><span class="field-key">Startup Mode</span><span class="field-val">earliest-offset</span></div>
+        <div class="field-row"><span class="field-key">Format</span><span class="field-val">json</span></div>
+        <div class="field-row"><span class="field-key">Watermark Col</span><span class="field-val">event_time</span></div>
+        <div class="field-row"><span class="field-key">Watermark Delay</span><span class="field-val">5</span></div>
+        <div class="field-row"><span class="field-key">Schema</span><span class="field-val">same as alerts pipeline above</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <h4>Tumble Window — 1-minute OHLCV aggregation</h4>
+      <p>Drag <strong>Windows → Tumble</strong>. Click <strong>✏ edit</strong>:</p>
+      <div class="node-config">
+        <div class="node-config-title"><span style="background:#8a6a00"></span>Tumble Window</div>
+        <div class="field-row"><span class="field-key">Table Name</span><span class="field-val">trade_window</span></div>
+        <div class="field-row"><span class="field-key">Time Column</span><span class="field-val">event_time</span></div>
+        <div class="field-row"><span class="field-key">Window Size</span><span class="field-val">1 MINUTE</span></div>
+        <div class="field-row"><span class="field-key">GROUP BY</span><span class="field-val">symbol, side</span></div>
+        <div class="field-row"><span class="field-key" style="padding-top:6px">Aggregations</span><span class="field-val expr">COUNT(*) AS trade_count,
+ROUND(SUM(quantity), 4) AS total_volume,
+ROUND(SUM(trade_value), 2) AS total_value,
+ROUND(AVG(price), 2) AS avg_price,
+MIN(price) AS min_price,
+MAX(price) AS max_price,
+SUM(CASE WHEN trade_value > 10000
+  THEN 1 ELSE 0 END) AS high_risk_count</span></div>
+      </div>
+      <p>Click <strong>✓ Apply</strong>.</p>
+      <div class="callout warn">
+        <span class="callout-icon">⚠</span>
+        <div class="callout-body"><strong>Window results appear after 1 minute.</strong> Tumble windows only emit when they close — the first results from a 1-minute window appear ~60–65 seconds after the job starts (accounting for watermark lag). This is normal Flink behaviour.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <h4>Kafka Sink — summary topic</h4>
+      <div class="node-config">
+        <div class="node-config-title"><span style="background:#0a3a6a"></span>Kafka Sink</div>
+        <div class="field-row"><span class="field-key">Table Name</span><span class="field-val">trade_summary_sink</span></div>
+        <div class="field-row"><span class="field-key">Topic</span><span class="field-val">demo.trades.summary</span></div>
+        <div class="field-row"><span class="field-key">Bootstrap Servers</span><span class="field-val">kafka-01:29092</span></div>
+        <div class="field-row"><span class="field-key">Format</span><span class="field-val">json</span></div>
+        <div class="field-row"><span class="field-key">Schema</span><span class="field-val schema">window_start    TIMESTAMP(3)
+window_end      TIMESTAMP(3)
+symbol          STRING
+side            STRING
+trade_count     BIGINT
+total_volume    DOUBLE
+total_value     DOUBLE
+avg_price       DOUBLE
+min_price       DOUBLE
+max_price       DOUBLE
+high_risk_count BIGINT</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">4</div>
+    <div class="step-body">
+      <h4>Connect and Submit</h4>
+      <ul>
+        <li><code>enriched_source</code> → <code>trade_window</code> — <span class="edge-tag edge-hash">HASH</span></li>
+        <li><code>trade_window</code> → <code>trade_summary_sink</code> — <span class="edge-tag edge-hash">HASH</span></li>
+      </ul>
+      <p>Use <span class="edge-tag edge-hash">HASH</span> edges — windowed aggregations require data partitioned by group-by key. Click <strong>Layout</strong> → <strong>Submit</strong>. This is Job 4.</p>
+    </div>
+  </div>
+  </div>
+
+  <!-- Exchange routing -->
+  <div class="pipeline-sep" id="pipelineC-exchange" style="margin-top:32px">⇩ JOB 5 · enriched_source → Project (add is_large_trade) → by_exchange_sink</div>
+  <p>Create a new pipeline named <code>trading-exchange</code>.</p>
+
+  <div class="steps">
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <h4>Kafka Source + Project + Kafka Sink</h4>
+      <p>Follow the same Kafka Source pattern as Job 3/4 with <strong>Consumer Group: <code>studio-enriched-consumer</code></strong>. Add a <strong>Project</strong> node:</p>
+      <div class="node-config">
+        <div class="node-config-title"><span style="background:#2a5a8a"></span>Project — add large trade flag</div>
+        <div class="field-row"><span class="field-key">Node Label</span><span class="field-val">exchange_project</span></div>
+        <div class="field-row"><span class="field-key" style="padding-top:6px">SELECT Expressions</span><span class="field-val expr">trade_id,
+user_id,
+symbol,
+side,
+exchange,
+risk_level,
+trade_value,
+trade_value > 50000 AS is_large_trade,
+event_time</span></div>
+      </div>
+      <p>Sink: <strong>Table Name</strong> <code>by_exchange_sink</code>, topic <code>demo.trades.byexch</code>, format <code>json</code>.</p>
+      <p>Edges: <code>enriched_source</code> → <code>exchange_project</code> → <code>by_exchange_sink</code> — all <span class="edge-tag edge-forward">FORWARD</span>. Submit as Job 5.</p>
+    </div>
+  </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section class="section" id="live-preview">
+  <h2><span class="sn" style="background:var(--orange);">▶</span> Live Preview — Results Tab</h2>
+  <p>To see enriched trade data streaming live in the Results tab, create a preview reader table with a separate consumer group and run a SELECT. Do this in a Studio SQL editor tab — not in Pipeline Manager.</p>
+  <pre><code>-- Create a reader table (won't interfere with the pipeline consumer groups)
+CREATE TEMPORARY TABLE enriched_preview (
+  trade_id    STRING,
+  user_id     STRING,
+  symbol      STRING,
+  side        STRING,
+  quantity    DOUBLE,
+  price       DOUBLE,
+  exchange    STRING,
+  category    STRING,
+  trade_value DOUBLE,
+  risk_level  STRING,
+  event_time  TIMESTAMP(3),
+  WATERMARK FOR event_time AS event_time - INTERVAL '5' SECOND
+) WITH (
+  'connector'                    = 'kafka',
+  'topic'                        = 'demo.trades.enriched',
+  'properties.bootstrap.servers' = 'kafka-01:29092',
+  'properties.group.id'          = 'studio-preview-consumer',
+  'scan.startup.mode'            = 'earliest-offset',
+  'format'                       = 'json'
+);
+
+-- Stream rows into the Results tab:
+SELECT
+  trade_id,
+  symbol,
+  side,
+  ROUND(quantity, 2)   AS qty,
+  ROUND(price, 2)      AS price,
+  trade_value,
+  risk_level,
+  exchange,
+  event_time
+FROM enriched_preview;</code></pre>
+  <div class="callout tip">
+    <span class="callout-icon">💡</span>
+    <div class="callout-body"><strong>Use Search rows + Colour Describe.</strong> Type <code>CRITICAL</code> in the Search rows box to see only high-value trades. Then open <strong>🎨 Colour Describe</strong> → add a rule on the <code>risk_level</code> column: <code>== CRITICAL</code> → red background, <code>== HIGH</code> → yellow background, <code>== LOW</code> → green background. Rows will highlight in real time as they stream in.</div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section class="section" id="verify">
+  <h2><span class="sn" style="background:var(--orange);">✓</span> Verify All 5 Jobs</h2>
+  <div class="tab-group">
+    <div class="tab-nav">
+      <button class="tab-btn active" onclick="switchTab(this,'v5-jobs')">Job Graph</button>
+      <button class="tab-btn" onclick="switchTab(this,'v5-kafka')">Consume from Kafka</button>
+      <button class="tab-btn" onclick="switchTab(this,'v5-window')">Window output timing</button>
+    </div>
+    <div id="v5-jobs" class="tab-pane active">
+      <p style="font-size:13px;color:var(--text2);margin:10px 0 6px">In Studio, click the <strong>Job Graph</strong> tab. You should see five running jobs:</p>
+      <pre><code>[your-session] trading-producer    → RUNNING  (Job 1)
+[your-session] trading-enricher    → RUNNING  (Job 2)
+[your-session] trading-alerts      → RUNNING  (Job 3)
+[your-session] trading-ohlcv       → RUNNING  (Job 4)
+[your-session] trading-exchange    → RUNNING  (Job 5)</code></pre>
+      <p style="font-size:13px;color:var(--text2)">Double-click any job's source operator to open the Live Events terminal and see records/sec flowing through.</p>
+    </div>
+    <div id="v5-kafka" class="tab-pane">
+      <pre><code>-- Check records in the raw topic:
+docker exec -it kafka-01 kafka-console-consumer.sh \
+  --bootstrap-server localhost:9092 \
+  --topic demo.trades.raw --from-beginning \
+  --max-messages 5
+
+-- Check the enriched topic (should have trade_value and risk_level):
+docker exec -it kafka-01 kafka-console-consumer.sh \
+  --bootstrap-server localhost:9092 \
+  --topic demo.trades.enriched --from-beginning \
+  --max-messages 5
+
+-- Check alerts (only trade_value > 50000):
+docker exec -it kafka-01 kafka-console-consumer.sh \
+  --bootstrap-server localhost:9092 \
+  --topic demo.alerts.high --from-beginning \
+  --max-messages 5</code></pre>
+    </div>
+    <div id="v5-window" class="tab-pane">
+      <pre><code>-- Window output (demo.trades.summary) is delayed by design.
+-- Tumble windows only emit when they close.
+-- With a 1-minute window and 5s watermark:
+--   First result arrives ~65 seconds after Job 4 starts.
+
+-- Check after 90 seconds:
+docker exec -it kafka-01 kafka-console-consumer.sh \
+  --bootstrap-server localhost:9092 \
+  --topic demo.trades.summary --from-beginning \
+  --max-messages 3
+
+-- Expected output (one row per symbol/side/minute):
+-- {"window_start":"...","symbol":"BTC","side":"BUY","trade_count":8,...}</code></pre>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section class="section" id="generated-sql">
+  <h2><span class="sn" style="background:var(--orange);">⟨⟩</span> All Generated SQL</h2>
+  <div class="tab-group">
+    <div class="tab-nav">
+      <button class="tab-btn active" onclick="switchTab(this,'sql5-a')">Pipeline A</button>
+      <button class="tab-btn" onclick="switchTab(this,'sql5-b')">Pipeline B</button>
+      <button class="tab-btn" onclick="switchTab(this,'sql5-c1')">Pipeline C1 (Alerts)</button>
+      <button class="tab-btn" onclick="switchTab(this,'sql5-c2')">Pipeline C2 (OHLCV)</button>
+      <button class="tab-btn" onclick="switchTab(this,'sql5-c3')">Pipeline C3 (Exchange)</button>
+    </div>
+    <div id="sql5-a" class="tab-pane active"><pre><code>CREATE TABLE IF NOT EXISTS trade_generator ( ... )
+WITH ('connector'='datagen','rows-per-second'='10');
+
+CREATE TABLE IF NOT EXISTS raw_trades_sink (
+  trade_id STRING, user_id STRING, symbol STRING, side STRING,
+  quantity DOUBLE, price DOUBLE, exchange STRING,
+  category STRING, event_time TIMESTAMP(3)
+) WITH (
+  'connector'                    = 'kafka',
+  'topic'                        = 'demo.trades.raw',
+  'properties.bootstrap.servers' = 'kafka-01:29092',
+  'format'                       = 'json'
+);
+
+INSERT INTO raw_trades_sink
+SELECT
+  trade_id, user_id,
+  CASE symbol_id WHEN 1 THEN 'BTC' WHEN 2 THEN 'ETH'
+    WHEN 3 THEN 'SOL' WHEN 4 THEN 'AAPL'
+    WHEN 5 THEN 'TSLA' ELSE 'NVDA' END AS symbol,
+  CASE side_id WHEN 1 THEN 'BUY' ELSE 'SELL' END AS side,
+  quantity, price,
+  CASE exchange_id WHEN 1 THEN 'BINANCE' WHEN 2 THEN 'COINBASE'
+    WHEN 3 THEN 'NYSE' ELSE 'NASDAQ' END AS exchange,
+  CASE category_id WHEN 1 THEN 'CRYPTO'
+    WHEN 2 THEN 'EQUITY' ELSE 'ETF' END AS category,
+  event_time
+FROM trade_generator;</code></pre></div>
+    <div id="sql5-b" class="tab-pane"><pre><code>-- Pipeline B: Raw → Enriched
+INSERT INTO enriched_sink
+SELECT
+  trade_id, user_id, symbol, side, quantity, price,
+  exchange, category,
+  ROUND(quantity * price, 2) AS trade_value,
+  CASE
+    WHEN quantity * price > 100000 THEN 'CRITICAL'
+    WHEN quantity * price > 10000  THEN 'HIGH'
+    WHEN quantity * price > 1000   THEN 'MEDIUM'
+    ELSE 'LOW'
+  END AS risk_level,
+  event_time
+FROM raw_trades_source;</code></pre></div>
+    <div id="sql5-c1" class="tab-pane"><pre><code>-- Pipeline C1: High-value trade alerts
+INSERT INTO high_alerts_sink
+SELECT *
+FROM enriched_source
+WHERE trade_value > 50000;</code></pre></div>
+    <div id="sql5-c2" class="tab-pane"><pre><code>-- Pipeline C2: 1-minute OHLCV window
+INSERT INTO trade_summary_sink
+SELECT
+  window_start, window_end, symbol, side,
+  COUNT(*)                                         AS trade_count,
+  ROUND(SUM(quantity), 4)                          AS total_volume,
+  ROUND(SUM(trade_value), 2)                       AS total_value,
+  ROUND(AVG(price), 2)                             AS avg_price,
+  MIN(price)                                       AS min_price,
+  MAX(price)                                       AS max_price,
+  SUM(CASE WHEN trade_value > 10000 THEN 1 ELSE 0 END) AS high_risk_count
+FROM TABLE(TUMBLE(TABLE enriched_source,
+  DESCRIPTOR(event_time), INTERVAL '1' MINUTE))
+GROUP BY window_start, window_end, symbol, side;</code></pre></div>
+    <div id="sql5-c3" class="tab-pane"><pre><code>-- Pipeline C3: Exchange breakdown
+INSERT INTO by_exchange_sink
+SELECT
+  trade_id, user_id, symbol, side, exchange,
+  risk_level, trade_value,
+  trade_value > 50000 AS is_large_trade,
+  event_time
+FROM enriched_source;</code></pre></div>
+  </div>
+</section>
+
+<div class="demo-nav-bottom">
+  <a href="demo-04-catalog.html" class="demo-nav-btn">← Demo 4 — Catalog</a>
+  <a href="demo-01-fanout.html" class="demo-nav-btn primary">↺ Back to Demo 1</a>
+</div>
+
+</main>
+</div>
+
+<footer>
+  <p>Str:::lab Studio · Pipeline Manager Demos</p>
+  <a href="docs-pipeline.html">Pipeline Manager Docs ↗</a>
+</footer>
+<script>
+function switchTab(btn,id){const g=btn.closest('.tab-group');g.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));g.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));btn.classList.add('active');document.getElementById(id).classList.add('active');}
+const obs=new IntersectionObserver(e=>{e.forEach(en=>{if(en.isIntersecting){document.querySelectorAll('.toc a').forEach(l=>l.classList.remove('active'));const lk=document.querySelector('.toc a[href="#'+en.target.id+'"]');if(lk)lk.classList.add('active');}});},{rootMargin:'-10% 0px -70% 0px'});
+document.querySelectorAll('.section').forEach(s=>obs.observe(s));
+</script>
+</body>
+</html>
