@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Demo 1 — Datagen → Filter → Two Sinks · Str:::lab Studio</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23090c12'/%3E%3Cpolyline points='20 24 28 16 20 8' fill='none' stroke='%2300d4aa' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpolyline points='12 8 4 16 12 24' fill='none' stroke='%2300d4aa' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{--bg0:#090c12;--bg1:#0d1117;--bg2:#131920;--bg3:#1a2130;--border:#1e2d3d;--border2:#253348;--accent:#00d4aa;--blue:#4fa3e0;--purple:#9b72cf;--orange:#f0a500;--red:#e05c5c;--green:#3fb950;--yellow:#f0a500;--text0:#f0f6fc;--text1:#c9d1d9;--text2:#8b949e;--text3:#4a5568;--mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',sans-serif;--radius:8px;--nav-h:58px;}
+    *{box-sizing:border-box;margin:0;padding:0}html{scroll-behavior:smooth}body{font-family:var(--sans);background:var(--bg1);color:var(--text1);line-height:1.7;font-size:15px}a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:var(--bg1)}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+    .nav{position:sticky;top:0;z-index:100;height:var(--nav-h);background:rgba(9,12,18,0.95);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 32px;gap:0}
+    .nav-logo{display:flex;align-items:center;gap:10px;margin-right:24px;text-decoration:none;flex-shrink:0}.logo-mark{width:26px;height:26px;background:#0c1018;border:1px solid rgba(0,212,170,0.35);clip-path:polygon(0 0,80% 0,100% 20%,100% 100%,20% 100%,0 80%);display:flex;align-items:center;justify-content:center}.logo-text{font-family:var(--mono);font-size:14px;font-weight:600;color:var(--text0)}.logo-ver{font-size:9px;color:var(--text3);margin-left:4px}
+    .nav-demos{display:flex;align-items:center;gap:2px;flex:1;overflow-x:auto}.nav-demos a{font-size:11px;color:var(--text2);padding:5px 10px;border-radius:5px;white-space:nowrap;font-family:var(--mono)}.nav-demos a:hover,.nav-demos a.active{color:var(--text0);background:var(--bg3);text-decoration:none}.nav-demos a.active{color:var(--accent)}
+    .demo-pill{font-family:var(--mono);font-size:10px;padding:3px 10px;border-radius:20px;border:1px solid rgba(0,212,170,0.4);color:var(--accent);background:rgba(0,212,170,0.06);margin-left:auto;flex-shrink:0}
+    .hero{background:var(--bg0);padding:52px 40px 40px;border-bottom:1px solid var(--border);position:relative;overflow:hidden}
+    .hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 70% 60% at 20% 0%,rgba(0,212,170,0.07),transparent 65%);pointer-events:none}
+    .demo-number{font-family:var(--mono);font-size:11px;color:var(--accent);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+    .demo-number::before{content:'';width:32px;height:1px;background:var(--accent);opacity:0.5}
+    .hero-title{font-family:var(--mono);font-size:32px;font-weight:700;color:var(--text0);letter-spacing:-1px;line-height:1.2;margin-bottom:12px}
+    .hero-sub{font-size:15px;color:var(--text2);max-width:620px;line-height:1.8;margin-bottom:20px}
+    .prereq-strip{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:0}
+    .prereq{display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:4px;font-size:11px;font-family:var(--mono)}
+    .prereq.ok{background:rgba(63,185,80,0.08);border:1px solid rgba(63,185,80,0.3);color:var(--green)}
+    .prereq.need{background:rgba(245,166,35,0.08);border:1px solid rgba(245,166,35,0.3);color:var(--yellow)}
+    .prereq.opt{background:rgba(79,163,224,0.08);border:1px solid rgba(79,163,224,0.3);color:var(--blue)}
+    .page{display:flex;max-width:1200px;margin:0 auto}
+    .toc{width:210px;flex-shrink:0;position:sticky;top:var(--nav-h);height:calc(100vh - var(--nav-h));overflow-y:auto;padding:24px 0 24px 16px;border-right:1px solid var(--border)}
+    .toc-label{font-size:9px;font-family:var(--mono);font-weight:700;color:var(--text3);letter-spacing:1.5px;text-transform:uppercase;padding:0 8px;margin-bottom:5px;display:block;margin-top:16px}
+    .toc a{display:block;font-size:12px;color:var(--text2);padding:4px 8px;border-radius:4px;border-left:2px solid transparent;transition:all .12s}.toc a:hover{color:var(--text0);text-decoration:none}.toc a.active{color:var(--accent);border-left-color:var(--accent);background:rgba(0,212,170,0.05)}
+    .content{flex:1;min-width:0;padding:40px 48px 96px}
+    .section{margin-bottom:56px}
+    h2{font-size:20px;font-weight:700;color:var(--text0);margin-bottom:8px;padding-bottom:10px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+    .sn{width:28px;height:28px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:12px;font-weight:700;color:#000;flex-shrink:0}
+    h3{font-size:15px;font-weight:600;color:var(--text0);margin:22px 0 8px}
+    p{color:var(--text2);margin-bottom:10px;font-size:14px;line-height:1.8}
+    ul{margin:6px 0 12px 20px}li{font-size:14px;color:var(--text2);margin-bottom:5px;line-height:1.7}li strong{color:var(--text1)}
+    code{font-family:var(--mono);font-size:12px;color:var(--accent);background:rgba(0,212,170,0.08);border:1px solid rgba(0,212,170,0.15);padding:1px 6px;border-radius:4px}
+    pre{background:var(--bg0);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:var(--radius);padding:16px 20px;overflow-x:auto;margin:10px 0}pre code{background:none;border:none;padding:0;font-size:12px;color:var(--text1);line-height:1.7}
+    .callout{border-radius:var(--radius);padding:11px 15px;margin:10px 0;font-size:13px;line-height:1.7;display:flex;gap:10px}
+    .callout-icon{font-size:15px;flex-shrink:0}.callout-body{flex:1}.callout-body strong{display:block;margin-bottom:2px}
+    .callout.tip{background:rgba(0,212,170,0.06);border:1px solid rgba(0,212,170,0.2)}.callout.tip strong{color:var(--accent)}
+    .callout.warn{background:rgba(245,166,35,0.06);border:1px solid rgba(245,166,35,0.2)}.callout.warn strong{color:var(--yellow)}
+    .callout.info{background:rgba(79,163,224,0.06);border:1px solid rgba(79,163,224,0.2)}.callout.info strong{color:var(--blue)}
+    .callout.ok{background:rgba(63,185,80,0.06);border:1px solid rgba(63,185,80,0.2)}.callout.ok strong{color:var(--green)}
+    .steps{margin:16px 0}
+    .step{display:flex;gap:16px;margin-bottom:0;position:relative}
+    .step+.step{margin-top:28px}
+    .step::before{content:'';position:absolute;left:15px;top:40px;width:2px;bottom:-28px;background:var(--border);z-index:0}
+    .step:last-child::before{display:none}
+    .step-num{width:32px;height:32px;border-radius:50%;background:var(--bg2);border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:12px;font-weight:700;color:var(--accent);flex-shrink:0;z-index:1;margin-top:2px}
+    .step-body{flex:1;min-width:0}
+    .step-body h4{font-size:14px;font-weight:700;color:var(--text0);margin:0 0 8px}
+    .node-config{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius);padding:14px 16px;margin:10px 0}
+    .node-config-title{font-size:10px;font-family:var(--mono);font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;display:flex;align-items:center;gap:7px}
+    .node-config-title span{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0}
+    .field-row{display:flex;margin-bottom:6px;gap:8px;font-size:13px}
+    .field-key{color:var(--text3);font-family:var(--mono);font-size:11px;min-width:120px;flex-shrink:0;padding-top:1px}
+    .field-val{color:var(--text0);font-family:var(--mono);font-size:12px;background:rgba(0,212,170,0.06);border:1px solid rgba(0,212,170,0.15);padding:1px 7px;border-radius:3px}
+    .field-val.schema{display:block;white-space:pre;background:var(--bg0);border-color:var(--border);color:var(--text1);padding:7px 10px;margin-top:3px;line-height:1.7}
+    .edge-tag{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:3px;font-size:10px;font-family:var(--mono);font-weight:700}
+    .edge-forward{background:rgba(79,163,224,0.1);border:1px solid rgba(79,163,224,0.3);color:#4fa3e0}
+    .edge-broadcast{background:rgba(155,114,207,0.1);border:1px solid rgba(155,114,207,0.3);color:#9b72cf}
+    .edge-hash{background:rgba(63,185,80,0.1);border:1px solid rgba(63,185,80,0.3);color:var(--green)}
+    .pipeline-diagram{background:var(--bg0);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin:14px 0;display:flex;align-items:center;justify-content:center;gap:0;overflow-x:auto;flex-wrap:nowrap}
+    .pd-node{display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0}
+    .pd-box{padding:8px 14px;border-radius:6px;font-family:var(--mono);font-size:10px;font-weight:700;text-align:center;line-height:1.4;min-width:90px}
+    .pd-label{font-size:9px;color:var(--text3);font-family:var(--mono);text-align:center}
+    .pd-arrow{display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0;padding:0 6px}
+    .pd-line{height:2px;width:36px}
+    .pd-edge-label{font-size:8px;font-family:var(--mono);font-weight:700}
+    .pd-fork{display:flex;flex-direction:column;gap:12px;padding:0 6px;flex-shrink:0}
+    .pd-fork-row{display:flex;align-items:center;gap:0}
+    .tab-group{margin:14px 0}.tab-nav{display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:-1px}
+    .tab-btn{font-family:var(--mono);font-size:11px;padding:6px 14px;border-radius:6px 6px 0 0;border:1px solid transparent;border-bottom:none;background:transparent;color:var(--text2);cursor:pointer}
+    .tab-btn.active{background:var(--bg0);border-color:var(--border);color:var(--accent);border-bottom-color:var(--bg0)}.tab-pane{display:none;padding-top:1px}.tab-pane.active{display:block}
+    .checkpoint-box{background:rgba(245,166,35,0.06);border:1px solid rgba(245,166,35,0.2);border-radius:var(--radius);padding:12px 14px;margin:10px 0}
+    .checkpoint-title{font-size:10px;font-family:var(--mono);font-weight:700;color:var(--yellow);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+    footer{border-top:1px solid var(--border);background:var(--bg0);padding:24px 32px;display:flex;align-items:center;justify-content:space-between}footer p{font-size:12px;color:var(--text3)}footer a{color:var(--text2);font-size:12px}
+    .demo-nav-bottom{display:flex;gap:12px;justify-content:flex-end;margin-top:40px;padding-top:24px;border-top:1px solid var(--border)}
+    .demo-nav-btn{font-family:var(--mono);font-size:12px;padding:8px 18px;border-radius:6px;border:1px solid var(--border2);background:var(--bg2);color:var(--text1);text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+    .demo-nav-btn.next{background:var(--accent);color:#000;border-color:var(--accent);font-weight:700}
+    @media(max-width:900px){.toc{display:none}.content{padding:24px 16px 64px}.hero-title{font-size:24px}.pipeline-diagram{justify-content:flex-start}}
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <a href="index.html" class="nav-logo">
+    <div class="logo-mark"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00d4aa" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
+    <span class="logo-text">Str:::lab<span class="logo-ver">Studio</span></span>
+  </a>
+  <div class="nav-demos">
+    <a href="demo-01-fanout.html" class="active">Demo 1 — Fanout</a>
+    <a href="demo-02-kafka.html">Demo 2 — Kafka</a>
+    <a href="demo-03-connector.html">Demo 3 — Connector</a>
+    <a href="demo-04-catalog.html">Demo 4 — Catalog</a>
+    <a href="docs-pipeline.html">Pipeline Docs</a>
+  </div>
+  <span class="demo-pill">◈ Pipeline Manager</span>
+</nav>
+
+<div class="hero">
+  <div class="demo-number">Demo 01 of 04</div>
+  <h1 class="hero-title">Datagen → Filter<br>→ Broadcast to Two Sinks</h1>
+  <p class="hero-sub">Build your first fan-out pipeline entirely on the canvas. A synthetic data source produces order events. A filter keeps only high-value orders. Two sinks receive the same stream simultaneously — Print (Debug) shows output in the TaskManager log, and Elasticsearch indexes every record.</p>
+  <div class="prereq-strip">
+    <span class="prereq ok">✓ Flink session connected</span>
+    <span class="prereq ok">✓ No JARs for Print sink</span>
+    <span class="prereq need">⚠ ES JAR for Elasticsearch sink</span>
+    <span class="prereq opt">→ No ES? Use Blackhole instead</span>
+  </div>
+</div>
+
+<div class="page">
+  <aside class="toc">
+    <span class="toc-label">This Demo</span>
+    <a href="#overview">What You'll Build</a>
+    <a href="#prereqs">Prerequisites</a>
+    <span class="toc-label">Steps</span>
+    <a href="#step-open">1 · Open Pipeline Manager</a>
+    <a href="#step-settings">2 · Pipeline Settings</a>
+    <a href="#step-datagen">3 · Add Datagen Source</a>
+    <a href="#step-filter">4 · Add Filter</a>
+    <a href="#step-print">5 · Add Print Sink</a>
+    <a href="#step-es">6 · Add Elasticsearch Sink</a>
+    <a href="#step-connect">7 · Connect the Nodes</a>
+    <a href="#step-run">8 · Run &amp; Submit</a>
+    <a href="#step-verify">9 · Verify Output</a>
+    <span class="toc-label">Reference</span>
+    <a href="#generated-sql">Generated SQL</a>
+    <a href="#troubleshoot">Troubleshooting</a>
+  </aside>
+
+  <main class="content">
+
+    <section class="section" id="overview">
+      <h2><span class="sn">▦</span> What You'll Build</h2>
+      <p>Three nodes, three edges. By the end of this demo you will have a running Flink job that continuously generates fake order data, filters rows where <code>amount &gt; 500</code>, and fans out to two sinks at the same time using <strong>BROADCAST</strong> edges.</p>
+
+      <div class="pipeline-diagram">
+        <div class="pd-node">
+          <div class="pd-box" style="background:#0d2a1a;border:1px solid #2d8a4e;color:#57c764;">⚙ Datagen<br><span style="font-weight:400;color:#8b949e">orders_gen</span></div>
+          <div class="pd-label">10 rows/sec</div>
+        </div>
+        <div class="pd-arrow">
+          <div class="pd-line" style="background:#4fa3e0;"></div>
+          <div class="pd-edge-label" style="color:#4fa3e0">FORWARD</div>
+        </div>
+        <div class="pd-node">
+          <div class="pd-box" style="background:#0d2a1a;border:1px solid #2a7a3a;color:#57c764;">⇄ Filter<br><span style="font-weight:400;color:#8b949e">amount&gt;500</span></div>
+          <div class="pd-label">filter_high_value</div>
+        </div>
+        <div class="pd-fork">
+          <div class="pd-fork-row">
+            <div class="pd-arrow"><div class="pd-line" style="background:#9b72cf;width:32px"></div><div class="pd-edge-label" style="color:#9b72cf">BROADCAST</div></div>
+            <div class="pd-node">
+              <div class="pd-box" style="background:#1a1a2a;border:1px solid #3a3a5a;color:#8b949e;">⏎ Print<br><span style="font-weight:400">Debug</span></div>
+              <div class="pd-label">stdout</div>
+            </div>
+          </div>
+          <div class="pd-fork-row">
+            <div class="pd-arrow"><div class="pd-line" style="background:#9b72cf;width:32px"></div><div class="pd-edge-label" style="color:#9b72cf">BROADCAST</div></div>
+            <div class="pd-node">
+              <div class="pd-box" style="background:#2a0d0d;border:1px solid #5a1a1a;color:#f75464;">⇩ ES Sink<br><span style="font-weight:400;color:#8b949e">high-orders</span></div>
+              <div class="pd-label">Elasticsearch</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p><strong>Concepts practised:</strong> adding operators, configuring with ✏ edit, drawing edges, changing edge types with double-click, running animation, submitting to Flink.</p>
+    </section>
+
+    <section class="section" id="prereqs">
+      <h2><span class="sn">!</span> Prerequisites</h2>
+      <ul>
+        <li><strong>Studio connected</strong> — you have an active Flink session shown in the topbar.</li>
+        <li><strong>Print sink</strong> — built into Flink. No JAR needed.</li>
+        <li><strong>Elasticsearch sink</strong> — requires <code>flink-sql-connector-elasticsearch7-x.x.x.jar</code> in <code>/opt/flink/lib/</code>. Upload via <strong>⊙ Systems → Upload JAR</strong> then restart the Gateway.</li>
+      </ul>
+      <div class="callout tip">
+        <span class="callout-icon">💡</span>
+        <div class="callout-body"><strong>No Elasticsearch?</strong> Replace the ES sink with a <strong>Blackhole</strong> sink from the Sinks palette. The fan-out structure and BROADCAST edges work identically. You'll still see data in the Print sink.</div>
+      </div>
+    </section>
+
+    <section class="section" id="step-open">
+      <div class="steps">
+        <div class="step" id="step-open">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <h4>Open Pipeline Manager</h4>
+            <p>Click <strong>◈ Pipeline</strong> in the Studio topbar. The Pipeline Manager opens in Builder mode. Click the pipeline name <code>Untitled Pipeline</code> at the top and rename it:</p>
+            <pre><code>fanout-demo</code></pre>
+            <p>Make sure you are on the <strong>◈ Builder</strong> tab.</p>
+          </div>
+        </div>
+
+        <div class="step" id="step-settings">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <h4>Configure Pipeline Settings</h4>
+            <p>Click <strong>⚙ Settings</strong> at the bottom-left of the canvas. Set the following — these become <code>SET</code> statements in the generated SQL:</p>
+            <pre><code>Execution Mode:          streaming
+Parallelism:             1
+Checkpoint Interval:     10000
+Checkpoint Mode:         EXACTLY_ONCE</code></pre>
+            <p>Close Settings.</p>
+          </div>
+        </div>
+
+        <div class="step" id="step-datagen">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <h4>Add the Datagen source</h4>
+            <p>In the palette on the left, find <strong>Sources → Datagen</strong>. <strong>Drag it onto the canvas</strong>. The config modal opens automatically. Fill in every field:</p>
+            <div class="node-config">
+              <div class="node-config-title"><span style="background:#2d8a4e"></span>Datagen Source — ✏ edit fields</div>
+              <div class="field-row"><span class="field-key">Table Name</span><span class="field-val">orders_gen</span></div>
+              <div class="field-row"><span class="field-key">Rows / sec</span><span class="field-val">10</span></div>
+              <div class="field-row"><span class="field-key">Schema</span><span class="field-val schema">order_id  BIGINT
+customer  STRING
+product   STRING
+amount    DOUBLE
+status    STRING
+ts        TIMESTAMP(3)</span></div>
+              <div class="field-row"><span class="field-key">Watermark Col</span><span class="field-val">ts</span></div>
+              <div class="field-row"><span class="field-key">Watermark Delay</span><span class="field-val">5</span></div>
+            </div>
+            <p>Click <strong>✓ Apply</strong>. The node badge changes from <code>⚠ config</code> to <code>✓ ready</code>.</p>
+          </div>
+        </div>
+
+        <div class="step" id="step-filter">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <h4>Add the Filter transform</h4>
+            <p>Drag <strong>Transformations → Filter</strong> onto the canvas, to the right of the Datagen node. Click <strong>✏ edit</strong> on the node (or double-click it).</p>
+            <div class="callout info">
+              <span class="callout-icon">ℹ</span>
+              <div class="callout-body"><strong>Filter has one parameter only: the WHERE condition.</strong> There is no separate Table Name field. The node label is just a canvas display name — in SQL generation the filter becomes a <code>WHERE</code> clause appended to the <code>INSERT INTO ... SELECT ... FROM source</code>.</div>
+            </div>
+            <div class="node-config">
+              <div class="node-config-title"><span style="background:#2a7a3a"></span>Filter — ✏ edit fields</div>
+              <div class="field-row"><span class="field-key">Node Label</span><span class="field-val">filter_high_value</span></div>
+              <div class="field-row" style="opacity:0.5;font-size:11px;margin-top:-2px;margin-bottom:4px"><span class="field-key" style="font-size:10px">↑ display only</span><span style="color:var(--text3);font-size:10px;font-family:var(--mono)">not a SQL table name</span></div>
+              <div class="field-row"><span class="field-key">WHERE Condition</span><span class="field-val">amount &gt; 500.0</span></div>
+            </div>
+            <p>Click <strong>✓ Apply</strong>. The condition becomes <code>WHERE amount &gt; 500.0</code> in the generated INSERT INTO.</p>
+          </div>
+        </div>
+
+        <div class="step" id="step-print">
+          <div class="step-num">5</div>
+          <div class="step-body">
+            <h4>Add the Print (Debug) sink</h4>
+            <p>Drag <strong>Sinks → Print (Debug)</strong> onto the canvas, below-right of the Filter node. Click <strong>✏ edit</strong>:</p>
+            <div class="node-config">
+              <div class="node-config-title"><span style="background:#555"></span>Print (Debug) — ✏ edit fields</div>
+              <div class="field-row"><span class="field-key">Table Name</span><span class="field-val">print_high_orders</span></div>
+            </div>
+            <p>Click <strong>✓ Apply</strong>.</p>
+          </div>
+        </div>
+
+        <div class="step" id="step-es">
+          <div class="step-num">6</div>
+          <div class="step-body">
+            <h4>Add the Elasticsearch sink</h4>
+            <p>Drag <strong>Sinks → Elasticsearch</strong> onto the canvas, above-right of the Filter node. Click <strong>✏ edit</strong>:</p>
+            <div class="node-config">
+              <div class="node-config-title"><span style="background:#f75464"></span>Elasticsearch Sink — ✏ edit fields</div>
+              <div class="field-row"><span class="field-key">Table Name</span><span class="field-val">es_high_orders</span></div>
+              <div class="field-row"><span class="field-key">ES Hosts</span><span class="field-val">http://elasticsearch:9200</span></div>
+              <div class="field-row"><span class="field-key">Index</span><span class="field-val">high-orders</span></div>
+              <div class="field-row"><span class="field-key">ES Version</span><span class="field-val">7</span></div>
+              <div class="field-row"><span class="field-key">Schema</span><span class="field-val schema">order_id  BIGINT
+customer  STRING
+amount    DOUBLE
+status    STRING
+ts        TIMESTAMP(3)</span></div>
+            </div>
+            <p>Before clicking Apply, click <strong>⊙ Test Connectivity</strong>. A green result means Elasticsearch is reachable. Then click <strong>✓ Apply</strong>.</p>
+            <div class="callout tip">
+              <span class="callout-icon">💡</span>
+              <div class="callout-body"><strong>No Elasticsearch?</strong> Skip this step and drag a <strong>Blackhole</strong> sink instead. Configure <code>Table Name: blackhole_sink</code> and it will silently discard records — the pipeline structure is identical.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step" id="step-connect">
+          <div class="step-num">7</div>
+          <div class="step-body">
+            <h4>Connect the nodes and set edge types</h4>
+            <p>Draw three edges by dragging from the <strong>right port (●)</strong> of one node to the <strong>left port</strong> of the next:</p>
+            <ul>
+              <li><code>orders_gen</code> <strong>→</strong> <code>filter_high_value</code></li>
+              <li><code>filter_high_value</code> <strong>→</strong> <code>print_high_orders</code></li>
+              <li><code>filter_high_value</code> <strong>→</strong> <code>es_high_orders</code></li>
+            </ul>
+            <p>Now set edge types. <strong>Double-click</strong> the edge between <code>filter_high_value → print_high_orders</code>. In the edge config modal, change Type to <span class="edge-tag edge-broadcast">BROADCAST</span> and click Apply. Repeat for the edge to <code>es_high_orders</code> — also set to <span class="edge-tag edge-broadcast">BROADCAST</span>. The first edge can stay as <span class="edge-tag edge-forward">FORWARD</span>.</p>
+            <div class="callout info">
+              <span class="callout-icon">ℹ</span>
+              <div class="callout-body"><strong>Two sinks = two INSERT statements.</strong> Because there are two sink nodes, Pipeline Manager generates an <code>EXECUTE STATEMENT SET BEGIN ... END</code> block containing one INSERT per sink — both with the same WHERE condition applied. This runs as a single Flink job with two sink operators.</div>
+            </div>
+            <p>Click <strong>Layout</strong> in the toolbar to auto-arrange nodes. Click <strong>Layout</strong> then <strong>Submit</strong>.</p>
+          </div>
+        </div>
+
+        <div class="step" id="step-run">
+          <div class="step-num">8</div>
+          <div class="step-body">
+            <h4>Run the animation, then Submit</h4>
+            <p>Click <strong>▶ Run</strong> in the toolbar. Animated particles should flow from Datagen → Filter → both sinks. The status bar should show <code>3 nodes · 3 edges · ✓ Ready</code>. Click <strong>⏹ Stop</strong> to stop the animation.</p>
+            <p>Click <strong>Submit</strong>. Studio inserts the generated SQL into the editor and executes it. The <strong>Job Graph</strong> tab opens automatically — you should see a running job.</p>
+            <div class="callout ok">
+              <span class="callout-icon">✓</span>
+              <div class="callout-body"><strong>What happens on Submit:</strong> Studio generates the full DDL + INSERT INTO SQL, opens a new editor tab, and runs it. The job name includes your session name so it's traceable in the Job Graph.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step" id="step-verify">
+          <div class="step-num">9</div>
+          <div class="step-body">
+            <h4>Verify the output</h4>
+            <p>Open a new SQL editor tab and run these verification queries:</p>
+            <div class="tab-group">
+              <div class="tab-nav">
+                <button class="tab-btn active" onclick="switchTab(this,'v-print')">Check Print sink</button>
+                <button class="tab-btn" onclick="switchTab(this,'v-es')">Check Elasticsearch</button>
+                <button class="tab-btn" onclick="switchTab(this,'v-job')">Check Job Graph</button>
+              </div>
+              <div id="v-print" class="tab-pane active">
+          <pre><code>-- In your terminal — check TaskManager stdout for print output:
+docker logs flink-taskmanager --follow --tail=20
+
+-- You should see rows like:
+-- +I[12345, Alice, Widget, 750.0, PENDING, 2026-03-23T...]</code></pre>
+              </div>
+              <div id="v-es" class="tab-pane">
+          <pre><code>-- Count documents in the index:
+curl http://elasticsearch:9200/high-orders/_count
+
+-- Sample the latest records:
+curl "http://elasticsearch:9200/high-orders/_search?size=3&sort=ts:desc"
+
+-- Expected: {"count": N, ...} where N grows over time</code></pre>
+              </div>
+              <div id="v-job" class="tab-pane">
+          <pre><code>-- In Studio — click the Job Graph tab
+-- You should see 1 running job named:
+-- [your-session] fanout-demo
+
+-- Click the job name to see operator graph,
+-- throughput metrics, and checkpoint status</code></pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div><!-- end steps -->
+    </section>
+
+    <section class="section" id="generated-sql">
+      <h2><span class="sn">⟨⟩</span> Generated SQL</h2>
+      <p>This is the full SQL that Pipeline Manager generates and submits. Because there are two sinks, it wraps both INSERT statements in an <code>EXECUTE STATEMENT SET</code> block — this runs as a single Flink job with two concurrent sink operators. View it at any time in the <strong>⟨/⟩ SQL</strong> tab inside Pipeline Manager.</p>
+      <pre><code>SET 'execution.runtime-mode'            = 'streaming';
+SET 'parallelism.default'               = '1';
+SET 'execution.checkpointing.interval'  = '10000';
+SET 'execution.checkpointing.mode'      = 'EXACTLY_ONCE';
+
+-- Source: orders_gen
+CREATE TABLE IF NOT EXISTS orders_gen (
+  order_id  BIGINT,
+  customer  STRING,
+  product   STRING,
+  amount    DOUBLE,
+  status    STRING,
+  ts        TIMESTAMP(3),
+  WATERMARK FOR ts AS ts - INTERVAL '5' SECOND
+) WITH (
+  'connector'       = 'datagen',
+  'rows-per-second' = '10'
+);
+
+-- Sink: print (debug)
+CREATE TABLE IF NOT EXISTS print_high_orders (
+  order_id  BIGINT,
+  customer  STRING,
+  product   STRING,
+  amount    DOUBLE,
+  status    STRING,
+  ts        TIMESTAMP(3)
+) WITH (
+  'connector' = 'print'
+);
+
+-- Sink: elasticsearch
+CREATE TABLE IF NOT EXISTS es_high_orders (
+  order_id  BIGINT,
+  customer  STRING,
+  amount    DOUBLE,
+  status    STRING,
+  ts        TIMESTAMP(3)
+) WITH (
+  'connector' = 'elasticsearch-7',
+  'hosts'     = 'http://elasticsearch:9200',
+  'index'     = 'high-orders'
+);
+
+-- Two sinks = EXECUTE STATEMENT SET with one INSERT per sink
+-- The Filter's WHERE clause is applied to both INSERTs
+EXECUTE STATEMENT SET BEGIN
+
+INSERT INTO print_high_orders
+SELECT * FROM orders_gen
+WHERE amount > 500.0;
+
+INSERT INTO es_high_orders
+SELECT order_id, customer, amount, status, ts
+FROM orders_gen
+WHERE amount > 500.0;
+
+END;</code></pre>
+    </section>
+
+    <section class="section" id="troubleshoot">
+      <h2><span class="sn">?</span> Troubleshooting</h2>
+      <div class="table-wrap" style="overflow-x:auto;margin:12px 0;border-radius:var(--radius);border:1px solid var(--border)">
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead><tr style="background:var(--bg2)"><th style="padding:8px 12px;text-align:left;color:var(--text0);font-family:var(--mono);font-size:11px;border-bottom:1px solid var(--border)">Problem</th><th style="padding:8px 12px;text-align:left;color:var(--text0);font-family:var(--mono);font-size:11px;border-bottom:1px solid var(--border)">Fix</th></tr></thead>
+          <tbody>
+          <tr><td style="padding:8px 12px;border-bottom:1px solid var(--border);color:var(--text2)">Node stays <code>⚠ config</code> after Apply</td><td style="padding:8px 12px;border-bottom:1px solid var(--border);color:var(--text2)">A required field (*) is empty. Open the node modal and check for red asterisks.</td></tr>
+          <tr><td style="padding:8px 12px;border-bottom:1px solid var(--border);color:var(--text2)"><code>⚠ N errors</code> in status bar on Run</td><td style="padding:8px 12px;border-bottom:1px solid var(--border);color:var(--text2)">Click the error count to open the error banner. Click Locate to pan to the problem node.</td></tr>
+          <tr><td style="padding:8px 12px;border-bottom:1px solid var(--border);color:var(--text2)">Submit fails: <code>ClassNotFoundException</code></td><td style="padding:8px 12px;border-bottom:1px solid var(--border);color:var(--text2)">The Elasticsearch JAR is missing. Go to ⊙ Systems → Upload JAR, upload the ES JAR, and restart the SQL Gateway.</td></tr>
+          <tr><td style="padding:8px 12px;border-bottom:1px solid var(--border);color:var(--text2)">No output in Print sink log</td><td style="padding:8px 12px;border-bottom:1px solid var(--border);color:var(--text2)">All generated amounts may be ≤ 500 by chance. Lower the filter to <code>amount > 50.0</code> to see more rows.</td></tr>
+          <tr><td style="padding:8px 12px;color:var(--text2)">Can't draw edge — port not visible</td><td style="padding:8px 12px;color:var(--text2)">Zoom in on the canvas (scroll wheel). Ports appear as small circles on left/right edges of each node.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <div class="demo-nav-bottom">
+      <a href="index.html" class="demo-nav-btn">← Overview</a>
+      <a href="demo-02-kafka.html" class="demo-nav-btn next">Demo 2 — Kafka Pipeline →</a>
+    </div>
+
+  </main>
+</div>
+
+<footer>
+  <p>Str:::lab Studio · Pipeline Manager Demos</p>
+  <a href="docs-pipeline.html">Pipeline Manager Docs ↗</a>
+</footer>
+<script>
+  function switchTab(btn,id){const g=btn.closest('.tab-group');g.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));g.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));btn.classList.add('active');document.getElementById(id).classList.add('active');}
+  const obs=new IntersectionObserver(e=>{e.forEach(en=>{if(en.isIntersecting){document.querySelectorAll('.toc a').forEach(l=>l.classList.remove('active'));const lk=document.querySelector('.toc a[href="#'+en.target.id+'"]');if(lk)lk.classList.add('active');}});},{rootMargin:'-10% 0px -70% 0px'});
+  document.querySelectorAll('.section').forEach(s=>obs.observe(s));
+</script>
+</body>
+</html>

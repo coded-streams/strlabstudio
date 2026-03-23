@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Demo 3 — Systems Manager Connector → Pipeline · Str:::lab Studio</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23090c12'/%3E%3Cpolyline points='20 24 28 16 20 8' fill='none' stroke='%2300d4aa' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpolyline points='12 8 4 16 12 24' fill='none' stroke='%2300d4aa' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{--bg0:#090c12;--bg1:#0d1117;--bg2:#131920;--bg3:#1a2130;--border:#1e2d3d;--border2:#253348;--accent:#00d4aa;--blue:#4fa3e0;--purple:#9b72cf;--orange:#f0a500;--red:#e05c5c;--green:#3fb950;--yellow:#f0a500;--text0:#f0f6fc;--text1:#c9d1d9;--text2:#8b949e;--text3:#4a5568;--mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',sans-serif;--radius:8px;--nav-h:58px;}
+    *{box-sizing:border-box;margin:0;padding:0}html{scroll-behavior:smooth}body{font-family:var(--sans);background:var(--bg1);color:var(--text1);line-height:1.7;font-size:15px}a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:var(--bg1)}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+    .nav{position:sticky;top:0;z-index:100;height:var(--nav-h);background:rgba(9,12,18,0.95);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 32px;gap:0}
+    .nav-logo{display:flex;align-items:center;gap:10px;margin-right:24px;text-decoration:none;flex-shrink:0}.logo-mark{width:26px;height:26px;background:#0c1018;border:1px solid rgba(0,212,170,0.35);clip-path:polygon(0 0,80% 0,100% 20%,100% 100%,20% 100%,0 80%);display:flex;align-items:center;justify-content:center}.logo-text{font-family:var(--mono);font-size:14px;font-weight:600;color:var(--text0)}.logo-ver{font-size:9px;color:var(--text3);margin-left:4px}
+    .nav-demos{display:flex;align-items:center;gap:2px;flex:1;overflow-x:auto}.nav-demos a{font-size:11px;color:var(--text2);padding:5px 10px;border-radius:5px;white-space:nowrap;font-family:var(--mono)}.nav-demos a:hover,.nav-demos a.active{color:var(--text0);background:var(--bg3);text-decoration:none}.nav-demos a.active{color:var(--accent)}
+    .demo-pill{font-family:var(--mono);font-size:10px;padding:3px 10px;border-radius:20px;border:1px solid rgba(63,185,80,0.4);color:var(--green);background:rgba(63,185,80,0.06);margin-left:auto;flex-shrink:0}
+    .hero{background:var(--bg0);padding:52px 40px 40px;border-bottom:1px solid var(--border);position:relative;overflow:hidden}
+    .hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 70% 60% at 20% 0%,rgba(63,185,80,0.07),transparent 65%);pointer-events:none}
+    .demo-number{font-family:var(--mono);font-size:11px;color:var(--green);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+    .demo-number::before{content:'';width:32px;height:1px;background:var(--green);opacity:0.5}
+    .hero-title{font-family:var(--mono);font-size:32px;font-weight:700;color:var(--text0);letter-spacing:-1px;line-height:1.2;margin-bottom:12px}
+    .hero-sub{font-size:15px;color:var(--text2);max-width:620px;line-height:1.8;margin-bottom:20px}
+    .prereq-strip{display:flex;gap:8px;flex-wrap:wrap}
+    .prereq{display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:4px;font-size:11px;font-family:var(--mono)}
+    .prereq.ok{background:rgba(63,185,80,0.08);border:1px solid rgba(63,185,80,0.3);color:var(--green)}
+    .prereq.need{background:rgba(245,166,35,0.08);border:1px solid rgba(245,166,35,0.3);color:var(--yellow)}
+    .page{display:flex;max-width:1200px;margin:0 auto}
+    .toc{width:210px;flex-shrink:0;position:sticky;top:var(--nav-h);height:calc(100vh - var(--nav-h));overflow-y:auto;padding:24px 0 24px 16px;border-right:1px solid var(--border)}
+    .toc-label{font-size:9px;font-family:var(--mono);font-weight:700;color:var(--text3);letter-spacing:1.5px;text-transform:uppercase;padding:0 8px;margin-bottom:5px;display:block;margin-top:16px}
+    .toc a{display:block;font-size:12px;color:var(--text2);padding:4px 8px;border-radius:4px;border-left:2px solid transparent;transition:all .12s}.toc a:hover{color:var(--text0);text-decoration:none}.toc a.active{color:var(--accent);border-left-color:var(--accent);background:rgba(0,212,170,0.05)}
+    .content{flex:1;min-width:0;padding:40px 48px 96px}
+    .section{margin-bottom:56px}
+    h2{font-size:20px;font-weight:700;color:var(--text0);margin-bottom:8px;padding-bottom:10px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+    .sn{width:28px;height:28px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:12px;font-weight:700;color:#000;flex-shrink:0}
+    h3{font-size:15px;font-weight:600;color:var(--text0);margin:22px 0 8px}
+    p{color:var(--text2);margin-bottom:10px;font-size:14px;line-height:1.8}
+    ul{margin:6px 0 12px 20px}li{font-size:14px;color:var(--text2);margin-bottom:5px;line-height:1.7}li strong{color:var(--text1)}
+    code{font-family:var(--mono);font-size:12px;color:var(--accent);background:rgba(0,212,170,0.08);border:1px solid rgba(0,212,170,0.15);padding:1px 6px;border-radius:4px}
+    pre{background:var(--bg0);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:var(--radius);padding:16px 20px;overflow-x:auto;margin:10px 0}pre code{background:none;border:none;padding:0;font-size:12px;color:var(--text1);line-height:1.7}
+    .callout{border-radius:var(--radius);padding:11px 15px;margin:10px 0;font-size:13px;line-height:1.7;display:flex;gap:10px}
+    .callout-icon{font-size:15px;flex-shrink:0}.callout-body{flex:1}.callout-body strong{display:block;margin-bottom:2px}
+    .callout.tip{background:rgba(0,212,170,0.06);border:1px solid rgba(0,212,170,0.2)}.callout.tip strong{color:var(--accent)}
+    .callout.warn{background:rgba(245,166,35,0.06);border:1px solid rgba(245,166,35,0.2)}.callout.warn strong{color:var(--yellow)}
+    .callout.info{background:rgba(79,163,224,0.06);border:1px solid rgba(79,163,224,0.2)}.callout.info strong{color:var(--blue)}
+    .callout.ok{background:rgba(63,185,80,0.06);border:1px solid rgba(63,185,80,0.2)}.callout.ok strong{color:var(--green)}
+    .steps{margin:16px 0}
+    .step{display:flex;gap:16px;margin-bottom:0;position:relative}
+    .step+.step{margin-top:28px}
+    .step::before{content:'';position:absolute;left:15px;top:40px;width:2px;bottom:-28px;background:var(--border);z-index:0}
+    .step:last-child::before{display:none}
+    .step-num{width:32px;height:32px;border-radius:50%;background:var(--bg2);border:2px solid var(--green);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:12px;font-weight:700;color:var(--green);flex-shrink:0;z-index:1;margin-top:2px}
+    .step-body{flex:1;min-width:0}
+    .step-body h4{font-size:14px;font-weight:700;color:var(--text0);margin:0 0 8px}
+    .node-config{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius);padding:14px 16px;margin:10px 0}
+    .node-config-title{font-size:10px;font-family:var(--mono);font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;display:flex;align-items:center;gap:7px}
+    .node-config-title span{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0}
+    .field-row{display:flex;margin-bottom:6px;gap:8px;font-size:13px}
+    .field-key{color:var(--text3);font-family:var(--mono);font-size:11px;min-width:130px;flex-shrink:0;padding-top:1px}
+    .field-val{color:var(--text0);font-family:var(--mono);font-size:12px;background:rgba(0,212,170,0.06);border:1px solid rgba(0,212,170,0.15);padding:1px 7px;border-radius:3px}
+    .field-val.schema{display:block;white-space:pre;background:var(--bg0);border-color:var(--border);color:var(--text1);padding:7px 10px;margin-top:3px;line-height:1.7}
+    .sys-form{background:rgba(63,185,80,0.05);border:1px solid rgba(63,185,80,0.2);border-radius:var(--radius);padding:14px 16px;margin:10px 0}
+    .sys-form-title{font-size:10px;font-family:var(--mono);font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px}
+    .edge-tag{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:3px;font-size:10px;font-family:var(--mono);font-weight:700}
+    .edge-forward{background:rgba(79,163,224,0.1);border:1px solid rgba(79,163,224,0.3);color:#4fa3e0}
+    .edge-hash{background:rgba(63,185,80,0.1);border:1px solid rgba(63,185,80,0.3);color:var(--green)}
+    .banner-mock{background:rgba(0,212,170,0.07);border:1px solid rgba(0,212,170,0.25);border-radius:6px;padding:10px 13px;margin:10px 0;font-size:12px}
+    .banner-mock-title{font-size:10px;font-weight:700;color:var(--accent);margin-bottom:6px}
+    .banner-mock-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+    .banner-mock-name{font-family:var(--mono);font-size:11px;color:var(--text1)}
+    .banner-mock-btn{font-size:9px;padding:2px 8px;border-radius:3px;background:rgba(0,212,170,0.12);border:1px solid rgba(0,212,170,0.3);color:var(--accent);cursor:default}
+    .tab-group{margin:14px 0}.tab-nav{display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:-1px}
+    .tab-btn{font-family:var(--mono);font-size:11px;padding:6px 14px;border-radius:6px 6px 0 0;border:1px solid transparent;border-bottom:none;background:transparent;color:var(--text2);cursor:pointer}
+    .tab-btn.active{background:var(--bg0);border-color:var(--border);color:var(--accent);border-bottom-color:var(--bg0)}.tab-pane{display:none;padding-top:1px}.tab-pane.active{display:block}
+    footer{border-top:1px solid var(--border);background:var(--bg0);padding:24px 32px;display:flex;align-items:center;justify-content:space-between}footer p{font-size:12px;color:var(--text3)}footer a{color:var(--text2);font-size:12px}
+    .demo-nav-bottom{display:flex;gap:12px;justify-content:space-between;margin-top:40px;padding-top:24px;border-top:1px solid var(--border)}
+    .demo-nav-btn{font-family:var(--mono);font-size:12px;padding:8px 18px;border-radius:6px;border:1px solid var(--border2);background:var(--bg2);color:var(--text1);text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+    .demo-nav-btn.next{background:var(--accent);color:#000;border-color:var(--accent);font-weight:700}
+    @media(max-width:900px){.toc{display:none}.content{padding:24px 16px 64px}.hero-title{font-size:24px}}
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <a href="index.html" class="nav-logo">
+    <div class="logo-mark"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00d4aa" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
+    <span class="logo-text">Str:::lab<span class="logo-ver">Studio</span></span>
+  </a>
+  <div class="nav-demos">
+    <a href="demo-01-fanout.html">Demo 1 — Fanout</a>
+    <a href="demo-02-kafka.html">Demo 2 — Kafka</a>
+    <a href="demo-03-connector.html" class="active">Demo 3 — Connector</a>
+    <a href="demo-04-catalog.html">Demo 4 — Catalog</a>
+    <a href="docs-pipeline.html">Pipeline Docs</a>
+  </div>
+  <span class="demo-pill">⊙ Systems Manager</span>
+</nav>
+
+<div class="hero">
+  <div class="demo-number">Demo 03 of 04</div>
+  <h1 class="hero-title">Register a Connector in<br>Systems Manager → Use in Pipeline</h1>
+  <p class="hero-sub">Learn the full end-to-end connector workflow. Register a PostgreSQL connection in Systems Manager, test its reachability, save it, then build a pipeline in Pipeline Manager where the saved connector automatically prefills the JDBC sink node — no re-typing connection details.</p>
+  <div class="prereq-strip">
+    <span class="prereq ok">✓ Flink session connected</span>
+    <span class="prereq need">⚠ JDBC JAR + PG driver JAR</span>
+    <span class="prereq need">⚠ PostgreSQL running</span>
+  </div>
+</div>
+
+<div class="page">
+  <aside class="toc">
+    <span class="toc-label">This Demo</span>
+    <a href="#overview">What You'll Build</a>
+    <a href="#prereqs">Prerequisites</a>
+    <span class="toc-label">Part A — Systems Manager</span>
+    <a href="#step-jar">1 · Upload JDBC JARs</a>
+    <a href="#step-pg-table">2 · Create PG Table</a>
+    <a href="#step-register">3 · Register Integration</a>
+    <a href="#step-test">4 · Test Connectivity</a>
+    <a href="#step-save">5 · Save Integration</a>
+    <span class="toc-label">Part B — Pipeline Manager</span>
+    <a href="#step-open">6 · Open Pipeline</a>
+    <a href="#step-datagen">7 · Datagen Source</a>
+    <a href="#step-filter">8 · Filter Transform</a>
+    <a href="#step-jdbc">9 · JDBC Sink (prefill!)</a>
+    <a href="#step-print">10 · Print Sink</a>
+    <a href="#step-connect">11 · Connect &amp; Submit</a>
+    <a href="#step-verify">12 · Verify</a>
+    <span class="toc-label">Reference</span>
+    <a href="#generated-sql">Generated SQL</a>
+  </aside>
+
+  <main class="content">
+
+    <section class="section" id="overview">
+      <h2><span class="sn">▦</span> What You'll Build</h2>
+      <p>This demo has two parts. In <strong>Part A</strong>, you register a PostgreSQL integration in Systems Manager — enter host, port, credentials, test connectivity, and save. In <strong>Part B</strong>, you build a pipeline. When you open the JDBC Sink node's config, the saved integration appears as a banner with a <strong>Use</strong> button that fills all connection fields automatically.</p>
+      <div class="callout info">
+        <span class="callout-icon">ℹ</span>
+        <div class="callout-body"><strong>Why save connectors first?</strong> In real projects you have many pipelines writing to the same database. Saving the connection once means every new JDBC sink in any pipeline can reuse it with one click — no copy-pasting JDBC URLs or passwords.</div>
+      </div>
+    </section>
+
+    <section class="section" id="prereqs">
+      <h2><span class="sn">!</span> Prerequisites</h2>
+      <ul>
+        <li><strong>JDBC JAR</strong> — <code>flink-connector-jdbc-x.x.x.jar</code> in <code>/opt/flink/lib/</code></li>
+        <li><strong>PostgreSQL driver</strong> — <code>postgresql-42.x.x.jar</code> in <code>/opt/flink/lib/</code></li>
+        <li><strong>PostgreSQL instance</strong> — reachable at <code>postgres:5432</code> (update to your host)</li>
+      </ul>
+      <div class="callout warn">
+        <span class="callout-icon">⚠</span>
+        <div class="callout-body"><strong>Restart the SQL Gateway</strong> after copying JARs into <code>/opt/flink/lib/</code>. The JDBC connector cannot be loaded with <code>ADD JAR</code> at runtime — it must be present at startup.</div>
+      </div>
+    </section>
+
+    <!-- PART A -->
+    <section class="section" id="step-jar">
+      <h2><span class="sn">A</span> Part A — Systems Manager</h2>
+
+      <div class="steps">
+        <div class="step" id="step-jar">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <h4>Upload the JDBC JARs</h4>
+            <p>Click <strong>⊙ Systems</strong> in the topbar → <strong>⬆ Upload JAR</strong> tab. Use the download links on that page to get:</p>
+            <ul>
+              <li><code>flink-connector-jdbc-3.2.0-1.19.jar</code> — from Maven Central</li>
+              <li><code>postgresql-42.7.3.jar</code> — from Maven Central</li>
+            </ul>
+            <p>Upload each one using the dropzone. Then restart the Gateway container:</p>
+            <pre><code>docker restart flink-sql-gateway</code></pre>
+            <p>Reconnect your Studio session after the restart.</p>
+          </div>
+        </div>
+
+        <div class="step" id="step-pg-table">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <h4>Create the target table in PostgreSQL</h4>
+            <p>Before Flink can write to PostgreSQL, the table must already exist. Run this in psql or your PostgreSQL client:</p>
+            <pre><code>CREATE TABLE IF NOT EXISTS flink_orders (
+  order_id  BIGINT       PRIMARY KEY,
+  customer  VARCHAR(200),
+  amount    DOUBLE PRECISION,
+  status    VARCHAR(50),
+  ts        TIMESTAMP
+);</code></pre>
+          </div>
+        </div>
+
+        <div class="step" id="step-register">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <h4>Register the PostgreSQL integration</h4>
+            <p>Click <strong>⊙ Systems</strong> → <strong>⊙ Integrations</strong> tab → click the <strong>PostgreSQL</strong> card. The integration form opens on the right. Fill in:</p>
+            <div class="sys-form">
+              <div class="sys-form-title">⊙ Systems Manager — PostgreSQL form</div>
+              <div class="field-row"><span class="field-key">Integration Name</span><span class="field-val">postgres_local</span></div>
+              <div class="field-row"><span class="field-key">Host</span><span class="field-val">postgres</span></div>
+              <div class="field-row"><span class="field-key">Port</span><span class="field-val">5432</span></div>
+              <div class="field-row"><span class="field-key">Database</span><span class="field-val">mydb</span></div>
+              <div class="field-row"><span class="field-key">Schema</span><span class="field-val">public</span></div>
+              <div class="field-row"><span class="field-key">Auth Mode</span><span class="field-val">Username / Password</span></div>
+              <div class="field-row"><span class="field-key">Username</span><span class="field-val">flink_user</span></div>
+              <div class="field-row"><span class="field-key">Password</span><span class="field-val">secret</span></div>
+            </div>
+            <p>The Generated Flink SQL panel below the form updates in real time to show the <code>CREATE TABLE ... WITH ('connector'='jdbc', ...)</code> statement that will be used.</p>
+          </div>
+        </div>
+
+        <div class="step" id="step-test">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <h4>Test Connectivity</h4>
+            <p>Click the <strong>⊙ Test Connectivity</strong> button. You should see:</p>
+            <div class="callout ok">
+              <span class="callout-icon">✓</span>
+              <div class="callout-body"><strong>Flink cluster reachable ✓ — PostgreSQL probe sent</strong><br>The test confirms the Flink cluster is up and gives you the exact command to verify PostgreSQL reachability from inside the Flink container network:<br><code>docker exec &lt;flink-container&gt; bash -c "nc -zv postgres 5432 &amp;&amp; echo OPEN"</code></div>
+            </div>
+            <p>Run the <code>nc -zv</code> command from your terminal. If it prints <code>OPEN</code>, PostgreSQL is reachable from Flink.</p>
+          </div>
+        </div>
+
+        <div class="step" id="step-save">
+          <div class="step-num">5</div>
+          <div class="step-body">
+            <h4>Save the Integration</h4>
+            <p>Click <strong>💾 Save Integration</strong>. A success toast appears. The integration is saved to browser localStorage. Click the <strong>💾 Saved</strong> tab to confirm <code>postgres_local</code> appears in the list.</p>
+            <div class="callout tip">
+              <span class="callout-icon">💡</span>
+              <div class="callout-body"><strong>Now any JDBC Sink node in Pipeline Manager will show this connector.</strong> When you open a JDBC Sink config modal, a green banner shows saved matching integrations. Click <strong>Use</strong> to fill all fields in one click.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PART B -->
+    <section class="section" id="step-open">
+      <h2><span class="sn">B</span> Part B — Pipeline Manager</h2>
+
+      <div class="steps">
+        <div class="step" id="step-open">
+          <div class="step-num">6</div>
+          <div class="step-body">
+            <h4>Open Pipeline Manager</h4>
+            <p>Click <strong>◈ Pipeline</strong>. Rename the pipeline to <code>pg-sink-demo</code>. Set checkpointing in <strong>⚙ Settings</strong>:</p>
+            <pre><code>Execution Mode:      streaming
+Parallelism:         1
+Checkpoint Interval: 10000</code></pre>
+          </div>
+        </div>
+
+        <div class="step" id="step-datagen">
+          <div class="step-num">7</div>
+          <div class="step-body">
+            <h4>Add Datagen source</h4>
+            <p>Drag <strong>Sources → Datagen</strong>. Click <strong>✏ edit</strong>:</p>
+            <div class="node-config">
+              <div class="node-config-title"><span style="background:#2d8a4e"></span>Datagen Source</div>
+              <div class="field-row"><span class="field-key">Table Name</span><span class="field-val">orders_stream</span></div>
+              <div class="field-row"><span class="field-key">Rows / sec</span><span class="field-val">5</span></div>
+              <div class="field-row"><span class="field-key">Schema</span><span class="field-val schema">order_id  BIGINT
+customer  STRING
+amount    DOUBLE
+status    STRING
+ts        TIMESTAMP(3)</span></div>
+            </div>
+            <p>Click <strong>✓ Apply</strong>.</p>
+          </div>
+        </div>
+
+        <div class="step" id="step-filter">
+          <div class="step-num">8</div>
+          <div class="step-body">
+            <h4>Add Filter transform</h4>
+            <p>Drag <strong>Transformations → Filter</strong>. Click <strong>✏ edit</strong>. The Filter node has <strong>one parameter only</strong> — the WHERE condition. There is no Table Name field on Filter.</p>
+            <div class="node-config">
+              <div class="node-config-title"><span style="background:#2a7a3a"></span>Filter</div>
+              <div class="field-row"><span class="field-key">Node Label</span><span class="field-val">filter_orders</span></div>
+              <div class="field-row" style="opacity:0.5;margin-bottom:4px"><span class="field-key" style="font-size:10px">↑ canvas label only</span></div>
+              <div class="field-row"><span class="field-key">WHERE Condition</span><span class="field-val">amount &gt; 100.0</span></div>
+            </div>
+            <p>Click <strong>✓ Apply</strong>. This becomes <code>WHERE amount &gt; 100.0</code> in the INSERT INTO.</p>
+          </div>
+        </div>
+
+        <div class="step" id="step-jdbc">
+          <div class="step-num">9</div>
+          <div class="step-body">
+            <h4>Add JDBC Sink — use the saved connector!</h4>
+            <p>Drag <strong>Sinks → JDBC Sink</strong>. Click <strong>✏ edit</strong>. At the top of the modal you will see the <strong>connector banner</strong>:</p>
+            <div class="banner-mock">
+              <div class="banner-mock-title">✓ Connector detected</div>
+              <div class="banner-mock-row">
+                <span class="banner-mock-name">postgres_local</span>
+                <span class="banner-mock-btn">Use</span>
+              </div>
+            </div>
+            <p>Click <strong>Use</strong>. All JDBC fields are filled automatically from the saved integration. Then complete the remaining fields:</p>
+            <div class="node-config">
+              <div class="node-config-title"><span style="background:#0a5a5a"></span>JDBC Sink (after prefill)</div>
+              <div class="field-row"><span class="field-key">Table Name</span><span class="field-val">pg_orders_sink</span></div>
+              <div class="field-row"><span class="field-key">JDBC URL</span><span class="field-val">jdbc:postgresql://postgres:5432/mydb</span></div>
+              <div class="field-row"><span class="field-key">DB Table</span><span class="field-val">public.flink_orders</span></div>
+              <div class="field-row"><span class="field-key">Username</span><span class="field-val">flink_user  ← pre-filled</span></div>
+              <div class="field-row"><span class="field-key">Password</span><span class="field-val">secret  ← pre-filled</span></div>
+              <div class="field-row"><span class="field-key">Schema</span><span class="field-val schema">order_id  BIGINT
+customer  STRING
+amount    DOUBLE
+status    STRING
+ts        TIMESTAMP(3)</span></div>
+            </div>
+            <p>Click <strong>⊙ Test Connectivity</strong> to verify PostgreSQL is still reachable. Then click <strong>✓ Apply</strong>.</p>
+          </div>
+        </div>
+
+        <div class="step" id="step-print">
+          <div class="step-num">10</div>
+          <div class="step-body">
+            <h4>Add Print (Debug) sink</h4>
+            <p>Drag <strong>Sinks → Print (Debug)</strong>. Click <strong>✏ edit</strong>:</p>
+            <div class="node-config">
+              <div class="node-config-title"><span style="background:#555"></span>Print Sink</div>
+              <div class="field-row"><span class="field-key">Table Name</span><span class="field-val">orders_debug</span></div>
+            </div>
+            <p>Click <strong>✓ Apply</strong>.</p>
+          </div>
+        </div>
+
+        <div class="step" id="step-connect">
+          <div class="step-num">11</div>
+          <div class="step-body">
+            <h4>Connect nodes, Layout, Submit</h4>
+            <p>Draw these edges:</p>
+            <ul>
+              <li><code>orders_stream</code> → <code>filter_orders</code> — <span class="edge-tag edge-forward">FORWARD</span></li>
+              <li><code>filter_orders</code> → <code>pg_orders_sink</code> — <span class="edge-tag edge-hash">HASH</span></li>
+              <li><code>filter_orders</code> → <code>orders_debug</code> — <span class="edge-tag edge-forward">FORWARD</span></li>
+            </ul>
+            <p>Click <strong>Layout</strong> → <strong>▶ Run</strong> to preview animation → <strong>Submit</strong>.</p>
+          </div>
+        </div>
+
+        <div class="step" id="step-verify">
+          <div class="step-num">12</div>
+          <div class="step-body">
+            <h4>Verify the output</h4>
+            <pre><code>-- In psql — rows should appear within seconds:
+SELECT order_id, customer, amount, status
+FROM flink_orders
+ORDER BY ts DESC
+LIMIT 10;
+
+-- Count total rows inserted so far:
+SELECT COUNT(*) FROM flink_orders;
+
+-- Check print debug in TaskManager log:
+docker logs flink-taskmanager --tail=20</code></pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="generated-sql">
+      <h2><span class="sn">⟨⟩</span> Generated SQL</h2>
+      <pre><code>SET 'execution.runtime-mode'           = 'streaming';
+SET 'parallelism.default'              = '1';
+SET 'execution.checkpointing.interval' = '10000';
+
+CREATE TABLE IF NOT EXISTS orders_stream (
+  order_id  BIGINT,
+  customer  STRING,
+  amount    DOUBLE,
+  status    STRING,
+  ts        TIMESTAMP(3)
+) WITH (
+  'connector'       = 'datagen',
+  'rows-per-second' = '5'
+);
+
+CREATE TABLE IF NOT EXISTS pg_orders_sink (
+  order_id  BIGINT,
+  customer  STRING,
+  amount    DOUBLE,
+  status    STRING,
+  ts        TIMESTAMP(3),
+  PRIMARY KEY (order_id) NOT ENFORCED
+) WITH (
+  'connector'  = 'jdbc',
+  'url'        = 'jdbc:postgresql://postgres:5432/mydb',
+  'table-name' = 'public.flink_orders',
+  'username'   = 'flink_user',
+  'password'   = 'secret'
+);
+
+CREATE TABLE IF NOT EXISTS orders_debug (
+  order_id  BIGINT,
+  customer  STRING,
+  amount    DOUBLE,
+  status    STRING,
+  ts        TIMESTAMP(3)
+) WITH (
+  'connector' = 'print'
+);
+
+-- Fan-out: JDBC sink gets filtered orders
+INSERT INTO pg_orders_sink
+SELECT * FROM orders_stream WHERE amount > 100.0;
+
+-- Print sink also gets filtered orders
+INSERT INTO orders_debug
+SELECT * FROM orders_stream WHERE amount > 100.0;</code></pre>
+    </section>
+
+    <div class="demo-nav-bottom">
+      <a href="demo-02-kafka.html" class="demo-nav-btn">← Demo 2 — Kafka</a>
+      <a href="demo-04-catalog.html" class="demo-nav-btn next">Demo 4 — Catalog →</a>
+    </div>
+
+  </main>
+</div>
+
+<footer>
+  <p>Str:::lab Studio · Pipeline Manager Demos</p>
+  <a href="docs-pipeline.html">Pipeline Manager Docs ↗</a>
+</footer>
+<script>
+  const obs=new IntersectionObserver(e=>{e.forEach(en=>{if(en.isIntersecting){document.querySelectorAll('.toc a').forEach(l=>l.classList.remove('active'));const lk=document.querySelector('.toc a[href="#'+en.target.id+'"]');if(lk)lk.classList.add('active');}});},{rootMargin:'-10% 0px -70% 0px'});
+  document.querySelectorAll('.section').forEach(s=>obs.observe(s));
+</script>
+</body>
+</html>

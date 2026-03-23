@@ -2817,16 +2817,16 @@ function _plmNodeToSql(node) {
     }
 
     case 'print_sink':
-      // print connector — schema from source table, standalone CREATE
-      return lbl + '-- Sink: ' + tbl + '\nCREATE TABLE IF NOT EXISTS ' + tbl + ' (\n' + schema
-          + "\n) WITH (\n"
+      // LIKE copies exact schema from source — no column list, WITH before LIKE
+      return lbl + '-- Sink: ' + tbl + '\nCREATE TABLE IF NOT EXISTS ' + tbl + ' WITH (\n'
           + "  'connector' = 'print'"
           + (p.print_identifier ? ",\n  'print-identifier' = '" + p.print_identifier + "'" : '')
-          + "\n);";
+          + "\n) LIKE " + srcTbl + " (EXCLUDING ALL);";
 
     case 'blackhole_sink':
-      return lbl + '-- Sink: ' + tbl + '\nCREATE TABLE IF NOT EXISTS ' + tbl + ' (\n' + schema
-          + "\n) WITH (\n  'connector' = 'blackhole'\n);";
+      // LIKE copies exact schema from source — no column list, WITH before LIKE
+      return lbl + '-- Sink: ' + tbl + '\nCREATE TABLE IF NOT EXISTS ' + tbl
+          + " WITH (\n  'connector' = 'blackhole'\n) LIKE " + srcTbl + " (EXCLUDING ALL);";
 
     case 'mongodb_sink':
       return lbl + '-- Sink: ' + tbl + '\nCREATE TABLE IF NOT EXISTS ' + tbl + ' (\n' + schema

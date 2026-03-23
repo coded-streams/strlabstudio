@@ -5,7 +5,7 @@
 ![License](https://img.shields.io/badge/license-Apache%202.0-green)
 ![Flink](https://img.shields.io/badge/Flink%20SQL%20Gateway-1.16--2.x-orange)
 ![Docker](https://img.shields.io/badge/docker-ready-blue)
-![Version](https://img.shields.io/badge/version-v1.3.0-teal)
+![Version](https://img.shields.io/badge/version-v1.3.2-teal)
 
 > **Apache Flink** is a trademark of the Apache Software Foundation.
 > Str:::lab Studio is an independent open-source project that uses the Flink SQL Gateway REST API.
@@ -20,6 +20,9 @@ Str:::lab Studio is a self-hosted web IDE that connects to the **Flink SQL Gatew
 - Write and run Flink SQL in a multi-tab editor with **live streaming results**
 - **Upload Java, Python, or Scala JARs** and register custom UDFs (ScalarFunction, TableFunction, AggregateFunction) directly from the browser — no SSH, no CLI
 - **Build SQL Views** with computed columns and CASE WHEN expressions using the visual View Builder — no JAR needed
+- **Build streaming pipelines visually** using the **◈ Pipeline Manager** — drag operators onto a canvas, connect them, and submit to Flink without writing SQL by hand
+- **Register and test external system connections** using the **⊙ Systems Manager** — configure Kafka, PostgreSQL, Elasticsearch, MinIO, Hive Metastore, and more with a ⊙ Test Connectivity check before saving
+- **Register persistent external catalogs** using the **⊕ Catalog Manager** — JDBC, Hive, Iceberg (Hive/REST/Glue), and Delta Lake catalogs with live connectivity testing
 - Visualise running job DAGs with live operator metrics, backpressure indicators, and throughput charts
 - **Plot streaming results** as bar, line, area, scatter, pie, donut, histogram, or heatmap charts with explicit X/Y axis selection
 - **Highlight result rows in real time** using Colour Describe — a rules engine that applies colour to matching rows as they stream in
@@ -79,8 +82,6 @@ services:
     ports:
       - "3030:80"
     environment:
-      # nginx proxies /flink-api/     → FLINK_GATEWAY_HOST:PORT
-      # nginx proxies /jobmanager-api → JOBMANAGER_HOST:PORT
       FLINK_GATEWAY_HOST: flink-sql-gateway      # your gateway container name
       FLINK_GATEWAY_PORT: "8083"
       JOBMANAGER_HOST:    your-jobmanager         # your jobmanager container name
@@ -297,6 +298,91 @@ Substituted into `nginx.conf` at container startup by `docker-entrypoint.sh`.
 
 ---
 
+## Pipeline Manager
+
+The Pipeline Manager is a visual Flink SQL pipeline builder built into the Studio. Open it with **◈ Pipeline** in the topbar.
+
+**What it does:**
+- Drag operators from a categorised palette onto an infinite canvas
+- Connect operators with typed edges (FORWARD, HASH, BROADCAST, REBALANCE, RESCALE)
+- Configure each operator with a modal — the config generates the exact SQL `WITH (...)` clause
+- Animate data flow with particle physics running along Bézier edges
+- Validate the pipeline before submission — detects unconfigured nodes, disconnected transforms, and sourceless sinks
+- Generate and submit the full `CREATE TABLE` + `INSERT INTO` SQL in one click
+- Save, load, export (JSON), and import pipelines across sessions
+
+**Operator groups:**
+
+| Group | Operators |
+|---|---|
+| Sources | Kafka, Datagen, JDBC, Filesystem, Pulsar, Kinesis |
+| Transformations | Filter, Project, UDF Map, Enrich, Union, Split |
+| Windows | Tumble, Hop, Session, Cumulate |
+| Aggregations | Aggregate, Dedup, Top-N |
+| Joins | Interval Join, Temporal Join, Regular Join |
+| CEP | Match Recognize, CEP Alert |
+| Sinks | Kafka, JDBC, Filesystem, Elasticsearch, Print, Blackhole, MongoDB |
+| Output | Result Output, AI Model |
+| My UDFs | UDF Node (any registered UDF) |
+
+**Key behaviours:**
+- Operators that require connector JARs are flagged with a ⚡ badge and trigger a Systems Manager warning when dropped
+- Print and Blackhole sinks use `CREATE TABLE ... WITH (...) LIKE source (EXCLUDING ALL)` — they inherit the exact schema from the upstream source automatically, avoiding column mismatch errors
+- Filter and Project operators have no `table_name` — they inject a `WHERE` clause and `SELECT` column list respectively into the generated `INSERT INTO`
+- Multiple sinks generate `EXECUTE STATEMENT SET BEGIN ... END` with one `INSERT INTO` per sink
+- Auto-layout uses Kahn's topological sort to arrange nodes left-to-right by data flow layer
+
+---
+
+## Systems Manager
+
+The Systems Manager centralises connector JAR management and external system integration. Open it with **⊙ Systems** in the topbar.
+
+**Tabs:**
+- **📦 Connector JARs** — browse all supported connectors with Maven coordinates, version notes, and SQL examples
+- **⬆ Upload JAR** — drag-and-drop connector JARs; Studio saves them via WebDAV PUT to `/opt/flink/lib/` (requires shared volume)
+- **⊙ Integrations** — configure named connections to Kafka, PostgreSQL, MySQL, Elasticsearch, MinIO/S3, Schema Registry, and Hive Metastore. Each form has a **⊙ Test Connectivity** button that probes the service before saving
+- **💾 Saved** — browse saved integrations; load them back into the form or insert their generated SQL directly into the editor
+- **? Guide** — deployment cheatsheet and connectivity test explanation
+
+**⊙ Test Connectivity behaviour by system type:**
+
+| System | Test method |
+|---|---|
+| Elasticsearch, MinIO/S3, Schema Registry | Direct browser `fetch()` — shows version/status if reachable |
+| Kafka, PostgreSQL, MySQL, Hive Metastore | Probes Flink cluster `/v1/info`; provides exact `nc -zv host port` command for container-side testing |
+
+Saved integrations are stored in `localStorage` and appear as a prefill banner in Pipeline Manager JDBC Sink nodes — one click fills all connection fields.
+
+---
+
+## Catalog Manager
+
+The Catalog Manager registers persistent external catalogs in the active Flink SQL Gateway session. Open it with **⊕ Catalogs** in the topbar.
+
+**Supported catalog types:**
+
+| Type | Backend | JAR required |
+|---|---|---|
+| Generic In-Memory | Flink built-in | No |
+| PostgreSQL (JDBC) | PostgreSQL via JDBC | flink-connector-jdbc + postgresql driver |
+| MySQL / MariaDB (JDBC) | MySQL via JDBC | flink-connector-jdbc + mysql-connector-j |
+| Apache Hive | Hive Metastore | flink-connector-hive |
+| Apache Iceberg (Hive) | Iceberg + Hive Metastore | iceberg-flink-runtime |
+| Apache Iceberg (REST) | Nessie, Polaris, Tabular, Gravitino | iceberg-flink-runtime |
+| AWS Glue (Iceberg) | AWS Glue Data Catalog | iceberg-flink-runtime + iceberg-aws-bundle |
+| Delta Lake | Delta Lake storage | delta-flink + delta-standalone |
+
+**Tabs:**
+- **⊕ Create Catalog** — select type, fill form, run ⊙ Test Connectivity, click ⚡ Create Catalog. Generated `CREATE CATALOG` SQL is previewed in real time as you type.
+- **◎ Active Catalogs** — lists all catalogs in the current session; click USE to switch active catalog or Drop to remove
+- **🕑 History** — last 20 catalogs created; Insert or Copy their SQL
+- **📖 Setup Guide** — JAR placement instructions and connectivity test explanation
+
+After creation, the catalog appears in the Studio sidebar catalog tree. Tables and columns are live — click a column name to insert it at the cursor in the SQL editor.
+
+---
+
 ## UDF JAR Upload
 
 You are not limited to what Flink SQL ships with. Upload your own Java, Python, or Scala functions directly from the browser.
@@ -362,7 +448,7 @@ A rules engine for your result table. Rows highlight in real time as they stream
 1. Click **🎨 Colour Describe** in the results toolbar
 2. Select the live query slot to apply highlighting to
 3. Build rules: pick a field, operator, and value
-    - Operators: `==` `!=` `>` `>=` `<` `<=` `contains` `starts with` `ends with` `regex`
+   - Operators: `==` `!=` `>` `>=` `<` `<=` `contains` `starts with` `ends with` `regex`
 4. Choose a highlight colour and style: **row background · left border accent · text colour**
 5. Click **⚡ Apply & Activate** — matching rows highlight immediately and continue as rows stream in
 
@@ -485,6 +571,16 @@ SET 'table.optimizer.agg-phase-strategy'  = 'TWO_PHASE';
 ---
 
 ## Changelog
+
+### v1.3.2
+- **Pipeline Manager v2.0** — Visual Flink SQL pipeline builder. 35+ operators across 9 groups (Sources, Transformations, Windows, Aggregations, Joins, CEP, Sinks, Output, My UDFs). Operators rendered as SVG shapes (rect, diamond, hexagon, circle, stadium, parallelogram). Bézier edges with typed shipping strategies (FORWARD, HASH, BROADCAST, REBALANCE, RESCALE). ✏ edit button on every node for reliable config access. Particle animation along edges on ▶ Run. Kahn's topological sort for auto-layout and SQL generation order. `EXECUTE STATEMENT SET BEGIN...END` for multi-sink pipelines. Print and Blackhole sinks use `LIKE source (EXCLUDING ALL)` to inherit schema automatically.
+- **Systems Manager v1.1** — Connector JAR browser and integration registry. Manages Kafka, JDBC, S3/MinIO, Elasticsearch, Iceberg, Hive, Redis, Datagen, and Blackhole connectors. ⊙ Test Connectivity button on every integration form. HTTP-accessible services probed directly from the browser; TCP services probed via Flink REST with `nc -zv` command provided. Saved integrations prefill JDBC Sink nodes in Pipeline Manager.
+- **Catalog Manager v1.1** — External catalog registration for JDBC (PostgreSQL, MySQL), Hive, Iceberg (Hive/REST/Glue), and Delta Lake. ⊙ Test Connectivity before catalog creation. Generated `CREATE CATALOG` SQL previewed in real time. History of last 20 created catalogs. Live catalog tree in sidebar after creation.
+- **AI Model operator** — Pipeline Manager output operator for OpenAI, Anthropic, Bedrock, Vertex AI, Azure OpenAI, Hugging Face, and Custom HTTP endpoints. Auth types: Bearer, AWS SigV4, Azure AD, API Key Header, Basic Auth.
+- **Kafka auth fields** — SASL/SSL, SASL_PLAINTEXT, Confluent Cloud, and Schema Registry credentials on both Kafka Source and Kafka Sink operators.
+- **JDBC auth fields** — username, password, driver class, and fetch size on JDBC Source and Sink operators.
+- **Print/Blackhole schema fix** — fixed column mismatch validation error (`Column types of query result and sink do not match`) by switching from hardcoded fallback schema to `LIKE source (EXCLUDING ALL)`.
+- **Four standalone pipeline demo pages** — step-by-step interactive guides: Datagen fanout, Kafka producer + consumer, Systems Manager connector → pipeline, and Catalog Manager → pipeline.
 
 ### v1.3.0
 - **UDF Manager** — Upload Java/Python/Scala JARs directly from the browser. Guided 3-step registration form (class path, method, parameter types, scope). Supports ScalarFunction, TableFunction, AggregateFunction. ADD JAR browser URL bug fixed — always uses container filesystem path.

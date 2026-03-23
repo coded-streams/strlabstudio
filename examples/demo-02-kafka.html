@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Demo 2 — Kafka Producer + Consumer Pipeline · Str:::lab Studio</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23090c12'/%3E%3Cpolyline points='20 24 28 16 20 8' fill='none' stroke='%2300d4aa' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpolyline points='12 8 4 16 12 24' fill='none' stroke='%2300d4aa' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{--bg0:#090c12;--bg1:#0d1117;--bg2:#131920;--bg3:#1a2130;--border:#1e2d3d;--border2:#253348;--accent:#00d4aa;--blue:#4fa3e0;--purple:#9b72cf;--orange:#f0a500;--red:#e05c5c;--green:#3fb950;--yellow:#f0a500;--text0:#f0f6fc;--text1:#c9d1d9;--text2:#8b949e;--text3:#4a5568;--mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',sans-serif;--radius:8px;--nav-h:58px;}
+    *{box-sizing:border-box;margin:0;padding:0}html{scroll-behavior:smooth}body{font-family:var(--sans);background:var(--bg1);color:var(--text1);line-height:1.7;font-size:15px}a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:var(--bg1)}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+    .nav{position:sticky;top:0;z-index:100;height:var(--nav-h);background:rgba(9,12,18,0.95);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 32px;gap:0}
+    .nav-logo{display:flex;align-items:center;gap:10px;margin-right:24px;text-decoration:none;flex-shrink:0}.logo-mark{width:26px;height:26px;background:#0c1018;border:1px solid rgba(0,212,170,0.35);clip-path:polygon(0 0,80% 0,100% 20%,100% 100%,20% 100%,0 80%);display:flex;align-items:center;justify-content:center}.logo-text{font-family:var(--mono);font-size:14px;font-weight:600;color:var(--text0)}.logo-ver{font-size:9px;color:var(--text3);margin-left:4px}
+    .nav-demos{display:flex;align-items:center;gap:2px;flex:1;overflow-x:auto}.nav-demos a{font-size:11px;color:var(--text2);padding:5px 10px;border-radius:5px;white-space:nowrap;font-family:var(--mono)}.nav-demos a:hover,.nav-demos a.active{color:var(--text0);background:var(--bg3);text-decoration:none}.nav-demos a.active{color:var(--accent)}
+    .demo-pill{font-family:var(--mono);font-size:10px;padding:3px 10px;border-radius:20px;border:1px solid rgba(79,163,224,0.4);color:var(--blue);background:rgba(79,163,224,0.06);margin-left:auto;flex-shrink:0}
+    .hero{background:var(--bg0);padding:52px 40px 40px;border-bottom:1px solid var(--border);position:relative;overflow:hidden}
+    .hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 70% 60% at 20% 0%,rgba(79,163,224,0.07),transparent 65%);pointer-events:none}
+    .demo-number{font-family:var(--mono);font-size:11px;color:var(--blue);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+    .demo-number::before{content:'';width:32px;height:1px;background:var(--blue);opacity:0.5}
+    .hero-title{font-family:var(--mono);font-size:32px;font-weight:700;color:var(--text0);letter-spacing:-1px;line-height:1.2;margin-bottom:12px}
+    .hero-sub{font-size:15px;color:var(--text2);max-width:620px;line-height:1.8;margin-bottom:20px}
+    .prereq-strip{display:flex;gap:8px;flex-wrap:wrap}
+    .prereq{display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:4px;font-size:11px;font-family:var(--mono)}
+    .prereq.ok{background:rgba(63,185,80,0.08);border:1px solid rgba(63,185,80,0.3);color:var(--green)}
+    .prereq.need{background:rgba(245,166,35,0.08);border:1px solid rgba(245,166,35,0.3);color:var(--yellow)}
+    .page{display:flex;max-width:1200px;margin:0 auto}
+    .toc{width:210px;flex-shrink:0;position:sticky;top:var(--nav-h);height:calc(100vh - var(--nav-h));overflow-y:auto;padding:24px 0 24px 16px;border-right:1px solid var(--border)}
+    .toc-label{font-size:9px;font-family:var(--mono);font-weight:700;color:var(--text3);letter-spacing:1.5px;text-transform:uppercase;padding:0 8px;margin-bottom:5px;display:block;margin-top:16px}
+    .toc a{display:block;font-size:12px;color:var(--text2);padding:4px 8px;border-radius:4px;border-left:2px solid transparent;transition:all .12s}.toc a:hover{color:var(--text0);text-decoration:none}.toc a.active{color:var(--accent);border-left-color:var(--accent);background:rgba(0,212,170,0.05)}
+    .content{flex:1;min-width:0;padding:40px 48px 96px}
+    .section{margin-bottom:56px}
+    h2{font-size:20px;font-weight:700;color:var(--text0);margin-bottom:8px;padding-bottom:10px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+    .sn{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:12px;font-weight:700;color:#000;flex-shrink:0}
+    .sn.a{background:var(--blue)}.sn.b{background:var(--accent)}
+    h3{font-size:15px;font-weight:600;color:var(--text0);margin:22px 0 8px}
+    p{color:var(--text2);margin-bottom:10px;font-size:14px;line-height:1.8}
+    ul{margin:6px 0 12px 20px}li{font-size:14px;color:var(--text2);margin-bottom:5px;line-height:1.7}li strong{color:var(--text1)}
+    code{font-family:var(--mono);font-size:12px;color:var(--accent);background:rgba(0,212,170,0.08);border:1px solid rgba(0,212,170,0.15);padding:1px 6px;border-radius:4px}
+    pre{background:var(--bg0);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:var(--radius);padding:16px 20px;overflow-x:auto;margin:10px 0}pre code{background:none;border:none;padding:0;font-size:12px;color:var(--text1);line-height:1.7}
+    .callout{border-radius:var(--radius);padding:11px 15px;margin:10px 0;font-size:13px;line-height:1.7;display:flex;gap:10px}
+    .callout-icon{font-size:15px;flex-shrink:0}.callout-body{flex:1}.callout-body strong{display:block;margin-bottom:2px}
+    .callout.tip{background:rgba(0,212,170,0.06);border:1px solid rgba(0,212,170,0.2)}.callout.tip strong{color:var(--accent)}
+    .callout.warn{background:rgba(245,166,35,0.06);border:1px solid rgba(245,166,35,0.2)}.callout.warn strong{color:var(--yellow)}
+    .callout.info{background:rgba(79,163,224,0.06);border:1px solid rgba(79,163,224,0.2)}.callout.info strong{color:var(--blue)}
+    .callout.ok{background:rgba(63,185,80,0.06);border:1px solid rgba(63,185,80,0.2)}.callout.ok strong{color:var(--green)}
+    .pipeline-block{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius);padding:14px 16px;margin:12px 0}
+    .pipeline-block-title{font-size:10px;font-family:var(--mono);font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:7px}
+    .steps{margin:16px 0}
+    .step{display:flex;gap:16px;margin-bottom:0;position:relative}
+    .step+.step{margin-top:28px}
+    .step::before{content:'';position:absolute;left:15px;top:40px;width:2px;bottom:-28px;background:var(--border);z-index:0}
+    .step:last-child::before{display:none}
+    .step-num{width:32px;height:32px;border-radius:50%;background:var(--bg2);border:2px solid var(--blue);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:12px;font-weight:700;color:var(--blue);flex-shrink:0;z-index:1;margin-top:2px}
+    .step-body{flex:1;min-width:0}
+    .step-body h4{font-size:14px;font-weight:700;color:var(--text0);margin:0 0 8px}
+    .node-config{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius);padding:14px 16px;margin:10px 0}
+    .node-config-title{font-size:10px;font-family:var(--mono);font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;display:flex;align-items:center;gap:7px}
+    .node-config-title span{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0}
+    .field-row{display:flex;margin-bottom:6px;gap:8px;font-size:13px}
+    .field-key{color:var(--text3);font-family:var(--mono);font-size:11px;min-width:130px;flex-shrink:0;padding-top:1px}
+    .field-val{color:var(--text0);font-family:var(--mono);font-size:12px;background:rgba(0,212,170,0.06);border:1px solid rgba(0,212,170,0.15);padding:1px 7px;border-radius:3px}
+    .field-val.schema{display:block;white-space:pre;background:var(--bg0);border-color:var(--border);color:var(--text1);padding:7px 10px;margin-top:3px;line-height:1.7}
+    .edge-tag{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:3px;font-size:10px;font-family:var(--mono);font-weight:700}
+    .edge-forward{background:rgba(79,163,224,0.1);border:1px solid rgba(79,163,224,0.3);color:#4fa3e0}
+    .edge-broadcast{background:rgba(155,114,207,0.1);border:1px solid rgba(155,114,207,0.3);color:#9b72cf}
+    .edge-hash{background:rgba(63,185,80,0.1);border:1px solid rgba(63,185,80,0.3);color:var(--green)}
+    .pipeline-diagram{background:var(--bg0);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;margin:14px 0;overflow-x:auto}
+    .pd-row{display:flex;align-items:center;gap:0;flex-wrap:nowrap;min-width:max-content}
+    .pd-node{display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0}
+    .pd-box{padding:8px 14px;border-radius:6px;font-family:var(--mono);font-size:10px;font-weight:700;text-align:center;line-height:1.4;min-width:90px}
+    .pd-label{font-size:9px;color:var(--text3);font-family:var(--mono);text-align:center}
+    .pd-arrow{display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0;padding:0 6px}
+    .pd-line{height:2px;width:36px}
+    .pd-edge-label{font-size:8px;font-family:var(--mono);font-weight:700}
+    .topic-bubble{background:rgba(245,166,35,0.1);border:1px solid rgba(245,166,35,0.3);border-radius:20px;padding:3px 10px;font-size:9px;font-family:var(--mono);color:var(--yellow);text-align:center;margin-top:4px}
+    .pipeline-separator{background:rgba(79,163,224,0.06);border:1px solid rgba(79,163,224,0.2);border-radius:var(--radius);padding:8px 14px;margin:18px 0;font-size:12px;font-family:var(--mono);color:var(--blue);display:flex;align-items:center;gap:8px}
+    .tab-group{margin:14px 0}.tab-nav{display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:-1px}
+    .tab-btn{font-family:var(--mono);font-size:11px;padding:6px 14px;border-radius:6px 6px 0 0;border:1px solid transparent;border-bottom:none;background:transparent;color:var(--text2);cursor:pointer}
+    .tab-btn.active{background:var(--bg0);border-color:var(--border);color:var(--accent);border-bottom-color:var(--bg0)}.tab-pane{display:none;padding-top:1px}.tab-pane.active{display:block}
+    footer{border-top:1px solid var(--border);background:var(--bg0);padding:24px 32px;display:flex;align-items:center;justify-content:space-between}footer p{font-size:12px;color:var(--text3)}footer a{color:var(--text2);font-size:12px}
+    .demo-nav-bottom{display:flex;gap:12px;justify-content:space-between;margin-top:40px;padding-top:24px;border-top:1px solid var(--border)}
+    .demo-nav-btn{font-family:var(--mono);font-size:12px;padding:8px 18px;border-radius:6px;border:1px solid var(--border2);background:var(--bg2);color:var(--text1);text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+    .demo-nav-btn.next{background:var(--accent);color:#000;border-color:var(--accent);font-weight:700}
+    @media(max-width:900px){.toc{display:none}.content{padding:24px 16px 64px}.hero-title{font-size:24px}}
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <a href="index.html" class="nav-logo">
+    <div class="logo-mark"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00d4aa" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
+    <span class="logo-text">Str:::lab<span class="logo-ver">Studio</span></span>
+  </a>
+  <div class="nav-demos">
+    <a href="demo-01-fanout.html">Demo 1 — Fanout</a>
+    <a href="demo-02-kafka.html" class="active">Demo 2 — Kafka</a>
+    <a href="demo-03-connector.html">Demo 3 — Connector</a>
+    <a href="demo-04-catalog.html">Demo 4 — Catalog</a>
+    <a href="docs-pipeline.html">Pipeline Docs</a>
+  </div>
+  <span class="demo-pill">◈ Kafka Pipeline</span>
+</nav>
+
+<div class="hero">
+  <div class="demo-number">Demo 02 of 04</div>
+  <h1 class="hero-title">Kafka Producer Pipeline<br>+ Kafka Consumer Pipeline</h1>
+  <p class="hero-sub">Build two separate pipelines as a real streaming architecture. Pipeline A produces synthetic click events into a Kafka topic. Pipeline B reads from that same topic, applies a 10-second tumble window with aggregation, then fans out to a Kafka output topic and a Print sink.</p>
+  <div class="prereq-strip">
+    <span class="prereq ok">✓ Flink session connected</span>
+    <span class="prereq need">⚠ Kafka JAR required</span>
+    <span class="prereq need">⚠ Kafka broker running</span>
+  </div>
+</div>
+
+<div class="page">
+  <aside class="toc">
+    <span class="toc-label">This Demo</span>
+    <a href="#overview">What You'll Build</a>
+    <a href="#prereqs">Prerequisites</a>
+    <span class="toc-label">Pipeline A — Producer</span>
+    <a href="#pipelineA-open">1 · Open &amp; Settings</a>
+    <a href="#pipelineA-datagen">2 · Datagen Source</a>
+    <a href="#pipelineA-kafka-sink">3 · Kafka Sink</a>
+    <a href="#pipelineA-connect">4 · Connect &amp; Submit</a>
+    <span class="toc-label">Pipeline B — Consumer</span>
+    <a href="#pipelineB-open">5 · New Pipeline</a>
+    <a href="#pipelineB-source">6 · Kafka Source</a>
+    <a href="#pipelineB-window">7 · Tumble Window</a>
+    <a href="#pipelineB-sinks">8 · Output Sinks</a>
+    <a href="#pipelineB-connect">9 · Connect &amp; Submit</a>
+    <span class="toc-label">Verify &amp; Preview</span>
+    <a href="#verify">10 · Verify &amp; Live Preview</a>
+    <a href="#generated-sql">Generated SQL</a>
+  </aside>
+
+  <main class="content">
+
+    <section class="section" id="overview">
+      <h2><span class="sn a">▦</span> What You'll Build</h2>
+      <p>Two pipelines that work together through a Kafka topic. This is the real-world pattern — a producer job writes data, and a separate consumer job processes it independently. Both jobs run simultaneously.</p>
+
+      <div class="pipeline-diagram">
+        <p style="font-size:10px;font-family:var(--mono);color:var(--blue);margin:0 0 12px;letter-spacing:1px;text-transform:uppercase">Pipeline A — Producer (Job 1)</p>
+        <div class="pd-row">
+          <div class="pd-node">
+            <div class="pd-box" style="background:#0d2a1a;border:1px solid #2d8a4e;color:#57c764;">⚙ Datagen<br><span style="font-weight:400;color:#8b949e">clicks_gen</span></div>
+            <div class="pd-label">20 rows/sec</div>
+          </div>
+          <div class="pd-arrow"><div class="pd-line" style="background:#4fa3e0"></div><div class="pd-edge-label" style="color:#4fa3e0">FORWARD</div></div>
+          <div class="pd-node">
+            <div class="pd-box" style="background:#0d1a2a;border:1px solid #1a6fa8;color:#4e9de8;">⇩ Kafka Sink<br><span style="font-weight:400;color:#8b949e">raw_clicks</span></div>
+            <div class="topic-bubble">topic: raw-clicks</div>
+          </div>
+        </div>
+        <div style="margin:16px 0 12px;border-top:1px dashed var(--border);"></div>
+        <p style="font-size:10px;font-family:var(--mono);color:var(--accent);margin:0 0 12px;letter-spacing:1px;text-transform:uppercase">Pipeline B — Consumer (Job 2)</p>
+        <div class="pd-row">
+          <div class="pd-node">
+            <div class="pd-box" style="background:#0d1a2a;border:1px solid #1a6fa8;color:#4e9de8;">⇩ Kafka Src<br><span style="font-weight:400;color:#8b949e">raw_clicks_src</span></div>
+            <div class="topic-bubble">topic: raw-clicks</div>
+          </div>
+          <div class="pd-arrow"><div class="pd-line" style="background:#57c764"></div><div class="pd-edge-label" style="color:#57c764">HASH</div></div>
+          <div class="pd-node">
+            <div class="pd-box" style="background:#1a1500;border:1px solid #8a6a00;color:#c8a020;">▦ Tumble<br><span style="font-weight:400;color:#8b949e">10 sec window</span></div>
+            <div class="pd-label">click_window</div>
+          </div>
+          <div class="pd-arrow"><div class="pd-line" style="background:#57c764"></div><div class="pd-edge-label" style="color:#57c764">HASH</div></div>
+          <div class="pd-node" style="display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;align-items:center;gap:6px">
+              <div class="pd-box" style="background:#0d1a2a;border:1px solid #0a3a6a;color:#4e9de8;min-width:80px;">⇩ Kafka<br><span style="font-weight:400;color:#8b949e">summary</span></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px">
+              <div class="pd-box" style="background:#1a1a1a;border:1px solid #3a3a3a;color:#8b949e;min-width:80px;">⏎ Print<br><span style="font-weight:400">Debug</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p><strong>Concepts practised:</strong> Kafka source + sink configuration, consumer groups, tumble windows, building two separate pipelines, live preview from a Kafka reader table.</p>
+    </section>
+
+    <section class="section" id="prereqs">
+      <h2><span class="sn a">!</span> Prerequisites</h2>
+      <ul>
+        <li><strong>Kafka JAR</strong> — <code>flink-sql-connector-kafka-x.x.x.jar</code> must be in <code>/opt/flink/lib/</code>. Upload via <strong>⊙ Systems → Upload JAR</strong>. Restart the SQL Gateway after uploading.</li>
+        <li><strong>Kafka broker</strong> — a Kafka instance reachable from the Flink cluster at <code>kafka:9092</code> (or update to your address). Topics <code>raw-clicks</code> and <code>click-summary</code> will be auto-created by the producer on first write.</li>
+        <li><strong>Studio connected</strong> — active Flink session in the topbar.</li>
+      </ul>
+      <div class="callout warn">
+        <span class="callout-icon">⚠</span>
+        <div class="callout-body"><strong>Start Pipeline A first.</strong> The Kafka source in Pipeline B reads from a topic that Pipeline A writes. Run the producer first, wait a few seconds for data to appear, then build and submit the consumer.</div>
+      </div>
+    </section>
+
+    <!-- PIPELINE A -->
+    <section class="section" id="pipelineA-open">
+      <h2><span class="sn a">A</span> Pipeline A — Producer</h2>
+      <div class="pipeline-separator">⬆ PIPELINE A · Datagen → Kafka topic: raw-clicks</div>
+
+      <div class="steps">
+        <div class="step" id="pipelineA-open">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <h4>Open Pipeline Manager and name the pipeline</h4>
+            <p>Click <strong>◈ Pipeline</strong> in the topbar. Rename the pipeline to <code>kafka-producer</code>. Click <strong>⚙ Settings</strong>:</p>
+            <pre><code>Execution Mode:  streaming
+Parallelism:     1
+Checkpoint Interval: 10000</code></pre>
+          </div>
+        </div>
+
+        <div class="step" id="pipelineA-datagen">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <h4>Add Datagen source</h4>
+            <p>Drag <strong>Sources → Datagen</strong> onto the canvas. Click <strong>✏ edit</strong>:</p>
+            <div class="node-config">
+              <div class="node-config-title"><span style="background:#2d8a4e"></span>Datagen Source</div>
+              <div class="field-row"><span class="field-key">Table Name</span><span class="field-val">clicks_gen</span></div>
+              <div class="field-row"><span class="field-key">Rows / sec</span><span class="field-val">20</span></div>
+              <div class="field-row"><span class="field-key">Schema</span><span class="field-val schema">user_id   BIGINT
+page      STRING
+action    STRING
+duration  INT
+ts        TIMESTAMP(3)</span></div>
+              <div class="field-row"><span class="field-key">Watermark Col</span><span class="field-val">ts</span></div>
+              <div class="field-row"><span class="field-key">Watermark Delay</span><span class="field-val">5</span></div>
+            </div>
+            <p>Click <strong>✓ Apply</strong>.</p>
+          </div>
+        </div>
+
+        <div class="step" id="pipelineA-kafka-sink">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <h4>Add Kafka Sink</h4>
+            <p>Drag <strong>Sinks → Kafka Sink</strong> onto the canvas. Click <strong>✏ edit</strong>:</p>
+            <div class="node-config">
+              <div class="node-config-title"><span style="background:#1a6fa8"></span>Kafka Sink</div>
+              <div class="field-row"><span class="field-key">Table Name</span><span class="field-val">raw_clicks_sink</span></div>
+              <div class="field-row"><span class="field-key">Topic</span><span class="field-val">raw-clicks</span></div>
+              <div class="field-row"><span class="field-key">Bootstrap Servers</span><span class="field-val">kafka:9092</span></div>
+              <div class="field-row"><span class="field-key">Format</span><span class="field-val">json</span></div>
+            </div>
+            <p>Click <strong>⊙ Test Connectivity</strong> to check the Kafka broker is reachable. Then click <strong>✓ Apply</strong>.</p>
+          </div>
+        </div>
+
+        <div class="step" id="pipelineA-connect">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <h4>Connect and Submit Pipeline A</h4>
+            <p>Drag from <code>clicks_gen</code> right port → <code>raw_clicks_sink</code> left port. Leave the edge as <span class="edge-tag edge-forward">FORWARD</span>. Click <strong>Layout</strong> then <strong>Submit</strong>.</p>
+            <div class="callout ok">
+              <span class="callout-icon">✓</span>
+              <div class="callout-body"><strong>Wait 5–10 seconds</strong> after submitting Pipeline A before building Pipeline B. This ensures data is flowing into the <code>raw-clicks</code> topic before the consumer starts.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PIPELINE B -->
+    <section class="section" id="pipelineB-open">
+      <h2><span class="sn b">B</span> Pipeline B — Consumer</h2>
+      <div class="pipeline-separator">⬇ PIPELINE B · Kafka source → Window → Agg → two sinks</div>
+
+      <div class="steps">
+        <div class="step" id="pipelineB-open">
+          <div class="step-num">5</div>
+          <div class="step-body">
+            <h4>Create a second pipeline</h4>
+            <p>Click the <strong>📁 Saved</strong> tab inside Pipeline Manager, then click <strong>+ New Pipeline</strong>. Or simply click the pipeline name and rename — each pipeline is saved separately. Name this one <code>kafka-consumer</code>.</p>
+            <div class="callout tip">
+              <span class="callout-icon">💡</span>
+              <div class="callout-body"><strong>Saved pipelines</strong> are stored in your browser localStorage. You can switch between them using the 📁 Saved tab. Each submit runs as an independent Flink job.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step" id="pipelineB-source">
+          <div class="step-num">6</div>
+          <div class="step-body">
+            <h4>Add Kafka Source (consumer)</h4>
+            <p>Drag <strong>Sources → Kafka</strong> onto the canvas. Click <strong>✏ edit</strong>:</p>
+            <div class="node-config">
+              <div class="node-config-title"><span style="background:#1a6fa8"></span>Kafka Source</div>
+              <div class="field-row"><span class="field-key">Table Name</span><span class="field-val">raw_clicks_source</span></div>
+              <div class="field-row"><span class="field-key">Topic</span><span class="field-val">raw-clicks</span></div>
+              <div class="field-row"><span class="field-key">Bootstrap Servers</span><span class="field-val">kafka:9092</span></div>
+              <div class="field-row"><span class="field-key">Consumer Group</span><span class="field-val">click-processor-01</span></div>
+              <div class="field-row"><span class="field-key">Format</span><span class="field-val">json</span></div>
+              <div class="field-row"><span class="field-key">Startup Mode</span><span class="field-val">earliest-offset</span></div>
+              <div class="field-row"><span class="field-key">Schema</span><span class="field-val schema">user_id   BIGINT
+page      STRING
+action    STRING
+duration  INT
+ts        TIMESTAMP(3)</span></div>
+              <div class="field-row"><span class="field-key">Watermark Col</span><span class="field-val">ts</span></div>
+              <div class="field-row"><span class="field-key">Watermark Delay</span><span class="field-val">5</span></div>
+            </div>
+            <p>Click <strong>✓ Apply</strong>.</p>
+            <div class="callout info">
+              <span class="callout-icon">ℹ</span>
+              <div class="callout-body"><strong>Consumer Group ID</strong> must be unique per pipeline. This prevents offset collisions if you run multiple consumer pipelines from the same topic.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step" id="pipelineB-window">
+          <div class="step-num">7</div>
+          <div class="step-body">
+            <h4>Add Tumble Window</h4>
+            <p>Drag <strong>Windows → Tumble</strong> onto the canvas. Click <strong>✏ edit</strong>:</p>
+            <div class="node-config">
+              <div class="node-config-title"><span style="background:#8a6a00"></span>Tumble Window</div>
+              <div class="field-row"><span class="field-key">Table Name</span><span class="field-val">click_window</span></div>
+              <div class="field-row"><span class="field-key">Time Column</span><span class="field-val">ts</span></div>
+              <div class="field-row"><span class="field-key">Window Size</span><span class="field-val">10 SECOND</span></div>
+              <div class="field-row"><span class="field-key">GROUP BY</span><span class="field-val">page, action</span></div>
+              <div class="field-row"><span class="field-key">Aggregations</span><span class="field-val schema">COUNT(*) AS click_count
+AVG(CAST(duration AS DOUBLE)) AS avg_ms
+MAX(duration) AS max_ms</span></div>
+            </div>
+            <p>Click <strong>✓ Apply</strong>.</p>
+          </div>
+        </div>
+
+        <div class="step" id="pipelineB-sinks">
+          <div class="step-num">8</div>
+          <div class="step-body">
+            <h4>Add Kafka Sink + Print Debug</h4>
+            <p><strong>Kafka Sink</strong> — drag from Sinks. Click <strong>✏ edit</strong>:</p>
+            <div class="node-config">
+              <div class="node-config-title"><span style="background:#0a3a6a"></span>Kafka Sink (output topic)</div>
+              <div class="field-row"><span class="field-key">Table Name</span><span class="field-val">click_summary_sink</span></div>
+              <div class="field-row"><span class="field-key">Topic</span><span class="field-val">click-summary</span></div>
+              <div class="field-row"><span class="field-key">Bootstrap Servers</span><span class="field-val">kafka:9092</span></div>
+              <div class="field-row"><span class="field-key">Format</span><span class="field-val">json</span></div>
+            </div>
+            <p>Click <strong>✓ Apply</strong>.</p>
+            <p style="margin-top:12px"><strong>Print (Debug)</strong> — drag from Sinks. Click <strong>✏ edit</strong>:</p>
+            <div class="node-config">
+              <div class="node-config-title"><span style="background:#555"></span>Print Sink</div>
+              <div class="field-row"><span class="field-key">Table Name</span><span class="field-val">click_debug</span></div>
+            </div>
+            <p>Click <strong>✓ Apply</strong>.</p>
+          </div>
+        </div>
+
+        <div class="step" id="pipelineB-connect">
+          <div class="step-num">9</div>
+          <div class="step-body">
+            <h4>Connect the nodes and set edge types</h4>
+            <p>Draw these edges in order:</p>
+            <ul>
+              <li><code>raw_clicks_source</code> → <code>click_window</code> — set type: <span class="edge-tag edge-hash">HASH</span></li>
+              <li><code>click_window</code> → <code>click_summary_sink</code> — set type: <span class="edge-tag edge-hash">HASH</span></li>
+              <li><code>click_window</code> → <code>click_debug</code> — set type: <span class="edge-tag edge-broadcast">BROADCAST</span></li>
+            </ul>
+            <p>To set edge type: after drawing an edge, <strong>double-click it</strong> to open the edge config modal, change the Type dropdown, and click Apply. Click <strong>Layout</strong> then <strong>Submit</strong>.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="verify">
+      <h2><span class="sn b">✓</span> Verify &amp; Live Preview</h2>
+      <div class="tab-group">
+        <div class="tab-nav">
+          <button class="tab-btn active" onclick="switchTab(this,'v2-job')">Check Job Graph</button>
+          <button class="tab-btn" onclick="switchTab(this,'v2-print')">Print Debug Log</button>
+          <button class="tab-btn" onclick="switchTab(this,'v2-preview')">Live Preview Query</button>
+        </div>
+        <div id="v2-job" class="tab-pane active">
+          <p style="font-size:13px;color:var(--text2);margin:10px 0 6px">In Studio, click the <strong>Job Graph</strong> tab. You should see two running jobs:</p>
+          <pre><code>[your-session] kafka-producer     → running  (Job 1)
+[your-session] kafka-consumer     → running  (Job 2)</code></pre>
+          <p style="font-size:13px;color:var(--text2)">Click either job name to see its operator graph and throughput metrics.</p>
+        </div>
+        <div id="v2-print" class="tab-pane">
+      <pre><code>-- TaskManager stdout shows windowed aggregation results:
+docker logs flink-taskmanager --follow --tail=20
+
+-- Rows look like:
+-- +I[2026-..., 2026-..., /home, click, 42, 312.5, 890]</code></pre>
+        </div>
+        <div id="v2-preview" class="tab-pane">
+          <p style="font-size:13px;color:var(--text2);margin:10px 0 6px">Create a reader table with a <strong>different consumer group</strong> to preview the output topic without interfering with the production consumer:</p>
+          <pre><code>-- In a new Studio editor tab:
+CREATE TEMPORARY TABLE click_summary_reader (
+  window_start    TIMESTAMP(3),
+  window_end      TIMESTAMP(3),
+  page            STRING,
+  action          STRING,
+  click_count     BIGINT,
+  avg_ms          DOUBLE,
+  max_ms          INT
+) WITH (
+  'connector'                    = 'kafka',
+  'topic'                        = 'click-summary',
+  'properties.bootstrap.servers' = 'kafka:9092',
+  'properties.group.id'          = 'click-preview-01',
+  'scan.startup.mode'            = 'earliest-offset',
+  'format'                       = 'json'
+);
+
+-- Stream results into the Results tab:
+SELECT * FROM click_summary_reader;</code></pre>
+          <div class="callout tip">
+            <span class="callout-icon">💡</span>
+            <div class="callout-body"><strong>Always use a separate consumer group for previewing.</strong> The production consumer group (<code>click-processor-01</code>) tracks offsets for the pipeline. A different group for SELECT queries won't affect those offsets.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="generated-sql">
+      <h2><span class="sn b">⟨⟩</span> Generated SQL</h2>
+      <div class="tab-group">
+        <div class="tab-nav">
+          <button class="tab-btn active" onclick="switchTab(this,'sql-a')">Pipeline A — Producer</button>
+          <button class="tab-btn" onclick="switchTab(this,'sql-b')">Pipeline B — Consumer</button>
+        </div>
+        <div id="sql-a" class="tab-pane active"><pre><code>SET 'execution.runtime-mode'           = 'streaming';
+SET 'parallelism.default'              = '1';
+SET 'execution.checkpointing.interval' = '10000';
+
+CREATE TABLE IF NOT EXISTS clicks_gen (
+  user_id   BIGINT,
+  page      STRING,
+  action    STRING,
+  duration  INT,
+  ts        TIMESTAMP(3),
+  WATERMARK FOR ts AS ts - INTERVAL '5' SECOND
+) WITH (
+  'connector'       = 'datagen',
+  'rows-per-second' = '20'
+);
+
+CREATE TABLE IF NOT EXISTS raw_clicks_sink WITH (
+  'connector'                    = 'kafka',
+  'topic'                        = 'raw-clicks',
+  'properties.bootstrap.servers' = 'kafka:9092',
+  'format'                       = 'json'
+) LIKE clicks_gen (EXCLUDING ALL);
+
+INSERT INTO raw_clicks_sink SELECT * FROM clicks_gen;</code></pre></div>
+        <div id="sql-b" class="tab-pane"><pre><code>CREATE TABLE IF NOT EXISTS raw_clicks_source (
+  user_id   BIGINT,
+  page      STRING,
+  action    STRING,
+  duration  INT,
+  ts        TIMESTAMP(3),
+  WATERMARK FOR ts AS ts - INTERVAL '5' SECOND
+) WITH (
+  'connector'                    = 'kafka',
+  'topic'                        = 'raw-clicks',
+  'properties.bootstrap.servers' = 'kafka:9092',
+  'properties.group.id'          = 'click-processor-01',
+  'scan.startup.mode'            = 'earliest-offset',
+  'format'                       = 'json'
+);
+
+CREATE TABLE IF NOT EXISTS click_summary_sink WITH (
+  'connector'                    = 'kafka',
+  'topic'                        = 'click-summary',
+  'properties.bootstrap.servers' = 'kafka:9092',
+  'format'                       = 'json'
+) LIKE raw_clicks_source (EXCLUDING ALL);
+
+CREATE TABLE IF NOT EXISTS click_debug WITH (
+  'connector' = 'print'
+) LIKE raw_clicks_source (EXCLUDING ALL);
+
+INSERT INTO click_summary_sink
+SELECT
+  window_start, window_end, page, action,
+  COUNT(*) AS click_count,
+  AVG(CAST(duration AS DOUBLE)) AS avg_ms,
+  MAX(duration) AS max_ms
+FROM TABLE(TUMBLE(TABLE raw_clicks_source,
+  DESCRIPTOR(ts), INTERVAL '10' SECOND))
+GROUP BY window_start, window_end, page, action;
+
+INSERT INTO click_debug
+SELECT
+  window_start, window_end, page, action,
+  COUNT(*) AS click_count
+FROM TABLE(TUMBLE(TABLE raw_clicks_source,
+  DESCRIPTOR(ts), INTERVAL '10' SECOND))
+GROUP BY window_start, window_end, page, action;</code></pre></div>
+      </div>
+    </section>
+
+    <div class="demo-nav-bottom">
+      <a href="demo-01-fanout.html" class="demo-nav-btn">← Demo 1 — Fanout</a>
+      <a href="demo-03-connector.html" class="demo-nav-btn next">Demo 3 — Connector →</a>
+    </div>
+
+  </main>
+</div>
+
+<footer>
+  <p>Str:::lab Studio · Pipeline Manager Demos</p>
+  <a href="docs-pipeline.html">Pipeline Manager Docs ↗</a>
+</footer>
+<script>
+  function switchTab(btn,id){const g=btn.closest('.tab-group');g.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));g.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));btn.classList.add('active');document.getElementById(id).classList.add('active');}
+  const obs=new IntersectionObserver(e=>{e.forEach(en=>{if(en.isIntersecting){document.querySelectorAll('.toc a').forEach(l=>l.classList.remove('active'));const lk=document.querySelector('.toc a[href="#'+en.target.id+'"]');if(lk)lk.classList.add('active');}});},{rootMargin:'-10% 0px -70% 0px'});
+  document.querySelectorAll('.section').forEach(s=>obs.observe(s));
+</script>
+</body>
+</html>
