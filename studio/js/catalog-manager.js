@@ -1,7 +1,22 @@
-/* Str:::lab Studio — Catalog Manager v1.2.0
+/* Str:::lab Studio — Catalog Manager v1.2.1
  * ═══════════════════════════════════════════════════════════════════════
  * Adds external catalog support to Str:::lab Studio.
- * v1.2.0 changes:
+ *
+ * v1.2.1 fixes:
+ *  - JDBC PostgreSQL / MySQL buildProps: removed 'base-database' option
+ *    which is NOT a valid JDBC catalog property in any Flink version.
+ *    The JDBC catalog only supports: base-url, default-database, username,
+ *    password, compatible-mode, property-version.
+ *  - 'base-url' must be the JDBC URL WITHOUT a database path segment
+ *    (e.g. jdbc:postgresql://host:5432 — no trailing /dbname).
+ *    Flink constructs the full connection URL as base-url + "/" + default-database
+ *    internally at catalog open time.
+ *  - Removed the confusing separate "Base Database" form field. There is now
+ *    one field: "Database" which maps to 'default-database'. This is correct
+ *    for Flink 1.17, 1.18, 1.19, 1.20, and 2.x.
+ *  - JDBC URL placeholder updated to show URL without database name.
+ *
+ * v1.2.0 changes (retained):
  *  - JAR availability badges: each catalog type that needs a JAR now checks
  *    the strlabstudio_connector_jars localStorage registry (written by
  *    Systems Manager when JARs are uploaded). If the required JAR is found,
@@ -80,24 +95,52 @@ const CATALOG_TYPES = [
         desc: 'Registers Flink tables backed by a PostgreSQL database. Metadata persists across sessions.',
         authModes: ['userpass'],
         fields: [
-            { id: 'jdbc_url',      label: 'JDBC URL',       placeholder: 'jdbc:postgresql://localhost:5432/mydb', type: 'text',     required: true },
-            { id: 'base_database', label: 'Base Database',  placeholder: 'mydb',                                  type: 'text',     required: false },
-            { id: 'default_db',    label: 'Default DB',     placeholder: 'default',                               type: 'text',     required: false },
+            {
+                id: 'jdbc_url',
+                label: 'JDBC Base URL',
+                // ✱ No database name in the URL — Flink appends default-database automatically.
+                // Correct:   jdbc:postgresql://myhost:5432
+                // Incorrect: jdbc:postgresql://myhost:5432/mydb  ← causes "wrong DB" errors
+                placeholder: 'jdbc:postgresql://localhost:5432',
+                type: 'text',
+                required: true,
+                hint: 'Host + port only — no database name. Flink appends the database automatically.',
+            },
+            {
+                id: 'default_db',
+                label: 'Database',
+                placeholder: 'mydb',
+                type: 'text',
+                required: true,
+                hint: 'The PostgreSQL database to connect to (maps to default-database).',
+            },
         ],
         testFn: async (fields) => {
             const url = (fields.jdbc_url || '').trim();
-            if (!url) return { ok: false, msg: 'JDBC URL not set.', detail: 'Enter the JDBC URL first.' };
+            if (!url) return { ok: false, msg: 'JDBC Base URL not set.', detail: 'Enter the JDBC URL first (without database name).' };
             const m = url.match(/jdbc:postgresql:\/\/([^/:]+):?(\d+)?/i);
             const host = m ? m[1] : null;
             const port = m ? (m[2] || '5432') : '5432';
-            if (!host) return { ok: false, msg: 'Could not parse host from JDBC URL.', detail: 'Expected: jdbc:postgresql://host:port/dbname' };
+            if (!host) return { ok: false, msg: 'Could not parse host from JDBC URL.', detail: 'Expected: jdbc:postgresql://host:port  (no database name)' };
             return _catProbeViaFlink(host, port, 'PostgreSQL');
         },
-        buildProps: (f) => {
-            const props = { 'type': 'jdbc', 'default-database': f.default_db || 'default', 'username': f.username, 'password': f.password, 'base-url': f.jdbc_url };
-            if (f.base_database) props['base-database'] = f.base_database;
-            return props;
-        },
+        // ─────────────────────────────────────────────────────────────────
+        // buildProps for JDBC catalog — valid for ALL Flink versions
+        // Supported options (flink-connector-jdbc any version):
+        //   type, base-url, default-database, username, password,
+        //   compatible-mode, property-version
+        // NOT supported: base-database (removed in v1.2.1)
+        // ─────────────────────────────────────────────────────────────────
+        buildProps: (f) => ({
+            'type':             'jdbc',
+            'base-url':         (f.jdbc_url || '').replace(/\/+$/, '').replace(/\/[^/]+$/, match => {
+                // Guard: strip any accidental /dbname the user typed into the URL field
+                return /\/\d+$/.test(match) ? match : '';
+            }),
+            'default-database': f.default_db || 'default',
+            'username':         f.username,
+            'password':         f.password,
+        }),
         exampleSql: (name) => `USE CATALOG ${name};\nSHOW DATABASES;\nSHOW TABLES;`,
     },
     {
@@ -110,19 +153,40 @@ const CATALOG_TYPES = [
         desc: 'Registers Flink tables backed by a MySQL or MariaDB database.',
         authModes: ['userpass'],
         fields: [
-            { id: 'jdbc_url',   label: 'JDBC URL',   placeholder: 'jdbc:mysql://localhost:3306/mydb', type: 'text', required: true },
-            { id: 'default_db', label: 'Default DB', placeholder: 'default', type: 'text', required: false },
+            {
+                id: 'jdbc_url',
+                label: 'JDBC Base URL',
+                placeholder: 'jdbc:mysql://localhost:3306',
+                type: 'text',
+                required: true,
+                hint: 'Host + port only — no database name.',
+            },
+            {
+                id: 'default_db',
+                label: 'Database',
+                placeholder: 'mydb',
+                type: 'text',
+                required: true,
+                hint: 'The MySQL database to connect to (maps to default-database).',
+            },
         ],
         testFn: async (fields) => {
             const url = (fields.jdbc_url || '').trim();
-            if (!url) return { ok: false, msg: 'JDBC URL not set.' };
+            if (!url) return { ok: false, msg: 'JDBC Base URL not set.' };
             const m = url.match(/jdbc:mysql:\/\/([^/:]+):?(\d+)?/i);
             const host = m ? m[1] : null;
             const port = m ? (m[2] || '3306') : '3306';
             if (!host) return { ok: false, msg: 'Could not parse host from JDBC URL.' };
             return _catProbeViaFlink(host, port, 'MySQL');
         },
-        buildProps: (f) => ({ 'type': 'jdbc', 'default-database': f.default_db || 'default', 'username': f.username, 'password': f.password, 'base-url': f.jdbc_url }),
+        // Same pattern as PostgreSQL — no base-database
+        buildProps: (f) => ({
+            'type':             'jdbc',
+            'base-url':         (f.jdbc_url || '').replace(/\/+$/, ''),
+            'default-database': f.default_db || 'default',
+            'username':         f.username,
+            'password':         f.password,
+        }),
         exampleSql: (name) => `USE CATALOG ${name};\nSHOW DATABASES;\nSHOW TABLES;`,
     },
     {
@@ -151,9 +215,9 @@ const CATALOG_TYPES = [
         },
         buildProps: (f) => {
             const props = { 'type': 'hive', 'hive.metastore.uris': f.metastore_uris };
-            if (f.hive_conf_dir) props['hive-conf-dir']   = f.hive_conf_dir;
-            if (f.hive_version)  props['hive-version']    = f.hive_version;
-            if (f.default_db)    props['default-database']= f.default_db;
+            if (f.hive_conf_dir) props['hive-conf-dir']    = f.hive_conf_dir;
+            if (f.hive_version)  props['hive-version']     = f.hive_version;
+            if (f.default_db)    props['default-database'] = f.default_db;
             return props;
         },
         exampleSql: (name) => `USE CATALOG ${name};\nUSE default;\nSHOW TABLES;`,
@@ -209,12 +273,12 @@ const CATALOG_TYPES = [
         },
         buildProps: (f) => {
             const props = { 'type': 'iceberg', 'catalog-type': 'rest', 'uri': f.rest_uri, 'property-version': '1' };
-            if (f.warehouse)  props['warehouse']         = f.warehouse;
-            if (f.prefix)     props['prefix']            = f.prefix;
-            if (f.default_db) props['default-database']  = f.default_db;
-            if (f.token)      props['token']             = f.token;
+            if (f.warehouse)  props['warehouse']          = f.warehouse;
+            if (f.prefix)     props['prefix']             = f.prefix;
+            if (f.default_db) props['default-database']   = f.default_db;
+            if (f.token)      props['token']              = f.token;
             if (f.oauth2_server_uri) props['oauth2-server-uri'] = f.oauth2_server_uri;
-            if (f.credential) props['credential']        = f.credential;
+            if (f.credential) props['credential']         = f.credential;
             return props;
         },
         exampleSql: (name) => `USE CATALOG ${name};\nSHOW DATABASES;\nSHOW TABLES;`,
@@ -375,7 +439,7 @@ function _catBuildModal() {
   <div class="modal-header" style="background:linear-gradient(135deg,rgba(0,212,170,0.08),rgba(0,0,0,0));border-bottom:1px solid rgba(0,212,170,0.2);flex-shrink:0;padding:14px 20px;">
     <div>
       <div style="font-size:14px;font-weight:700;color:var(--text0);"><span style="color:var(--accent);">⊕</span> Catalog Manager</div>
-      <div style="font-size:10px;color:var(--accent);letter-spacing:1px;text-transform:uppercase;margin-top:2px;">External Catalog Registration · v1.2.0</div>
+      <div style="font-size:10px;color:var(--accent);letter-spacing:1px;text-transform:uppercase;margin-top:2px;">External Catalog Registration · v1.2.1</div>
     </div>
     <button class="modal-close" onclick="closeModal('modal-catalog-manager')">×</button>
   </div>
@@ -504,6 +568,19 @@ function _catBuildModal() {
             A catalog organises databases, tables, views, and functions in a three-level hierarchy (<code>catalog.database.table</code>).
             The default catalog (<code>default_catalog</code>) is in-memory and session-scoped.
             External catalogs (Hive, Iceberg, JDBC) persist metadata across sessions.
+          </div>
+        </div>
+        <div style="background:rgba(245,166,35,0.05);border:1px solid rgba(245,166,35,0.25);border-radius:var(--radius);padding:13px 15px;">
+          <div style="font-size:12px;font-weight:700;color:#f5a623;margin-bottom:8px;">⚠ JDBC Catalog: base-url vs default-database</div>
+          <div style="font-size:11px;color:var(--text1);line-height:1.8;">
+            The JDBC catalog in Flink (all versions) uses exactly two properties to identify the database:<br><br>
+            <strong style="color:var(--text0);">base-url</strong> — the JDBC URL <em>without</em> a database name.<br>
+            Example: <code>jdbc:postgresql://myhost:5432</code><br><br>
+            <strong style="color:var(--text0);">default-database</strong> — the database to connect to.<br>
+            Example: <code>strlab_studio</code><br><br>
+            Flink internally constructs: <code>base-url + "/" + default-database</code><br><br>
+            <strong style="color:var(--red);">There is no <code>base-database</code> option.</strong>
+            If you pass it, Flink will throw a <code>ValidationException: Unsupported options found</code> error.
           </div>
         </div>
         <div style="background:rgba(79,163,224,0.05);border:1px solid rgba(79,163,224,0.2);border-radius:var(--radius);padding:13px 15px;">
@@ -897,7 +974,14 @@ async function _catExecute() {
         if (switchAfter === 'yes') {
             try {
                 await _catRunQ(`USE CATALOG ${name}`);
-                if (state) { state.activeCatalog = name; if (typeof updateCatalogStatus === 'function') updateCatalogStatus(name, state.activeDatabase); }
+                // Query the actual first database — never assume 'default' exists
+                let actualDb = state?.activeDatabase || 'default';
+                try {
+                    const dbResult = await _catRunQ(`SHOW DATABASES`);
+                    const firstDb  = (dbResult.rows || [])[0];
+                    if (firstDb) actualDb = Array.isArray(firstDb) ? String(firstDb[0]) : String(Object.values(firstDb)[0]);
+                } catch(_) {}
+                if (state) { state.activeCatalog = name; state.activeDatabase = actualDb; if (typeof updateCatalogStatus === 'function') updateCatalogStatus(name, actualDb); }
                 // Refresh the catalog sidebar tree
                 ['refreshCatalog','refreshCatalogBrowser','loadCatalogTree','buildCatalogTree'].forEach(fn => {
                     if (typeof window[fn] === 'function') { try { setTimeout(() => window[fn](), 500); } catch(_) {} }
@@ -920,6 +1004,8 @@ async function _catExecute() {
             detail = '\n\nFix: Use "If Already Exists → Drop + Re-create" option.';
         else if (msg.includes('Connection refused'))
             detail = '\n\nFix: Check that the database/metastore host is reachable from the Flink cluster.';
+        else if (msg.includes('does not exist') && msg.includes('database'))
+            detail = '\n\nFix: The "Database" field must match an existing PostgreSQL/MySQL database name.';
         _catSetResult('err', `✗ ${msg}${detail}`);
         addLog('ERR', `Catalog creation failed: ${msg}`);
     } finally {
@@ -1064,6 +1150,8 @@ function _catParseErr(raw) {
         return `Catalog already exists. Use "Drop + Re-create" option.`;
     if (raw.includes('Connection refused'))
         return `Connection refused — database/metastore host not reachable from Flink cluster.`;
+    if (raw.includes('does not exist') && raw.includes('database'))
+        return `Database does not exist — check the "Database" field matches an existing DB on the server.`;
     const first = raw.split('\n').find(l => l.trim() && !l.includes('at org.') && !l.includes('at java.'));
     return first ? first.trim().slice(0, 400) : raw.slice(0, 400);
 }
