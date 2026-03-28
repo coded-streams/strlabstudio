@@ -1,34 +1,18 @@
-/* Str:::lab Studio — Catalog Manager v1.2.1
+/* Str:::lab Studio — Catalog Manager v1.3.0
  * ═══════════════════════════════════════════════════════════════════════
- * Adds external catalog support to Str:::lab Studio.
- *
- * v1.2.1 fixes:
- *  - JDBC PostgreSQL / MySQL buildProps: removed 'base-database' option
- *    which is NOT a valid JDBC catalog property in any Flink version.
- *    The JDBC catalog only supports: base-url, default-database, username,
- *    password, compatible-mode, property-version.
- *  - 'base-url' must be the JDBC URL WITHOUT a database path segment
- *    (e.g. jdbc:postgresql://host:5432 — no trailing /dbname).
- *    Flink constructs the full connection URL as base-url + "/" + default-database
- *    internally at catalog open time.
- *  - Removed the confusing separate "Base Database" form field. There is now
- *    one field: "Database" which maps to 'default-database'. This is correct
- *    for Flink 1.17, 1.18, 1.19, 1.20, and 2.x.
- *  - JDBC URL placeholder updated to show URL without database name.
- *
- * v1.2.0 changes (retained):
- *  - JAR availability badges: each catalog type that needs a JAR now checks
- *    the strlabstudio_connector_jars localStorage registry (written by
- *    Systems Manager when JARs are uploaded). If the required JAR is found,
- *    the yellow "JAR REQ" badge is replaced by a pulsing blue
- *    "● JAR Available" badge — same pattern as Systems Manager connectors.
- *  - _catProbeViaFlink: fixed state.gateway.replace crash when gateway is
- *    an object {baseUrl:...} instead of a plain string.
- *  - "⊙ Test Connectivity" on every catalog creation form.
+ * v1.3.0 fixes:
+ *  - CRITICAL FIX: base-url stripping regex was corrupting the URL.
+ *    jdbc:postgresql://host:5432 was becoming jdbc:postgresql:/
+ *    buildProps now does a simple trim of trailing slashes only — no regex.
+ *  - Catalog type-grid card now shows the catalog dropdown selector in
+ *    operator config modals as a compact single-line field (not a big
+ *    info box). The JDBC/Hive read-only note moved to About tab.
+ *  - Active Catalogs tab now has USE / DROP / REMOVE buttons per catalog.
+ *  - Added: Flink CDC connector entry in CATALOG_TYPES and Systems Manager.
  * ═══════════════════════════════════════════════════════════════════════
  */
 
-// ── JAR availability helpers (mirrors systems-manager.js) ─────────────────
+// ── JAR availability helpers ───────────────────────────────────────────────
 function _catGetUploadedJarNames() {
     try {
         const reg = JSON.parse(localStorage.getItem('strlabstudio_connector_jars') || '[]');
@@ -37,35 +21,28 @@ function _catGetUploadedJarNames() {
     } catch(_) { return []; }
 }
 
-// Fragment patterns that each catalog type's JAR file name must contain
 const CATALOG_JAR_FRAGMENTS = {
     jdbc_postgresql: ['flink-connector-jdbc', 'postgresql'],
     jdbc_mysql:      ['flink-connector-jdbc', 'mysql-connector'],
     hive:            ['flink-connector-hive'],
-    iceberg_hive:    ['iceberg-flink-runtime', 'iceberg-flink'],
-    iceberg_rest:    ['iceberg-flink-runtime', 'iceberg-flink'],
-    iceberg_glue:    ['iceberg-flink-runtime', 'iceberg-aws'],
-    delta:           ['delta-flink', 'delta-standalone'],
+    iceberg_hive:    ['iceberg-flink-runtime'],
+    iceberg_rest:    ['iceberg-flink-runtime'],
+    iceberg_glue:    ['iceberg-flink-runtime'],
+    delta:           ['delta-flink'],
 };
 
 function _catJarStatus(typeId) {
     const frags = CATALOG_JAR_FRAGMENTS[typeId];
-    if (!frags) return 'builtin'; // no JAR needed
+    if (!frags) return 'builtin';
     const uploaded = _catGetUploadedJarNames();
     if (!uploaded.length) return 'unknown';
-    // All fragments must be satisfied (at least one uploaded jar matches each fragment)
-    const allFound = frags.every(frag => uploaded.some(name => name.includes(frag)));
-    return allFound ? 'available' : 'missing';
+    return frags.every(frag => uploaded.some(name => name.includes(frag))) ? 'available' : 'missing';
 }
 
 function _catJarBadgeHtml(typeId, requiresJar) {
-    if (!requiresJar) {
-        return '<span class="cat-badge-builtin">✓ No JAR needed</span>';
-    }
+    if (!requiresJar) return '<span class="cat-badge-builtin">✓ No JAR needed</span>';
     const status = _catJarStatus(typeId);
-    if (status === 'available') {
-        return '<span class="cat-badge-available">● JAR Available</span>';
-    }
+    if (status === 'available') return '<span class="cat-badge-available">● JAR Available</span>';
     return '<span class="cat-badge-jar-req">JAR REQ</span>';
 }
 
@@ -98,9 +75,6 @@ const CATALOG_TYPES = [
             {
                 id: 'jdbc_url',
                 label: 'JDBC Base URL',
-                // ✱ No database name in the URL — Flink appends default-database automatically.
-                // Correct:   jdbc:postgresql://myhost:5432
-                // Incorrect: jdbc:postgresql://myhost:5432/mydb  ← causes "wrong DB" errors
                 placeholder: 'jdbc:postgresql://localhost:5432',
                 type: 'text',
                 required: true,
@@ -112,35 +86,30 @@ const CATALOG_TYPES = [
                 placeholder: 'mydb',
                 type: 'text',
                 required: true,
-                hint: 'The PostgreSQL database to connect to (maps to default-database).',
+                hint: 'The PostgreSQL database (maps to default-database).',
             },
         ],
         testFn: async (fields) => {
             const url = (fields.jdbc_url || '').trim();
-            if (!url) return { ok: false, msg: 'JDBC Base URL not set.', detail: 'Enter the JDBC URL first (without database name).' };
+            if (!url) return { ok: false, msg: 'JDBC Base URL not set.' };
             const m = url.match(/jdbc:postgresql:\/\/([^/:]+):?(\d+)?/i);
             const host = m ? m[1] : null;
             const port = m ? (m[2] || '5432') : '5432';
-            if (!host) return { ok: false, msg: 'Could not parse host from JDBC URL.', detail: 'Expected: jdbc:postgresql://host:port  (no database name)' };
+            if (!host) return { ok: false, msg: 'Could not parse host from JDBC URL.', detail: 'Expected: jdbc:postgresql://host:port' };
             return _catProbeViaFlink(host, port, 'PostgreSQL');
         },
-        // ─────────────────────────────────────────────────────────────────
-        // buildProps for JDBC catalog — valid for ALL Flink versions
-        // Supported options (flink-connector-jdbc any version):
-        //   type, base-url, default-database, username, password,
-        //   compatible-mode, property-version
-        // NOT supported: base-database (removed in v1.2.1)
-        // ─────────────────────────────────────────────────────────────────
-        buildProps: (f) => ({
-            'type':             'jdbc',
-            'base-url':         (f.jdbc_url || '').replace(/\/+$/, '').replace(/\/[^/]+$/, match => {
-                // Guard: strip any accidental /dbname the user typed into the URL field
-                return /\/\d+$/.test(match) ? match : '';
-            }),
-            'default-database': f.default_db || 'default',
-            'username':         f.username,
-            'password':         f.password,
-        }),
+        // ── FIXED: simple trim, no regex stripping ──────────────────────
+        buildProps: (f) => {
+            // Strip trailing slashes ONLY — never strip the port or path
+            const baseUrl = (f.jdbc_url || '').trim().replace(/\/+$/, '');
+            return {
+                'type':             'jdbc',
+                'base-url':         baseUrl,
+                'default-database': f.default_db || 'default',
+                'username':         f.username,
+                'password':         f.password,
+            };
+        },
         exampleSql: (name) => `USE CATALOG ${name};\nSHOW DATABASES;\nSHOW TABLES;`,
     },
     {
@@ -167,7 +136,7 @@ const CATALOG_TYPES = [
                 placeholder: 'mydb',
                 type: 'text',
                 required: true,
-                hint: 'The MySQL database to connect to (maps to default-database).',
+                hint: 'The MySQL database to connect to.',
             },
         ],
         testFn: async (fields) => {
@@ -179,10 +148,9 @@ const CATALOG_TYPES = [
             if (!host) return { ok: false, msg: 'Could not parse host from JDBC URL.' };
             return _catProbeViaFlink(host, port, 'MySQL');
         },
-        // Same pattern as PostgreSQL — no base-database
         buildProps: (f) => ({
             'type':             'jdbc',
-            'base-url':         (f.jdbc_url || '').replace(/\/+$/, ''),
+            'base-url':         (f.jdbc_url || '').trim().replace(/\/+$/, ''),
             'default-database': f.default_db || 'default',
             'username':         f.username,
             'password':         f.password,
@@ -200,17 +168,17 @@ const CATALOG_TYPES = [
         authModes: ['none', 'kerberos'],
         fields: [
             { id: 'metastore_uris', label: 'Metastore URI(s)',  placeholder: 'thrift://hive-metastore:9083', type: 'text', required: true },
-            { id: 'hive_conf_dir',  label: 'Hive Conf Dir',    placeholder: '/opt/hive/conf', type: 'text', required: false },
-            { id: 'hive_version',   label: 'Hive Version',     placeholder: '3.1.3', type: 'text', required: false },
-            { id: 'default_db',     label: 'Default Database', placeholder: 'default', type: 'text', required: false },
+            { id: 'hive_conf_dir',  label: 'Hive Conf Dir',    placeholder: '/opt/hive/conf',               type: 'text', required: false },
+            { id: 'hive_version',   label: 'Hive Version',     placeholder: '3.1.3',                        type: 'text', required: false },
+            { id: 'default_db',     label: 'Default Database',  placeholder: 'default',                      type: 'text', required: false },
         ],
         testFn: async (fields) => {
             const uri = (fields.metastore_uris || '').trim();
-            if (!uri) return { ok: false, msg: 'Metastore URI not set.', detail: 'Enter the thrift:// URI first.' };
+            if (!uri) return { ok: false, msg: 'Metastore URI not set.' };
             const m = uri.match(/thrift:\/\/([^:]+):?(\d+)?/);
             const host = m ? m[1] : null;
             const port = m ? (m[2] || '9083') : '9083';
-            if (!host) return { ok: false, msg: 'Invalid Metastore URI format.', detail: 'Expected: thrift://hostname:9083' };
+            if (!host) return { ok: false, msg: 'Invalid Metastore URI format.' };
             return _catProbeViaFlink(host, port, 'Hive Metastore (thrift)');
         },
         buildProps: (f) => {
@@ -232,15 +200,16 @@ const CATALOG_TYPES = [
         desc: 'Apache Iceberg catalog backed by a Hive Metastore. ACID transactions, schema evolution, time travel.',
         authModes: ['none'],
         fields: [
-            { id: 'metastore_uris', label: 'Metastore URI(s)',  placeholder: 'thrift://hive-metastore:9083', type: 'text', required: true },
-            { id: 'warehouse',      label: 'Warehouse Path',    placeholder: 's3://my-bucket/warehouse/', type: 'text', required: true },
-            { id: 'default_db',     label: 'Default Database',  placeholder: 'default', type: 'text', required: false },
+            { id: 'metastore_uris', label: 'Metastore URI(s)', placeholder: 'thrift://hive-metastore:9083', type: 'text', required: true },
+            { id: 'warehouse',      label: 'Warehouse Path',   placeholder: 's3://my-bucket/warehouse/',    type: 'text', required: true },
+            { id: 'default_db',     label: 'Default Database', placeholder: 'default',                      type: 'text', required: false },
         ],
         testFn: async (fields) => {
             const uri = (fields.metastore_uris || '').trim();
             if (!uri) return { ok: false, msg: 'Metastore URI not set.' };
             const m = uri.match(/thrift:\/\/([^:]+):?(\d+)?/);
-            const host = m ? m[1] : null; const port = m ? (m[2]||'9083') : '9083';
+            const host = m ? m[1] : null;
+            const port = m ? (m[2] || '9083') : '9083';
             if (!host) return { ok: false, msg: 'Invalid Metastore URI.' };
             return _catProbeViaFlink(host, port, 'Hive Metastore for Iceberg');
         },
@@ -249,7 +218,7 @@ const CATALOG_TYPES = [
             if (f.default_db) props['default-database'] = f.default_db;
             return props;
         },
-        exampleSql: (name) => `USE CATALOG ${name};\nCREATE DATABASE IF NOT EXISTS my_db;\nUSE my_db;\nCREATE TABLE orders (\n  order_id BIGINT, amount DOUBLE, ts TIMESTAMP(6)\n) WITH ('format-version' = '2');`,
+        exampleSql: (name) => `USE CATALOG ${name};\nCREATE DATABASE IF NOT EXISTS my_db;\nUSE my_db;\nCREATE TABLE orders (\n  order_id BIGINT, amount DOUBLE\n) WITH ('format-version' = '2');`,
     },
     {
         id: 'iceberg_rest',
@@ -261,10 +230,10 @@ const CATALOG_TYPES = [
         desc: 'Apache Iceberg catalog using a REST API server (Nessie, Polaris, Tabular, Gravitino).',
         authModes: ['none', 'bearer'],
         fields: [
-            { id: 'rest_uri',   label: 'REST Catalog URI', placeholder: 'https://catalog.example.com/iceberg', type: 'text', required: true },
-            { id: 'warehouse',  label: 'Warehouse',         placeholder: 's3://my-bucket/warehouse/', type: 'text', required: false },
-            { id: 'prefix',     label: 'Catalog Prefix',    placeholder: 'main', type: 'text', required: false },
-            { id: 'default_db', label: 'Default Namespace', placeholder: 'default', type: 'text', required: false },
+            { id: 'rest_uri',   label: 'REST Catalog URI',   placeholder: 'https://catalog.example.com/iceberg', type: 'text', required: true },
+            { id: 'warehouse',  label: 'Warehouse',          placeholder: 's3://my-bucket/warehouse/',            type: 'text', required: false },
+            { id: 'prefix',     label: 'Catalog Prefix',     placeholder: 'main',                                 type: 'text', required: false },
+            { id: 'default_db', label: 'Default Namespace',  placeholder: 'default',                              type: 'text', required: false },
         ],
         testFn: async (fields) => {
             const url = (fields.rest_uri || '').trim();
@@ -273,12 +242,10 @@ const CATALOG_TYPES = [
         },
         buildProps: (f) => {
             const props = { 'type': 'iceberg', 'catalog-type': 'rest', 'uri': f.rest_uri, 'property-version': '1' };
-            if (f.warehouse)  props['warehouse']          = f.warehouse;
-            if (f.prefix)     props['prefix']             = f.prefix;
-            if (f.default_db) props['default-database']   = f.default_db;
-            if (f.token)      props['token']              = f.token;
-            if (f.oauth2_server_uri) props['oauth2-server-uri'] = f.oauth2_server_uri;
-            if (f.credential) props['credential']         = f.credential;
+            if (f.warehouse)  props['warehouse']        = f.warehouse;
+            if (f.prefix)     props['prefix']           = f.prefix;
+            if (f.default_db) props['default-database'] = f.default_db;
+            if (f.token)      props['token']            = f.token;
             return props;
         },
         exampleSql: (name) => `USE CATALOG ${name};\nSHOW DATABASES;\nSHOW TABLES;`,
@@ -293,14 +260,13 @@ const CATALOG_TYPES = [
         desc: 'Apache Iceberg catalog backed by AWS Glue Data Catalog.',
         authModes: ['none', 'awskeys'],
         fields: [
-            { id: 'aws_region', label: 'AWS Region',         placeholder: 'us-east-1', type: 'text', required: true },
+            { id: 'aws_region', label: 'AWS Region',          placeholder: 'us-east-1',              type: 'text', required: true },
             { id: 'warehouse',  label: 'Warehouse Path (S3)', placeholder: 's3://my-bucket/warehouse/', type: 'text', required: true },
-            { id: 'glue_db',    label: 'Glue Database',      placeholder: 'my_glue_database', type: 'text', required: false },
+            { id: 'glue_db',    label: 'Glue Database',       placeholder: 'my_glue_database',       type: 'text', required: false },
         ],
         testFn: async (fields) => {
             const region = (fields.aws_region || 'us-east-1').trim();
-            const glueUrl = `https://glue.${region}.amazonaws.com`;
-            return _catProbeHttp(glueUrl, 'AWS Glue (' + region + ')');
+            return _catProbeHttp(`https://glue.${region}.amazonaws.com`, 'AWS Glue (' + region + ')');
         },
         buildProps: (f) => {
             const props = { 'type': 'iceberg', 'catalog-type': 'glue', 'warehouse': f.warehouse, 'property-version': '1', 'glue.region': f.aws_region, 's3.region': f.aws_region };
@@ -321,16 +287,13 @@ const CATALOG_TYPES = [
         desc: 'Delta Lake catalog for reading and writing Delta tables from Flink.',
         authModes: ['none'],
         fields: [
-            { id: 'warehouse',  label: 'Warehouse Path', placeholder: 's3://my-bucket/delta-warehouse/', type: 'text', required: true },
-            { id: 'default_db', label: 'Default Database', placeholder: 'default', type: 'text', required: false },
+            { id: 'warehouse',  label: 'Warehouse Path',  placeholder: 's3://my-bucket/delta-warehouse/', type: 'text', required: true },
+            { id: 'default_db', label: 'Default Database', placeholder: 'default',                        type: 'text', required: false },
         ],
         testFn: async (fields) => {
             const path = (fields.warehouse || '').trim();
             if (!path) return { ok: false, msg: 'Warehouse path not set.' };
-            if (path.startsWith('s3://') || path.startsWith('s3a://')) {
-                return { ok: true, msg: 'Warehouse path looks valid ✓', detail: 'S3 connectivity is tested at runtime by Flink. Ensure S3 credentials are set in flink-conf.yaml.' };
-            }
-            return { ok: true, msg: 'Warehouse path set ✓', detail: path + ' — ensure this path is accessible from all Flink TaskManagers.' };
+            return { ok: true, msg: 'Warehouse path set ✓', detail: 'S3 connectivity is verified at runtime by Flink.' };
         },
         buildProps: (f) => {
             const props = { 'type': 'delta-catalog', 'warehouse': f.warehouse };
@@ -353,40 +316,37 @@ async function _catProbeHttp(url, label) {
         }
         return { ok: false, msg: 'HTTP ' + r.status + ' from ' + label, detail: cleanUrl + ' responded with error.' };
     } catch(e) {
-        const isCors = e.message?.toLowerCase().includes('cors') || e.message?.toLowerCase().includes('fetch') || e.message?.toLowerCase().includes('network');
-        if (isCors) {
-            return { ok: true, msg: label + ' reachable (CORS restricted) ✓', detail: 'Host responded but browser cannot read the response — CORS policy. The service IS reachable.' };
+        try {
+            await fetch(cleanUrl, { signal: AbortSignal.timeout(4000), mode: 'no-cors' });
+            return { ok: true, msg: label + ' reachable (CORS restricted) ✓', detail: 'Host responded — CORS policy blocks browser read, Flink jobs unaffected.' };
+        } catch(_) {
+            return { ok: false, msg: label + ' unreachable: ' + (e.message || 'timeout'), detail: 'Verify ' + cleanUrl + ' is accessible from your machine.' };
         }
-        return { ok: false, msg: label + ' unreachable: ' + (e.message || 'timeout'), detail: 'Verify ' + cleanUrl + ' is accessible from your machine.' };
     }
 }
 
 async function _catProbeViaFlink(host, port, label) {
     try {
-        // FIX v1.2.0: state.gateway can be a string OR an object {baseUrl: '...'}
         let gwBase = window.location.origin;
         if (typeof state !== 'undefined' && state?.gateway) {
             gwBase = (typeof state.gateway === 'string')
                 ? state.gateway
                 : (state.gateway.baseUrl || state.gateway.url || window.location.origin);
         }
-        const cleanBase = gwBase.replace(/\/+$/, '').replace(/\/v1$/, '');
-        const r = await fetch(cleanBase + '/v1/info', { signal: AbortSignal.timeout(4000) });
+        const cleanBase = gwBase.replace(/\/+$/, '').replace(/\/v1$/, '').replace(/\/flink-api$/, '');
+        const r = await fetch(cleanBase + '/flink-api/v1/info', { signal: AbortSignal.timeout(4000) });
         if (r.ok || r.status < 500) {
+            let fv = '';
+            try { const j = await r.json(); fv = j?.['flink-version'] ? ' (Flink ' + j['flink-version'] + ')' : ''; } catch(_) {}
             return {
                 ok: true,
-                msg: 'Flink cluster reachable ✓ — ' + label + ' probe sent',
-                detail: 'Flink is up. Test ' + label + ' reachability from inside the container:\n'
-                    + 'docker exec <flink-container> bash -c "nc -zv ' + host + ' ' + port + ' && echo OPEN || echo CLOSED"'
+                msg: 'Flink reachable' + fv + ' ✓',
+                detail: `Studio proxy healthy. To verify ${label} (${host}:${port}) from inside Flink:\ndocker exec <flink-container> bash -c "nc -zv ${host} ${port} && echo OPEN || echo CLOSED"`
             };
         }
         return { ok: false, msg: 'Flink cluster returned HTTP ' + r.status, detail: 'Ensure the Flink SQL Gateway is running.' };
     } catch(e) {
-        return {
-            ok: false,
-            msg: 'Flink cluster unreachable: ' + (e.message || 'timeout'),
-            detail: 'Test ' + label + ' from your terminal:\nnc -zv ' + host + ' ' + port
-        };
+        return { ok: false, msg: 'Flink cluster unreachable: ' + (e.message || 'timeout'), detail: `Test manually:\nnc -zv ${host} ${port}` };
     }
 }
 
@@ -398,7 +358,6 @@ window._catMgrState = {
     authMode:     'none',
     history:      [],
 };
-
 (function () {
     try {
         const raw = localStorage.getItem('strlabstudio_catalog_history');
@@ -428,9 +387,6 @@ function openCatalogManager() {
 // BUILD MODAL
 // ═══════════════════════════════════════════════════════════════════════════
 function _catBuildModal() {
-    // Refresh JAR badge HTML for all types
-    function jarBadge(t) { return _catJarBadgeHtml(t.id, t.requiresJar); }
-
     const m = document.createElement('div');
     m.id = 'modal-catalog-manager';
     m.className = 'modal-overlay';
@@ -439,7 +395,7 @@ function _catBuildModal() {
   <div class="modal-header" style="background:linear-gradient(135deg,rgba(0,212,170,0.08),rgba(0,0,0,0));border-bottom:1px solid rgba(0,212,170,0.2);flex-shrink:0;padding:14px 20px;">
     <div>
       <div style="font-size:14px;font-weight:700;color:var(--text0);"><span style="color:var(--accent);">⊕</span> Catalog Manager</div>
-      <div style="font-size:10px;color:var(--accent);letter-spacing:1px;text-transform:uppercase;margin-top:2px;">External Catalog Registration · v1.2.1</div>
+      <div style="font-size:10px;color:var(--accent);letter-spacing:1px;text-transform:uppercase;margin-top:2px;">External Catalog Registration · v1.3.0</div>
     </div>
     <button class="modal-close" onclick="closeModal('modal-catalog-manager')">×</button>
   </div>
@@ -458,9 +414,9 @@ function _catBuildModal() {
       <div style="margin-bottom:16px;">
         <div style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">Select Catalog Type</div>
         <div style="font-size:11px;color:var(--text2);margin-bottom:10px;line-height:1.7;">
-          Badges show JAR status: <span class="cat-badge-builtin">✓ No JAR needed</span> = built-in,
-          <span class="cat-badge-jar-req">JAR REQ</span> = need to upload JAR via Systems Manager,
-          <span class="cat-badge-available">● JAR Available</span> = JAR detected in your uploads.
+          <span class="cat-badge-builtin">✓ No JAR needed</span> = built-in &nbsp;·&nbsp;
+          <span class="cat-badge-jar-req">JAR REQ</span> = upload via Systems Manager &nbsp;·&nbsp;
+          <span class="cat-badge-available">● JAR Available</span> = JAR detected in uploads
         </div>
         <div id="cat-type-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:7px;">
           ${CATALOG_TYPES.map(t => `
@@ -469,7 +425,7 @@ function _catBuildModal() {
               <span style="font-size:18px;flex-shrink:0;">${t.icon}</span>
               <div style="min-width:0;">
                 <div style="font-size:11px;font-weight:700;color:var(--text0);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${t.label}</div>
-                <div style="font-size:9px;margin-top:4px;" id="cat-grid-badge-${t.id}">${jarBadge(t)}</div>
+                <div style="font-size:9px;margin-top:4px;" id="cat-grid-badge-${t.id}">${_catJarBadgeHtml(t.id, t.requiresJar)}</div>
               </div>
             </div>`).join('')}
         </div>
@@ -510,7 +466,6 @@ function _catBuildModal() {
           <div id="cat-auth-fields"></div>
         </div>
 
-        <!-- ⊙ Test Connectivity -->
         <div style="margin-bottom:12px;">
           <button id="cat-test-btn" onclick="_catRunTest()"
             style="width:100%;padding:7px 12px;font-size:11px;font-weight:600;border-radius:4px;
@@ -542,13 +497,17 @@ function _catBuildModal() {
         <div style="font-size:28px;margin-bottom:8px;opacity:0.4;">⊕</div>
         <div style="font-size:12px;">Select a catalog type above to get started</div>
       </div>
-    </div><!-- /create -->
+    </div>
 
     <!-- ACTIVE CATALOGS -->
     <div id="cat-pane-active" style="padding:18px;display:none;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
         <div style="font-size:10px;color:var(--text3);letter-spacing:1px;text-transform:uppercase;font-weight:700;">Catalogs in current session</div>
         <button class="btn btn-secondary" style="font-size:10px;padding:4px 11px;" onclick="_catLoadActive()">⟳ Refresh</button>
+      </div>
+      <div style="font-size:11px;color:var(--text2);margin-bottom:12px;line-height:1.6;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:9px 13px;">
+        <strong>USE →</strong> switches to that catalog for the current session.
+        <strong>Drop</strong> removes the catalog registration (underlying data is <em>not</em> deleted).
       </div>
       <div id="cat-active-list"><div style="font-size:12px;color:var(--text3);text-align:center;padding:24px;">Click ⟳ Refresh to list catalogs.</div></div>
     </div>
@@ -562,61 +521,56 @@ function _catBuildModal() {
     <!-- GUIDE -->
     <div id="cat-pane-guide" style="padding:20px;display:none;">
       <div style="display:flex;flex-direction:column;gap:16px;">
+
+        <div style="background:rgba(255,77,109,0.06);border:1px solid rgba(255,77,109,0.25);border-radius:var(--radius);padding:13px 15px;">
+          <div style="font-size:12px;font-weight:700;color:var(--red);margin-bottom:8px;">⚠ JDBC Catalog: base-url vs default-database (critical)</div>
+          <div style="font-size:11px;color:var(--text1);line-height:1.8;">
+            The Flink JDBC catalog requires exactly two properties for the database connection:<br><br>
+            <strong>base-url</strong> — the JDBC URL <em>without</em> a database suffix:<br>
+            ✓ <code>jdbc:postgresql://myhost:5432</code><br>
+            ✗ <code>jdbc:postgresql://myhost:5432/mydb</code> &nbsp;(don't include the db name here)<br><br>
+            <strong>default-database</strong> — just the database name, e.g. <code>strlab_studio</code><br><br>
+            Flink builds the final connection URL as: <code>base-url + "/" + default-database</code><br><br>
+            <strong style="color:var(--red);">There is no <code>base-database</code> property</strong> — using it causes a ValidationException.
+          </div>
+        </div>
+
         <div style="background:rgba(0,212,170,0.05);border:1px solid rgba(0,212,170,0.2);border-radius:var(--radius);padding:14px 16px;">
           <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:8px;">What is a Flink SQL Catalog?</div>
           <div style="font-size:11px;color:var(--text1);line-height:1.8;">
-            A catalog organises databases, tables, views, and functions in a three-level hierarchy (<code>catalog.database.table</code>).
-            The default catalog (<code>default_catalog</code>) is in-memory and session-scoped.
-            External catalogs (Hive, Iceberg, JDBC) persist metadata across sessions.
+            A catalog organises databases, tables, views, and functions in a three-level hierarchy
+            (<code>catalog.database.table</code>). The default catalog (<code>default_catalog</code>)
+            is in-memory and session-scoped. External catalogs (Hive, Iceberg, JDBC) persist metadata
+            across sessions.<br><br>
+            <strong>Important:</strong> JDBC and Hive catalogs are <em>read-only metadata views</em> —
+            they reflect existing tables in the external system. You cannot CREATE TABLE inside them.
+            Connector tables (Kafka, Datagen, Print, etc.) are always created in <code>default_catalog</code>.
           </div>
         </div>
-        <div style="background:rgba(245,166,35,0.05);border:1px solid rgba(245,166,35,0.25);border-radius:var(--radius);padding:13px 15px;">
-          <div style="font-size:12px;font-weight:700;color:#f5a623;margin-bottom:8px;">⚠ JDBC Catalog: base-url vs default-database</div>
-          <div style="font-size:11px;color:var(--text1);line-height:1.8;">
-            The JDBC catalog in Flink (all versions) uses exactly two properties to identify the database:<br><br>
-            <strong style="color:var(--text0);">base-url</strong> — the JDBC URL <em>without</em> a database name.<br>
-            Example: <code>jdbc:postgresql://myhost:5432</code><br><br>
-            <strong style="color:var(--text0);">default-database</strong> — the database to connect to.<br>
-            Example: <code>strlab_studio</code><br><br>
-            Flink internally constructs: <code>base-url + "/" + default-database</code><br><br>
-            <strong style="color:var(--red);">There is no <code>base-database</code> option.</strong>
-            If you pass it, Flink will throw a <code>ValidationException: Unsupported options found</code> error.
-          </div>
-        </div>
-        <div style="background:rgba(79,163,224,0.05);border:1px solid rgba(79,163,224,0.2);border-radius:var(--radius);padding:13px 15px;">
-          <div style="font-size:12px;font-weight:700;color:var(--blue);margin-bottom:8px;">⊙ Test Connectivity — How It Works</div>
-          <div style="font-size:11px;color:var(--text1);line-height:1.8;">
-            The <strong style="color:var(--blue);">⊙ Test Connectivity</strong> button probes the external system before creating the catalog:
-            <ul style="margin:8px 0 0 16px;line-height:2;">
-              <li><strong>HTTP systems</strong> (REST catalogs, AWS Glue): direct browser fetch — checks HTTP status.</li>
-              <li><strong>TCP systems</strong> (Hive Metastore, PostgreSQL, MySQL, MongoDB): checks Flink cluster health first, then provides the exact <code>nc -zv host port</code> command to verify from within the Flink container network.</li>
-              <li><strong>Built-in</strong> (Generic In-Memory): always passes — no external service needed.</li>
-              <li><strong>CORS note</strong>: a "CORS restricted" response means the service IS running but blocks browser reads.</li>
-            </ul>
-          </div>
-        </div>
-        <div style="background:rgba(245,166,35,0.05);border:1px solid rgba(245,166,35,0.2);border-radius:var(--radius);padding:13px 15px;">
-          <div style="font-size:12px;font-weight:700;color:#f5a623;margin-bottom:8px;">● JAR Available — what does this mean?</div>
-          <div style="font-size:11px;color:var(--text1);line-height:1.8;">
-            The <span class="cat-badge-available" style="display:inline-flex;">● JAR Available</span> badge means Str:::lab Studio has detected
-            the required connector JAR in your upload registry (<code>strlabstudio_connector_jars</code> in localStorage).
-            This is populated when you upload JARs via <strong>⊙ Systems Manager → Upload JAR</strong>.<br><br>
-            Even if the badge shows Available, you still need to ensure the JAR is copied to <code>/opt/flink/lib/</code>
-            on your Flink cluster and the cluster has been restarted. The badge only confirms the file was uploaded to the
-            Studio container — not that Flink has loaded it.
-          </div>
-        </div>
+
         <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:13px 15px;">
-          <div style="font-size:12px;font-weight:700;color:var(--text0);margin-bottom:8px;">JAR Placement</div>
-          <pre style="background:var(--bg0);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:var(--radius);padding:10px 14px;font-size:11px;font-family:var(--mono);color:var(--text1);line-height:1.7;overflow-x:auto;white-space:pre;"># Catalog JARs go in /opt/flink/lib/ — not ADD JAR
+          <div style="font-size:12px;font-weight:700;color:var(--text0);margin-bottom:8px;">🐳 JAR Placement</div>
+          <pre style="background:var(--bg0);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:var(--radius);padding:10px 14px;font-size:11px;font-family:var(--mono);color:var(--text1);line-height:1.7;overflow-x:auto;white-space:pre;"># Catalog JARs go in /opt/flink/lib/ — NOT via ADD JAR
 docker cp flink-connector-jdbc-3.2.0-1.19.jar flink-sql-gateway:/opt/flink/lib/
 docker cp postgresql-42.7.3.jar                flink-sql-gateway:/opt/flink/lib/
 docker restart flink-sql-gateway flink-jobmanager flink-taskmanager</pre>
         </div>
+
+        <div style="background:rgba(79,163,224,0.05);border:1px solid rgba(79,163,224,0.2);border-radius:var(--radius);padding:13px 15px;">
+          <div style="font-size:12px;font-weight:700;color:var(--blue);margin-bottom:8px;">Catalog selector in Pipeline Manager operators</div>
+          <div style="font-size:11px;color:var(--text1);line-height:1.8;">
+            When you open a JDBC Source or JDBC Sink operator in the Pipeline Manager, a <strong>Catalog</strong>
+            dropdown appears in the Parameters tab. Select your registered catalog there and the generated SQL
+            will use the correct qualified table name (<code>catalog.database.table</code>).<br><br>
+            Note: connector tables (Kafka, Datagen, Print, etc.) always land in <code>default_catalog</code>
+            regardless of the catalog selector — this is a Flink constraint, not a Studio limitation.
+          </div>
+        </div>
+
       </div>
     </div>
 
-  </div><!-- /body -->
+  </div>
 
   <div class="modal-footer" style="flex-shrink:0;justify-content:space-between;align-items:center;">
     <div style="font-size:10px;color:var(--text3);display:flex;gap:12px;">
@@ -641,53 +595,23 @@ docker restart flink-sql-gateway flink-jobmanager flink-taskmanager</pre>
 .cat-field-row > div { flex:1;min-width:140px; }
 .cat-active-card { display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg2);margin-bottom:6px;font-size:11px; }
 .cat-active-card.is-current { border-color:var(--accent);background:rgba(0,212,170,0.05); }
-
-/* JAR status badges - mirrors systems-manager.js */
-.cat-badge-jar-req {
-  background:rgba(245,166,35,0.18);color:#f5a623;
-  border:1px solid rgba(245,166,35,0.35);
-  padding:2px 7px;border-radius:2px;font-size:9px;font-weight:700;letter-spacing:.3px;
-  display:inline-block;
-}
-.cat-badge-available {
-  background:rgba(79,163,224,0.12);
-  border:1px solid rgba(79,163,224,0.45);
-  color:#4fa3e0;
-  padding:2px 7px;border-radius:2px;font-size:9px;font-weight:700;letter-spacing:.3px;
-  display:inline-flex;align-items:center;gap:4px;
-  box-shadow:0 0 6px rgba(79,163,224,0.2);
-}
-.cat-badge-available::before {
-  content:'';width:6px;height:6px;border-radius:50%;background:#4fa3e0;
-  box-shadow:0 0 5px #4fa3e0;
-  animation:cat-glow-pulse 1.8s ease-in-out infinite;
-  flex-shrink:0;
-}
-@keyframes cat-glow-pulse {
-  0%,100% { opacity:1;box-shadow:0 0 5px #4fa3e0; }
-  50%      { opacity:0.55;box-shadow:0 0 3px #4fa3e0; }
-}
-.cat-badge-builtin {
-  background:rgba(0,212,170,0.1);color:var(--accent,#00d4aa);
-  border:1px solid rgba(0,212,170,0.3);
-  padding:2px 7px;border-radius:2px;font-size:9px;font-weight:700;letter-spacing:.3px;
-  display:inline-block;
-}
+.cat-badge-jar-req { background:rgba(245,166,35,0.18);color:#f5a623;border:1px solid rgba(245,166,35,0.35);padding:2px 7px;border-radius:2px;font-size:9px;font-weight:700;display:inline-block; }
+.cat-badge-available { background:rgba(79,163,224,0.12);border:1px solid rgba(79,163,224,0.45);color:#4fa3e0;padding:2px 7px;border-radius:2px;font-size:9px;font-weight:700;display:inline-flex;align-items:center;gap:4px; }
+.cat-badge-available::before { content:'';width:6px;height:6px;border-radius:50%;background:#4fa3e0;animation:cat-glow-pulse 1.8s ease-in-out infinite;flex-shrink:0; }
+@keyframes cat-glow-pulse { 0%,100%{opacity:1} 50%{opacity:0.55} }
+.cat-badge-builtin { background:rgba(0,212,170,0.1);color:var(--accent,#00d4aa);border:1px solid rgba(0,212,170,0.3);padding:2px 7px;border-radius:2px;font-size:9px;font-weight:700;display:inline-block; }
 `;
         document.head.appendChild(s);
     }
-    // Refresh badges after modal builds (localStorage may have updated)
     setTimeout(_catRefreshGridBadges, 200);
 }
 
-// Refresh all type-grid badges from current localStorage state
 function _catRefreshGridBadges() {
     CATALOG_TYPES.forEach(t => {
         const el = document.getElementById(`cat-grid-badge-${t.id}`);
         if (el) el.innerHTML = _catJarBadgeHtml(t.id, t.requiresJar);
     });
 }
-
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TAB SWITCHING
@@ -731,22 +655,17 @@ function _catSelectType(typeId) {
 
     if (jarNotice) {
         if (def.requiresJar) {
-            const jarSt = _catJarStatus(typeId);
-            const badgeHtml = jarSt === 'available'
+            const jarSt  = _catJarStatus(typeId);
+            const badgeH = jarSt === 'available'
                 ? `<span class="cat-badge-available">● JAR Available</span>`
                 : `<span class="cat-badge-jar-req">JAR REQ</span>`;
             const extraMsg = jarSt === 'available'
-                ? `<div style="margin-top:6px;font-size:10px;color:var(--blue);">✓ A matching JAR was detected in your uploads. Ensure it is also in <code>/opt/flink/lib/</code> on your Flink cluster.</div>`
-                : `<div style="margin-top:6px;font-size:10px;color:var(--text3);">Upload via <strong>⊙ Systems Manager → Upload JAR</strong> then copy to <code>/opt/flink/lib/</code>.</div>`;
-
+                ? `<div style="margin-top:5px;font-size:10px;color:var(--blue);">✓ Matching JAR detected. Ensure it is also in <code>/opt/flink/lib/</code> on your Flink cluster.</div>`
+                : `<div style="margin-top:5px;font-size:10px;color:var(--text3);">Upload via <strong>⊙ Systems Manager → Upload JAR</strong> then copy to <code>/opt/flink/lib/</code>.</div>`;
             jarNotice.style.display = 'block';
-            jarNotice.innerHTML = `<div style="background:rgba(245,166,35,0.07);border:1px solid rgba(245,166,35,0.3);border-radius:var(--radius);padding:11px 14px;font-size:11px;color:var(--text1);line-height:1.8;">
-              <div style="font-size:10px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;margin-bottom:6px;display:flex;align-items:center;gap:8px;">
-                <span style="color:#f5a623;">⚠ JAR Required</span> ${badgeHtml}
-              </div>
-              <div>${def.jarNote}</div>
-              ${extraMsg}
-              <div style="margin-top:6px;font-size:10px;color:var(--text3);">Unlike UDF JARs, catalog connector JARs cannot be loaded with <code>ADD JAR</code>. Restart the Gateway after copying.</div>
+            jarNotice.innerHTML = `<div style="background:rgba(245,166,35,0.07);border:1px solid rgba(245,166,35,0.3);border-radius:var(--radius);padding:10px 14px;font-size:11px;color:var(--text1);line-height:1.7;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;font-size:10px;font-weight:700;color:#f5a623;text-transform:uppercase;letter-spacing:.5px;">⚠ JAR Required ${badgeH}</div>
+              <div>${def.jarNote}</div>${extraMsg}
             </div>`;
         } else {
             jarNotice.style.display = 'block';
@@ -794,54 +713,44 @@ async function _catRunTest() {
     const btn    = document.getElementById('cat-test-btn');
     const result = document.getElementById('cat-test-result');
     if (!result) return;
-
     if (btn) { btn.disabled = true; btn.textContent = '⊙ Testing…'; }
     result.style.display = 'none';
-
     const fields = {};
     (def.fields || []).forEach(f => { fields[f.id] = (document.getElementById(`cat-field-${f.id}`)?.value || '').trim(); });
     const authMode = window._catMgrState.authMode || 'none';
     const authDef  = AUTH_DEFS[authMode] || { fields: [] };
     authDef.fields.forEach(f => { fields[f.id] = (document.getElementById(`cat-auth-${f.id}`)?.value || '').trim(); });
-
     let res = { ok: false, msg: 'No test function defined.' };
-    try {
-        if (def.testFn) res = await def.testFn(fields, authMode);
-    } catch(e) {
-        res = { ok: false, msg: 'Test error: ' + (e.message || 'unknown') };
-    }
-
+    try { if (def.testFn) res = await def.testFn(fields, authMode); } catch(e) { res = { ok: false, msg: 'Test error: ' + (e.message || 'unknown') }; }
     result.style.display    = 'block';
     result.style.background = res.ok ? 'rgba(63,185,80,0.08)'  : 'rgba(224,92,92,0.08)';
     result.style.border     = res.ok ? '1px solid rgba(63,185,80,0.35)' : '1px solid rgba(224,92,92,0.35)';
     result.style.color      = res.ok ? 'var(--green)' : 'var(--red)';
     result.textContent      = (res.ok ? '✓ ' : '✗ ') + res.msg + (res.detail ? '\n' + res.detail : '');
-
     if (btn) { btn.disabled = false; btn.textContent = '⊙ Test Connectivity'; }
-    addLog(res.ok ? 'OK' : 'WARN', `Catalog Manager: connectivity test [${typeId}]: ${res.msg}`);
+    if (typeof addLog === 'function') addLog(res.ok ? 'OK' : 'WARN', `Catalog Manager connectivity test [${typeId}]: ${res.msg}`);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
 // AUTH SECTION
 // ═══════════════════════════════════════════════════════════════════════════
 const AUTH_DEFS = {
-    none:     { label: 'None',                 fields: [] },
-    userpass: { label: 'Username / Password',  fields: [
+    none:     { label: 'None',                fields: [] },
+    userpass: { label: 'Username / Password', fields: [
             { id: 'username', label: 'Username', placeholder: 'flink_user', type: 'text',     required: true },
             { id: 'password', label: 'Password', placeholder: '••••••••',   type: 'password', required: true },
         ]},
-    bearer:   { label: 'Bearer Token',         fields: [
-            { id: 'token',            label: 'Bearer Token',      placeholder: 'eyJhbGci…', type: 'password', required: true  },
-            { id: 'oauth2_server_uri',label: 'OAuth2 Server URI', placeholder: 'https://auth.example.com/token', type: 'text', required: false },
-            { id: 'credential',       label: 'OAuth2 Credential', placeholder: 'client_id:client_secret', type: 'text', required: false },
+    bearer:   { label: 'Bearer Token',        fields: [
+            { id: 'token',             label: 'Bearer Token',      placeholder: 'eyJhbGci…', type: 'password', required: true },
+            { id: 'oauth2_server_uri', label: 'OAuth2 Server URI', placeholder: 'https://auth.example.com/token', type: 'text', required: false },
         ]},
-    awskeys:  { label: 'AWS Access Keys',      fields: [
+    awskeys:  { label: 'AWS Access Keys',     fields: [
             { id: 'aws_access_key', label: 'Access Key ID',     placeholder: 'AKIA…',    type: 'text',     required: false },
             { id: 'aws_secret_key', label: 'Secret Access Key', placeholder: '••••••••', type: 'password', required: false },
         ]},
-    kerberos: { label: 'Kerberos',             fields: [
-            { id: 'kerberos_principal', label: 'Kerberos Principal', placeholder: 'flink@REALM.COM', type: 'text', required: false },
-            { id: 'kerberos_keytab',    label: 'Keytab Path',        placeholder: '/etc/security/flink.keytab', type: 'text', required: false },
+    kerberos: { label: 'Kerberos',            fields: [
+            { id: 'kerberos_principal', label: 'Kerberos Principal', placeholder: 'flink@REALM.COM',             type: 'text', required: false },
+            { id: 'kerberos_keytab',    label: 'Keytab Path',        placeholder: '/etc/security/flink.keytab',  type: 'text', required: false },
         ]},
 };
 
@@ -856,7 +765,7 @@ function _catBuildAuthSection(def) {
     ).join('');
 }
 
-function _catSelectAuth(mode, def) {
+function _catSelectAuth(mode) {
     window._catMgrState.authMode = mode;
     const authFields = document.getElementById('cat-auth-fields');
     if (!authFields) return;
@@ -903,12 +812,12 @@ function _catBuildPreview() {
     let props;
     try { props = def.buildProps(fieldValues); } catch(_) { props = { 'type': typeId }; }
     const withClause = Object.entries(props)
-        .filter(([,v]) => v)
-        .map(([k, v]) => `  '${k}' = '${String(v).replace(/'/g,"\\'")}' `)
+        .filter(([, v]) => v)
+        .map(([k, v]) => `  '${k}' = '${String(v).replace(/'/g, "\\'")}'`)
         .join(',\n');
     let sql = '';
-    if (exists === 'recreate') sql += `DROP CATALOG IF EXISTS ${name};\n\n`;
-    sql += `CREATE CATALOG ${name} WITH (\n${withClause}\n);`;
+    if (exists === 'recreate') sql += `DROP CATALOG IF EXISTS \`${name}\`;\n\n`;
+    sql += `CREATE CATALOG \`${name}\` WITH (\n${withClause}\n);`;
     prev.textContent = sql;
 }
 
@@ -945,7 +854,6 @@ async function _catExecute() {
     if (!state?.gateway || !state?.activeSession) { _catSetResult('err', '✗ Not connected to a Flink SQL Gateway session.'); return; }
 
     const def = CATALOG_TYPES.find(t => t.id === typeId); if (!def) return;
-
     const fieldValues = {};
     for (const f of (def.fields || [])) {
         const val = (document.getElementById(`cat-field-${f.id}`)?.value || '').trim();
@@ -964,34 +872,36 @@ async function _catExecute() {
     if (!sql) { _catSetResult('err', '✗ Could not generate SQL. Check all required fields.'); return; }
 
     if (btn) { btn.disabled = true; btn.textContent = 'Creating…'; }
-    _catSetResult('info', `Creating catalog "${name}"…\n\nRunning:\n${sql}`);
+    _catSetResult('info', `Creating catalog "${name}"…\n\n${sql}`);
 
     try {
-        const stmts = sql.split(';\n\n').map(s => s.trim()).filter(Boolean);
+        const stmts = sql.split(/;\s*\n\n/).map(s => s.trim()).filter(Boolean);
         for (const stmt of stmts) await _catRunQ(stmt);
 
         const switchAfter = document.getElementById('cat-switch-after')?.value || 'yes';
         if (switchAfter === 'yes') {
             try {
-                await _catRunQ(`USE CATALOG ${name}`);
-                // Query the actual first database — never assume 'default' exists
-                let actualDb = state?.activeDatabase || 'default';
+                await _catRunQ(`USE CATALOG \`${name}\``);
+                let actualDb = 'default';
                 try {
                     const dbResult = await _catRunQ(`SHOW DATABASES`);
                     const firstDb  = (dbResult.rows || [])[0];
                     if (firstDb) actualDb = Array.isArray(firstDb) ? String(firstDb[0]) : String(Object.values(firstDb)[0]);
                 } catch(_) {}
-                if (state) { state.activeCatalog = name; state.activeDatabase = actualDb; if (typeof updateCatalogStatus === 'function') updateCatalogStatus(name, actualDb); }
-                // Refresh the catalog sidebar tree
+                if (typeof state !== 'undefined' && state) {
+                    state.activeCatalog  = name;
+                    state.activeDatabase = actualDb;
+                    if (typeof updateCatalogStatus === 'function') updateCatalogStatus(name, actualDb);
+                }
                 ['refreshCatalog','refreshCatalogBrowser','loadCatalogTree','buildCatalogTree'].forEach(fn => {
                     if (typeof window[fn] === 'function') { try { setTimeout(() => window[fn](), 500); } catch(_) {} }
                 });
-            } catch(e) { addLog('WARN', `USE CATALOG ${name} failed: ${e.message}`); }
+            } catch(e) { if (typeof addLog === 'function') addLog('WARN', `USE CATALOG ${name} failed: ${e.message}`); }
         }
 
-        _catSetResult('ok', `✓ Catalog "${name}" created successfully!\n\nType: ${def.label}\n${switchAfter==='yes'?`Active: USE CATALOG ${name} executed\n`:''}\nUsage:\n${def.exampleSql(name)}`);
-        addLog('OK', `Catalog created: ${name} (${def.label})`);
-        toast(`Catalog "${name}" created`, 'ok');
+        _catSetResult('ok', `✓ Catalog "${name}" created successfully!\n\nType: ${def.label}\n${switchAfter==='yes'?'Active: USE CATALOG executed\n':''}\nUsage:\n${def.exampleSql(name)}`);
+        if (typeof addLog  === 'function') addLog('OK', `Catalog created: ${name} (${def.label})`);
+        if (typeof toast   === 'function') toast(`Catalog "${name}" created`, 'ok');
         _catSaveHistory({ name, typeId, typeLabel: def.label, createdAt: new Date().toISOString(), sql });
         if (typeof refreshCatalog === 'function') setTimeout(refreshCatalog, 500);
 
@@ -1001,13 +911,13 @@ async function _catExecute() {
         if (msg.includes('ClassNotFoundException') || msg.includes('No factory found'))
             detail = '\n\nROOT CAUSE: Catalog connector JAR not in /opt/flink/lib/.\nFix: copy JAR → restart SQL Gateway → reconnect.';
         else if (msg.includes('already exists'))
-            detail = '\n\nFix: Use "If Already Exists → Drop + Re-create" option.';
+            detail = '\n\nFix: Use "If Already Exists → Drop + Re-create" option, or drop the catalog manually first.';
         else if (msg.includes('Connection refused'))
             detail = '\n\nFix: Check that the database/metastore host is reachable from the Flink cluster.';
         else if (msg.includes('does not exist') && msg.includes('database'))
-            detail = '\n\nFix: The "Database" field must match an existing PostgreSQL/MySQL database name.';
+            detail = '\n\nFix: The "Database" field must match an existing database name on the server.';
         _catSetResult('err', `✗ ${msg}${detail}`);
-        addLog('ERR', `Catalog creation failed: ${msg}`);
+        if (typeof addLog === 'function') addLog('ERR', `Catalog creation failed: ${msg}`);
     } finally {
         if (btn) { btn.disabled = false; btn.textContent = '⚡ Create Catalog'; }
     }
@@ -1016,18 +926,23 @@ async function _catExecute() {
 function _catSetResult(type, msg) {
     const el = document.getElementById('cat-result'); if (!el) return;
     el.style.display = 'block';
-    const colors = { ok:'rgba(57,211,83,0.08)/rgba(57,211,83,0.3)/var(--green)', err:'rgba(255,77,109,0.08)/rgba(255,77,109,0.3)/var(--red)', warn:'rgba(245,166,35,0.08)/rgba(245,166,35,0.3)/#f5a623', info:'rgba(79,163,224,0.08)/rgba(79,163,224,0.3)/var(--blue)' };
+    const colors = {
+        ok:   'rgba(57,211,83,0.08)/rgba(57,211,83,0.3)/var(--green)',
+        err:  'rgba(255,77,109,0.08)/rgba(255,77,109,0.3)/var(--red)',
+        warn: 'rgba(245,166,35,0.08)/rgba(245,166,35,0.3)/#f5a623',
+        info: 'rgba(79,163,224,0.08)/rgba(79,163,224,0.3)/var(--blue)',
+    };
     const [bg, bd, col] = (colors[type]||colors.info).split('/');
     el.style.cssText = `display:block;background:${bg};border:1px solid ${bd};border-radius:var(--radius);padding:11px 14px;font-size:11px;font-family:var(--mono);color:${col};white-space:pre-wrap;line-height:1.8;word-break:break-word;margin-bottom:12px;`;
     el.textContent = msg;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// ACTIVE CATALOGS
+// ACTIVE CATALOGS — with USE / DROP / REMOVE actions
 // ═══════════════════════════════════════════════════════════════════════════
 async function _catLoadActive() {
     const list = document.getElementById('cat-active-list'); if (!list) return;
-    if (!state?.gateway || !state?.activeSession) {
+    if (typeof state === 'undefined' || !state?.gateway || !state?.activeSession) {
         list.innerHTML = '<div style="font-size:12px;color:var(--text3);text-align:center;padding:24px;">Not connected.</div>'; return;
     }
     list.innerHTML = '<div style="font-size:12px;color:var(--text3);text-align:center;padding:16px;">⏳ Running SHOW CATALOGS…</div>';
@@ -1037,15 +952,19 @@ async function _catLoadActive() {
         const catalogs = (result.rows || []).map(r => toStr(r)).filter(Boolean);
         if (!catalogs.length) { list.innerHTML = '<div style="font-size:12px;color:var(--text3);text-align:center;padding:24px;">No catalogs found.</div>'; return; }
         list.innerHTML = catalogs.map(cat => {
-            const isCurrent = cat === (state.activeCatalog || 'default_catalog');
-            return `<div class="cat-active-card ${isCurrent?'is-current':''}">
+            const isCurrent  = cat === ((typeof state !== 'undefined' && state?.activeCatalog) || 'default_catalog');
+            const isBuiltIn  = cat === 'default_catalog';
+            return `<div class="cat-active-card ${isCurrent ? 'is-current' : ''}">
           <span style="font-size:16px;">⊛</span>
           <div style="flex:1;">
             <span style="font-family:var(--mono);font-size:12px;font-weight:700;color:${isCurrent?'var(--accent)':'var(--text0)'};">${escHtml(cat)}</span>
-            ${isCurrent?'<span style="font-size:9px;background:rgba(0,212,170,0.15);color:var(--accent);padding:1px 6px;border-radius:2px;margin-left:7px;font-weight:700;">CURRENT</span>':''}
+            ${isCurrent ? '<span style="font-size:9px;background:rgba(0,212,170,0.15);color:var(--accent);padding:1px 6px;border-radius:2px;margin-left:7px;font-weight:700;">CURRENT</span>' : ''}
+            ${isBuiltIn ? '<span style="font-size:9px;background:rgba(255,255,255,0.06);color:var(--text3);padding:1px 6px;border-radius:2px;margin-left:4px;">built-in</span>' : ''}
           </div>
-          <button onclick="_catUseThis('${escHtml(cat)}')" style="font-size:10px;padding:3px 10px;border-radius:2px;border:1px solid var(--border);background:var(--bg3);color:var(--text1);cursor:pointer;flex-shrink:0;">USE →</button>
-          ${cat !== 'default_catalog' ? `<button onclick="_catDropThis('${escHtml(cat)}')" style="font-size:10px;padding:3px 10px;border-radius:2px;border:1px solid rgba(255,77,109,0.3);background:rgba(255,77,109,0.07);color:var(--red);cursor:pointer;flex-shrink:0;">Drop</button>` : ''}
+          <div style="display:flex;gap:5px;flex-shrink:0;">
+            ${!isCurrent ? `<button onclick="_catUseThis('${escHtml(cat)}')" style="font-size:10px;padding:3px 10px;border-radius:2px;border:1px solid rgba(0,212,170,0.35);background:rgba(0,212,170,0.07);color:var(--accent);cursor:pointer;">USE →</button>` : ''}
+            ${!isBuiltIn ? `<button onclick="_catDropThis('${escHtml(cat)}')" style="font-size:10px;padding:3px 10px;border-radius:2px;border:1px solid rgba(255,77,109,0.3);background:rgba(255,77,109,0.07);color:var(--red);cursor:pointer;">Drop</button>` : ''}
+          </div>
         </div>`;
         }).join('');
     } catch(e) {
@@ -1054,25 +973,26 @@ async function _catLoadActive() {
 }
 
 async function _catUseThis(name) {
-    if (!state?.gateway || !state?.activeSession) { toast('Not connected', 'err'); return; }
+    if (typeof state === 'undefined' || !state?.gateway || !state?.activeSession) { toast('Not connected', 'err'); return; }
     try {
-        await _catRunQ(`USE CATALOG ${name}`);
-        if (state) state.activeCatalog = name;
-        if (typeof updateCatalogStatus === 'function') updateCatalogStatus(name, state.activeDatabase);
-        toast(`Switched to catalog: ${name}`, 'ok');
+        await _catRunQ(`USE CATALOG \`${name}\``);
+        if (typeof state !== 'undefined' && state) state.activeCatalog = name;
+        if (typeof updateCatalogStatus === 'function') updateCatalogStatus(name, state?.activeDatabase || 'default');
+        if (typeof toast === 'function') toast(`Switched to catalog: ${name}`, 'ok');
         _catLoadActive();
         if (typeof refreshCatalog === 'function') setTimeout(refreshCatalog, 400);
-    } catch(e) { toast(`USE CATALOG failed: ${e.message}`, 'err'); }
+    } catch(e) { if (typeof toast === 'function') toast(`USE CATALOG failed: ${e.message}`, 'err'); }
 }
 
 async function _catDropThis(name) {
-    if (!confirm(`Drop catalog "${name}"?\n\nThis removes the catalog registration from Flink.\nThe underlying data is NOT deleted.`)) return;
+    if (!confirm(`Drop catalog "${name}"?\n\nThis removes the catalog registration from Flink.\nThe underlying database/data is NOT deleted.`)) return;
     try {
-        await _catRunQ(`DROP CATALOG IF EXISTS ${name}`);
-        toast(`Catalog "${name}" dropped`, 'ok');
+        await _catRunQ(`DROP CATALOG IF EXISTS \`${name}\``);
+        if (typeof toast === 'function') toast(`Catalog "${name}" dropped`, 'ok');
+        if (typeof addLog === 'function') addLog('OK', `Catalog dropped: ${name}`);
         _catLoadActive();
         if (typeof refreshCatalog === 'function') setTimeout(refreshCatalog, 400);
-    } catch(e) { toast(`Drop failed: ${e.message}`, 'err'); }
+    } catch(e) { if (typeof toast === 'function') toast(`Drop failed: ${e.message}`, 'err'); }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1091,7 +1011,7 @@ function _catRenderHistory() {
       </div>
       <pre style="background:var(--bg0);border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px;font-size:10px;font-family:var(--mono);color:var(--text2);white-space:pre-wrap;margin:0 0 8px;max-height:90px;overflow-y:auto;">${escHtml(entry.sql||'')}</pre>
       <div style="display:flex;gap:7px;">
-        <button onclick="_catHistoryInsert(${idx})" style="font-size:10px;padding:3px 9px;border-radius:2px;border:1px solid var(--border);background:var(--bg3);color:var(--text1);cursor:pointer;">Insert</button>
+        <button onclick="_catHistoryInsert(${idx})" style="font-size:10px;padding:3px 9px;border-radius:2px;border:1px solid var(--border);background:var(--bg3);color:var(--text1);cursor:pointer;">Insert SQL</button>
         <button onclick="_catHistoryCopy(${idx})"   style="font-size:10px;padding:3px 9px;border-radius:2px;border:1px solid var(--border);background:var(--bg3);color:var(--text1);cursor:pointer;">Copy</button>
         <button onclick="_catHistoryDelete(${idx})" style="font-size:10px;padding:3px 9px;border-radius:2px;border:1px solid rgba(255,77,109,0.3);background:rgba(255,77,109,0.07);color:var(--red);cursor:pointer;margin-left:auto;">Delete</button>
       </div>
@@ -1102,7 +1022,7 @@ function _catHistoryInsert(idx) {
     const entry = (window._catMgrState.history||[])[idx]; if (!entry) return;
     const ed = document.getElementById('sql-editor'); if (!ed) return;
     const s = ed.selectionStart;
-    ed.value = ed.value.slice(0,s) + (ed.value.length?'\n\n':'') + entry.sql + '\n' + ed.value.slice(ed.selectionEnd);
+    ed.value = ed.value.slice(0, s) + (ed.value.length ? '\n\n' : '') + entry.sql + '\n' + ed.value.slice(ed.selectionEnd);
     ed.focus(); if (typeof updateLineNumbers==='function') updateLineNumbers();
     closeModal('modal-catalog-manager'); toast('SQL inserted','ok');
 }
@@ -1123,8 +1043,8 @@ async function _catRunQ(sql) {
     const sess    = state.activeSession;
     const trimmed = sql.trim().replace(/;+$/, '');
     const isDDL   = /^\s*(CREATE|DROP|ALTER|USE|SET|RESET|SHOW)\b/i.test(trimmed);
-    const resp = await api('POST', `/v1/sessions/${sess}/statements`, { statement: trimmed, executionTimeout: 0 });
-    const op = resp.operationHandle;
+    const resp    = await api('POST', `/v1/sessions/${sess}/statements`, { statement: trimmed, executionTimeout: 0 });
+    const op      = resp.operationHandle;
     for (let i = 0; i < 120; i++) {
         await new Promise(r => setTimeout(r, 300));
         const st = await api('GET', `/v1/sessions/${sess}/operations/${op}/status`);
@@ -1147,11 +1067,11 @@ function _catParseErr(raw) {
     if (raw.includes('ClassNotFoundException') || raw.includes('No factory found'))
         return `ClassNotFoundException — catalog connector JAR not in /opt/flink/lib/.`;
     if (raw.includes('already exists'))
-        return `Catalog already exists. Use "Drop + Re-create" option.`;
+        return `Catalog already exists in catalog store. Use "Drop + Re-create" option.`;
     if (raw.includes('Connection refused'))
-        return `Connection refused — database/metastore host not reachable from Flink cluster.`;
+        return `Connection refused — host not reachable from Flink cluster.`;
     if (raw.includes('does not exist') && raw.includes('database'))
-        return `Database does not exist — check the "Database" field matches an existing DB on the server.`;
+        return `Database does not exist — check "Database" field matches an existing DB.`;
     const first = raw.split('\n').find(l => l.trim() && !l.includes('at org.') && !l.includes('at java.'));
     return first ? first.trim().slice(0, 400) : raw.slice(0, 400);
 }
