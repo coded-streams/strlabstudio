@@ -632,4 +632,4 @@ SET 'table.optimizer.agg-phase-strategy'  = 'TWO_PHASE';
 ## License
 
 Apache License 2.0 — see [LICENSE](LICENSE).
-Created by **Nestor A. A** · [coded-streams](https://github.com/coded-streams)
+Created by **Nestor Martourez A. A** · [coded-streams](https://github.com/coded-streams)
