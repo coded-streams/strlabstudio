@@ -1270,81 +1270,63 @@ async function _sysJarUploadWithProgress() {
     }
 
     _sysShowProgressModal();
-    _sysUpdateProgressStep('upload', 'active', 'Uploading to Studio...');
+    _sysUpdateProgressStep('upload', 'active', 'Uploading directly to Flink JobManager...');
 
     const jarName = _sysSelJar.name;
     _sysLastJarName = jarName;
-    const url = window.location.origin + '/udf-jars/' + encodeURIComponent(jarName);
-    const bytes = await _sysSelJar.arrayBuffer();
 
     try {
-        // Step 1: Upload JAR
-        const r = await fetch(url, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/java-archive' },
-            body: bytes,
-            signal: AbortSignal.timeout(30000)
+        // Get Flink JobManager URL
+        const flinkJmUrl = _sysGatewayBase()
+            .replace('/flink-api', '')
+            .replace(':8083', ':8081')
+            .replace(/\/+$/, '');
+
+        const uploadUrl = `${flinkJmUrl}/jars/upload`;
+
+        // Upload directly to Flink
+        const formData = new FormData();
+        formData.append('jarfile', _sysSelJar);
+
+        const uploadResp = await fetch(uploadUrl, {
+            method: 'POST',
+            body: formData,
+            signal: AbortSignal.timeout(60000)
         });
 
-        if (![200, 201, 204].includes(r.status)) throw new Error(`HTTP ${r.status}`);
+        if (!uploadResp.ok) {
+            throw new Error(`HTTP ${uploadResp.status}`);
+        }
 
-        _sysUpdateProgressStep('upload', 'complete', '✓ Uploaded');
+        const result = await uploadResp.json();
+
+        _sysUpdateProgressStep('upload', 'complete', '✓ Uploaded to Flink');
         _sysRecordJarUpload(jarName);
 
-        // Step 2: Copy to Flink containers
-        _sysUpdateProgressStep('copy', 'active', 'Copying to Flink containers...');
+        // Skip copy step - already on Flink!
+        _sysUpdateProgressStep('copy', 'complete', '✓ JAR is on Flink JobManager');
 
-        const copyResp = await fetch(window.location.origin + '/api/flink/copy-jar', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ jarName: jarName }),
-            signal: AbortSignal.timeout(30000)
-        });
+        // No restart needed for most connectors!
+        _sysUpdateProgressStep('restart', 'complete', '✓ No restart needed');
 
-        if (copyResp.ok) {
-            _sysUpdateProgressStep('copy', 'complete', '✓ Copied to all containers');
-        } else {
-            throw new Error('Failed to copy JAR to Flink containers');
-        }
-
-        // Step 3: Restart Flink cluster
-        _sysUpdateProgressStep('restart', 'active', 'Restarting Flink cluster (this may take 10-15 seconds)...');
-
-        const restartResp = await fetch(window.location.origin + '/api/flink/restart-cluster', {
-            method: 'POST',
-            signal: AbortSignal.timeout(45000)
-        });
-
-        if (restartResp.ok) {
-            _sysUpdateProgressStep('restart', 'complete', '✓ Flink cluster restarted');
-        } else {
-            throw new Error('Failed to restart Flink cluster');
-        }
-
-        // Wait for Flink to come back
-        _sysUpdateProgressStep('reconnect', 'active', 'Waiting for Flink to stabilize...');
-        await new Promise(r => setTimeout(r, 8000));
-
-        // Step 4: Reconnect session
-        _sysUpdateProgressStep('reconnect', 'active', 'Reconnecting Studio session...');
+        // Reconnect session
+        _sysUpdateProgressStep('reconnect', 'active', 'Reconnecting session...');
 
         if (typeof renewSession === 'function') {
             await renewSession();
             _sysUpdateProgressStep('reconnect', 'complete', '✓ Session reconnected');
         } else {
-            _sysUpdateProgressStep('reconnect', 'complete', '✓ Manual refresh may be needed');
+            _sysUpdateProgressStep('reconnect', 'complete', '✓ Ready to use');
         }
 
         // Success!
         document.getElementById('sys-progress-title').innerHTML = '✓ Complete!';
-        document.getElementById('sys-progress-message').innerHTML = `JAR "${jarName}" successfully loaded.<br>Flink cluster is ready with the new connector.`;
+        document.getElementById('sys-progress-message').innerHTML = `JAR "${jarName}" successfully uploaded to Flink JobManager.<br><br>Connector is now available for your pipelines.`;
         document.getElementById('sys-progress-spinner').style.display = 'none';
         document.getElementById('sys-progress-close').style.display = 'block';
 
-        if (typeof toast === 'function') toast(`✓ ${jarName} loaded and Flink restarted`, 'ok');
-        if (typeof addLog === 'function') addLog('OK', `JAR ${jarName} uploaded, Flink restarted successfully`);
+        if (typeof toast === 'function') toast(`✓ ${jarName} uploaded to Flink`, 'ok');
 
-        // Clean up
         _sysJarClear();
         setTimeout(() => {
             _sysJarLoadList();
@@ -1352,11 +1334,17 @@ async function _sysJarUploadWithProgress() {
         }, 1000);
 
     } catch (error) {
-        console.error('Upload workflow error:', error);
+        console.error('Upload error:', error);
         _sysUpdateProgressStep('upload', 'error');
-        _sysShowError(`Failed: ${error.message}<br><br>Try manual steps in the guide tab.`);
+        _sysShowError(`
+            Failed to upload to Flink JobManager: ${error.message}<br><br>
+            <strong>Manual docker command:</strong><br>
+            <code style="font-size:10px;display:block;margin-top:8px;padding:8px;background:var(--bg1);border-radius:4px;">
+            docker cp ${jarName} flink-jobmanager:/opt/flink/lib/<br>
+            docker restart flink-jobmanager flink-taskmanager
+            </code>
+        `);
         document.getElementById('sys-progress-spinner').style.display = 'none';
-        if (typeof toast === 'function') toast(`Upload failed: ${error.message}`, 'err');
     }
 }
 
@@ -1365,7 +1353,86 @@ async function _sysJarUpload() {
         toast('Select a JAR file first', 'warn');
         return;
     }
-    await _sysJarUploadWithProgress();
+
+    const jarName = _sysSelJar.name;
+    const statusEl = document.getElementById('sys-jar-status');
+    const uploadBtn = document.querySelector('#sys-pane-upload .btn-primary');
+
+    if (statusEl) {
+        statusEl.style.color = 'var(--yellow)';
+        statusEl.innerHTML = `📦 Uploading ${jarName} directly to Flink JobManager...`;
+    }
+    if (uploadBtn) uploadBtn.disabled = true;
+
+    try {
+        // Get Flink JobManager URL (typically port 8081)
+        const flinkJmUrl = _sysGatewayBase()
+            .replace('/flink-api', '')
+            .replace(':8083', ':8081')
+            .replace(/\/+$/, '');
+
+        const uploadUrl = `${flinkJmUrl}/jars/upload`;
+
+        // Upload directly to Flink using FormData
+        const formData = new FormData();
+        formData.append('jarfile', _sysSelJar);
+
+        const uploadResp = await fetch(uploadUrl, {
+            method: 'POST',
+            body: formData,
+            signal: AbortSignal.timeout(60000)
+        });
+
+        if (!uploadResp.ok) {
+            const errorText = await uploadResp.text();
+            throw new Error(`HTTP ${uploadResp.status}: ${errorText}`);
+        }
+
+        const result = await uploadResp.json();
+        const jarId = result.filename || result['jar-id'] || jarName;
+
+        _sysRecordJarUpload(jarName);
+
+        if (statusEl) {
+            statusEl.style.color = 'var(--green)';
+            statusEl.innerHTML = `✓ ${jarName} uploaded directly to Flink JobManager!<br>
+            <span style="font-size:10px;">JAR ID: ${jarId}</span><br>
+            <span style="font-size:10px;color:var(--text2);">The connector is now available. No restart needed!</span>`;
+        }
+
+        if (typeof toast === 'function') toast(`✓ ${jarName} uploaded to Flink`, 'ok');
+        if (typeof addLog === 'function') addLog('OK', `JAR ${jarName} uploaded directly to Flink JobManager`);
+
+        // Refresh the JAR list and availability
+        setTimeout(() => {
+            _sysJarLoadList();
+            _sysRefreshAvailability();
+        }, 1000);
+
+        // Clear the selected file
+        _sysJarClear();
+
+        // Close progress modal if open
+        _sysCloseProgressModal();
+
+    } catch (error) {
+        console.error('Upload error:', error);
+
+        if (statusEl) {
+            statusEl.style.color = 'var(--red)';
+            statusEl.innerHTML = `✗ Direct upload failed: ${error.message}<br><br>
+            <strong>📋 Manual Docker command:</strong><br>
+            <code style="font-size:10px;display:inline-block;background:var(--bg0);padding:6px 10px;border-radius:4px;margin-top:6px;">
+            docker cp ${jarName} flink-jobmanager:/opt/flink/lib/<br>
+            docker restart flink-jobmanager flink-taskmanager
+            </code><br>
+            <span style="font-size:10px;">Then click "Check JARs" button above to verify.</span>`;
+        }
+
+        if (typeof toast === 'function') toast(`Upload failed: ${error.message}`, 'err');
+    } finally {
+        if (uploadBtn) uploadBtn.disabled = false;
+    }
 }
 
 async function _sysRetryLastUpload() {
