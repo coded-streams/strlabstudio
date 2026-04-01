@@ -86,8 +86,8 @@ async function _jarJmApi(path, opts) {
         throw new Error(msg);
     }
     if (res.status === 204) return {};
-    const json = await res.json();
-    // Flink can legitimately return null for empty responses — normalise to {}
+    const json = await res.json().catch(() => null);
+    // Flink can return a bare null body — normalise to {} so callers never crash on property access
     return json ?? {};
 }
 
@@ -620,8 +620,9 @@ async function _jarSubmit() {
             }
         );
 
-        const jobId   = runResp.jobid || runResp.jobId || '';
-        const shortId = jobId ? jobId.slice(0, 8) + '…' : '(no ID returned)';
+        // runResp can be null on some Flink builds that return a bare null body on success
+        const jobId   = runResp?.jobid || runResp?.jobId || runResp?.id || '';
+        const shortId = jobId ? jobId.slice(0, 8) + '…' : '(submitted — no ID returned)';
 
         _jarSetProgress('Job submitted!', 100);
 
@@ -794,8 +795,8 @@ async function _jarRunExisting(encodedJarId, displayName) {
             }
         );
 
-        const jobId   = runResp.jobid || runResp.jobId || '';
-        const shortId = jobId ? jobId.slice(0, 8) + '…' : '(no ID)';
+        const jobId   = runResp?.jobid || runResp?.jobId || runResp?.id || '';
+        const shortId = jobId ? jobId.slice(0, 8) + '…' : '(submitted — no ID returned)';
 
         _jarAddHistory({
             file:       decodeURIComponent(displayName || encodedJarId),
