@@ -2,14 +2,27 @@
 
 > A zero-dependency, modular browser SQL Studio for Flink SQL — built for engineers who want a real query interface without leaving their laptop.
 
-![License](https://img.shields.io/badge/license-Apache%202.0-green)
-![Flink](https://img.shields.io/badge/Flink%20SQL%20Gateway-1.16--2.x-orange)
-![Docker](https://img.shields.io/badge/docker-ready-blue)
-![Version](https://img.shields.io/badge/version-v1.3.2-teal)
+[![License](https://img.shields.io/badge/license-Apache%202.0-green)](https://github.com/coded-streams/strlabstudio/blob/main/LICENSE)
+[![Flink](https://img.shields.io/badge/Flink%20SQL%20Gateway-1.16--2.x-orange)](https://nightlies.apache.org/flink/flink-docs-stable/)
+[![Docker](https://img.shields.io/badge/docker-ready-blue)](https://hub.docker.com/r/codedstreams/strlabstudio)
+[![Version](https://img.shields.io/badge/version-v0.0.11-teal)](https://github.com/coded-streams/strlabstudio/releases)
+[![Docker Pulls](https://img.shields.io/docker/pulls/codedstreams/strlabstudio)](https://hub.docker.com/r/codedstreams/strlabstudio)
+[![GitHub stars](https://img.shields.io/github/stars/coded-streams/strlabstudio)](https://github.com/coded-streams/strlabstudio)
 
 > **Apache Flink** is a trademark of the Apache Software Foundation.
 > Str:::lab Studio is an independent open-source project that uses the Flink SQL Gateway REST API.
 > It is not affiliated with or endorsed by the Apache Software Foundation.
+
+---
+
+## ⭐ Support This Project
+
+If you find Str:::lab Studio useful, please consider:
+- **Starring** this repository on [GitHub](https://github.com/coded-streams/strlabstudio)
+- **Starring** it on [Docker Hub](https://hub.docker.com/r/codedstreams/strlabstudio)
+- **Sharing** it with your colleagues and team
+
+Your support helps drive continued development and maintenance. Thank you! 🙏
 
 ---
 
@@ -26,12 +39,32 @@ Str:::lab Studio is a self-hosted web IDE that connects to the **Flink SQL Gatew
 - Visualise running job DAGs with live operator metrics, backpressure indicators, and throughput charts
 - **Plot streaming results** as bar, line, area, scatter, pie, donut, histogram, or heatmap charts with explicit X/Y axis selection
 - **Highlight result rows in real time** using Colour Describe — a rules engine that applies colour to matching rows as they stream in
+- Upload and Submit packaged Flink application written and compiled as jar
 - Manage multiple sessions — each with its own isolated workspace (tabs, logs, history, jobs, UDFs)
 - Monitor cluster health: backpressure, checkpoints, slot utilisation, JVM heap, records/s per operator
 - Use **Admin Session** for full cluster visibility, cross-session oversight, and pipeline inspection
 - Generate **PDF reports** — standard session reports, or admin-grade Technical / Business reports
 - Organise work as named **Projects** — save, load, run, and export your pipelines
 - Compatible with **Flink 1.16 through 2.x** — including the Flink 2.0 release
+
+---
+
+## Quickstart Cluster Setup
+
+Need a Flink cluster to test with? We provide a ready-to-use Docker Compose setup that includes:
+
+- Flink JobManager and TaskManagers (2 Task managers(10 slots per manager), 1 Jobmanager) (v1.19). customizable
+- SQL Gateway with pre-downloaded connectors (Kafka, JDBC, Elasticsearch, etc.)
+- Nginx for CORS handling
+- All connectors used by Str:::lab Studio pre-installed
+
+```bash
+git clone https://github.com/coded-streams/FLINK-CLUSTER.git
+cd FLINK-CLUSTER
+docker compose up -d
+```
+
+> **Note:** This cluster setup uses Flink 1.19. You can easily update it to newer Flink versions by changing the image tags in `docker-compose.yml`. The setup includes scripts to pre-download all connectors supported by Str:::lab Studio, making it the perfect companion for testing and development.
 
 ---
 
@@ -448,7 +481,7 @@ A rules engine for your result table. Rows highlight in real time as they stream
 1. Click **🎨 Colour Describe** in the results toolbar
 2. Select the live query slot to apply highlighting to
 3. Build rules: pick a field, operator, and value
-   - Operators: `==` `!=` `>` `>=` `<` `<=` `contains` `starts with` `ends with` `regex`
+    - Operators: `==` `!=` `>` `>=` `<` `<=` `contains` `starts with` `ends with` `regex`
 4. Choose a highlight colour and style: **row background · left border accent · text colour**
 5. Click **⚡ Apply & Activate** — matching rows highlight immediately and continue as rows stream in
 
@@ -570,6 +603,18 @@ SET 'table.optimizer.agg-phase-strategy'  = 'TWO_PHASE';
 
 ---
 
+## 📚 Additional Resources
+
+| Resource | Link |
+|----------|------|
+| **Docker Hub** | [codedstreams/strlabstudio](https://hub.docker.com/r/codedstreams/strlabstudio) |
+| **Official Website** | [coded-streams.github.io/strlabstudio](https://coded-streams.github.io/strlabstudio) |
+| **Kubernetes Operator** | [codedstreams/strlab-kube-operator](https://hub.docker.com/r/codedstreams/strlab-kube-operator) |
+| **Quickstart Cluster** | [FLINK-CLUSTER repo](https://github.com/coded-streams/FLINK-CLUSTER.git) — Pre-configured Flink 1.19 with all connectors |
+| **GitHub Repository** | [coded-streams/strlabstudio](https://github.com/coded-streams/strlabstudio) |
+
+---
+
 ## Changelog
 
 ### v1.3.2
@@ -621,6 +666,8 @@ SET 'table.optimizer.agg-phase-strategy'  = 'TWO_PHASE';
 
 ## Contributing
 
+We welcome contributions! The project is built with plain HTML/CSS/JS to keep it dependency-free.
+
 1. Fork the repo and create a feature branch.
 2. Each JS module has a single clear responsibility — keep it that way.
 3. No build step, no bundler, no dependencies — plain HTML/CSS/JS only.
@@ -632,4 +679,5 @@ SET 'table.optimizer.agg-phase-strategy'  = 'TWO_PHASE';
 ## License
 
 Apache License 2.0 — see [LICENSE](LICENSE).
+
 Created by **Nestor Martourez A. A** · [coded-streams](https://github.com/coded-streams)
