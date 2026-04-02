@@ -59,20 +59,50 @@ function _jarXhrBase() {
     return '/jobmanager-api';
 }
 
-// ── Safe jmApi wrapper (uses the real one from connection.js when available) ───
-async function _jarApi(path, opts) {
-    if (typeof jmApi === 'function') {
+// ── API helpers ───────────────────────────────────────────────────────────────
+// _jarApiRead  — uses jmApi() (the real proxy helper from connection.js).
+//                Used for GET /jars and DELETE /jars/:id because jmApi() already
+//                knows the correct proxy routing (same as jobgraph.js calls).
+// _jarApiRun   — uses direct fetch so we can capture the FULL Flink error body
+//                (jmApi swallows the raw response text internally).
+//                Used only for POST /jars/:id/run where rich error reporting matters.
+
+async function _jarApiRead(path, opts) {
+    if (typeof jmApi !== 'function') {
+        throw new Error('jmApi not available — is connection.js loaded?');
+    }
+    try {
         const result = await jmApi(path, opts);
-        // jmApi can return null on empty 200 bodies — normalise
         return result ?? {};
+    } catch (e) {
+        // jmApi throws plain Error — re-throw as-is for the cluster list handler
+        throw e;
     }
-    // Minimal fallback
+}
+
+async function _jarApiRun(path, opts) {
+    // Direct fetch through the same proxy base — captures full error body
     const res = await fetch(_jarXhrBase() + path, opts || {});
+
     if (!res.ok) {
-        let msg = `HTTP ${res.status}`;
-        try { const j = await res.json(); msg = j.errors?.[0] || j.message || msg; } catch (_) {}
-        throw new Error(msg);
+        const raw = await res.text().catch(() => '');
+        // Flink error envelope: { errors: ["full stack trace..."] }
+        let summary = `HTTP ${res.status}`;
+        let fullBody = raw;
+        try {
+            const j = JSON.parse(raw);
+            const errText = (Array.isArray(j.errors) && j.errors.length)
+                ? j.errors.join('\n')
+                : (j.message || j.error || '');
+            if (errText) summary = errText.split('\n')[0].replace(/^org\.apache\.flink[\w.]+:\s*/, '');
+            fullBody = errText || raw;
+        } catch (_) {}
+        const err = new Error(summary);
+        err.fullBody   = fullBody;
+        err.httpStatus = res.status;
+        throw err;
     }
+
     if (res.status === 204) return {};
     const json = await res.json().catch(() => null);
     return json ?? {};
@@ -447,10 +477,19 @@ async function _jarSubmit() {
                         reject(new Error('Could not parse upload response: ' + xhr.responseText.slice(0, 200)));
                     }
                 } else {
-                    let msg = `Upload failed: HTTP ${xhr.status}`;
-                    try { const j = JSON.parse(xhr.responseText); msg = j.errors?.[0] || j.message || msg; } catch (_) {}
-                    if (xhr.status === 0) msg = 'Network error — check the proxy is running at ' + uploadUrl;
-                    reject(new Error(msg));
+                    let summary = `Upload failed: HTTP ${xhr.status}`;
+                    let fullBody = xhr.responseText || '';
+                    try {
+                        const j = JSON.parse(xhr.responseText);
+                        const errText = (Array.isArray(j.errors) && j.errors.length) ? j.errors.join('\n') : (j.message || '');
+                        if (errText) summary = errText.split('\n')[0].replace(/^org\.apache\.flink[\w.]+:\s*/, '');
+                        fullBody = errText || xhr.responseText;
+                    } catch (_) {}
+                    if (xhr.status === 0) { summary = 'Network error — check the proxy is running at ' + uploadUrl; fullBody = summary; }
+                    const uploadErr = new Error(summary);
+                    uploadErr.fullBody   = fullBody;
+                    uploadErr.httpStatus = xhr.status;
+                    reject(uploadErr);
                 }
             };
             xhr.onerror = () => reject(new Error('Network error uploading JAR — is the Studio proxy running?'));
@@ -478,7 +517,7 @@ async function _jarSubmit() {
         if (savepoint)   runPayload.savepointPath          = savepoint;
         if (allowNR)     runPayload.allowNonRestoredState  = true;
 
-        const runResp = await _jarApi(
+        const runResp = await _jarApiRun(
             `/jars/${encodeURIComponent(jarBasename)}/run`,
             {
                 method: 'POST',
@@ -513,6 +552,7 @@ async function _jarSubmit() {
         _jarSetSubmitBusy(false, 'Upload & Submit');
         if (typeof toast  === 'function') toast('JAR submit failed: ' + err.message, 'err');
         if (typeof addLog === 'function') addLog('ERR', 'JAR submit failed: ' + err.message);
+        _jarShowError(err);
     }
 }
 
@@ -560,7 +600,7 @@ async function _jarRefreshClusterList() {
     }
     el.innerHTML = `<span style="font-size:10px;color:var(--text3);">Loading…</span>`;
     try {
-        const data = await _jarApi('/jars');
+        const data = await _jarApiRead('/jars');
         // Handle all Flink response shapes
         const jars = Array.isArray(data)       ? data
             : Array.isArray(data?.files) ? data.files
@@ -627,7 +667,7 @@ async function _jarRunExisting(encodedId, displayName) {
         if (savepoint)   runPayload.savepointPath          = savepoint;
         if (allowNR)     runPayload.allowNonRestoredState  = true;
 
-        const runResp = await _jarApi(`/jars/${encodedId}/run`, {
+        const runResp = await _jarApiRun(`/jars/${encodedId}/run`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(runPayload),
         });
 
@@ -645,6 +685,7 @@ async function _jarRunExisting(encodedId, displayName) {
         _jarSetStatus('✗ ' + e.message, 'err');
         _jarSetSubmitBusy(false, 'Upload & Submit');
         if (typeof toast === 'function') toast('Submit failed: ' + e.message, 'err');
+        _jarShowError(e);
     }
 }
 
@@ -652,7 +693,7 @@ async function _jarDeleteJar(encodedId, displayName) {
     const name = decodeURIComponent(displayName || encodedId);
     if (!confirm(`Delete "${name}" from the cluster?\n\nRunning jobs are NOT affected.`)) return;
     try {
-        await _jarApi('/jars/' + encodedId, { method: 'DELETE' });
+        await _jarApiRead('/jars/' + encodedId, { method: 'DELETE' });
         if (typeof toast === 'function') toast('JAR deleted: ' + name, 'ok');
         if (typeof addLog === 'function') addLog('WARN', 'JAR deleted from cluster: ' + name);
         _jarRefreshClusterList();
@@ -705,6 +746,56 @@ function _jarViewJob(jobId) {
 }
 
 // ── Utility ───────────────────────────────────────────────────────────────────
+// ── Show Flink error in the Studio's existing error modal ────────────────────
+// Reuses #modal-error, #error-summary, #error-stacktrace, #error-type-badge
+// from index.html — the same modal that SQL execution errors use.
+function _jarShowError(err) {
+    if (!err || !err.fullBody) return; // simple errors stay in the status bar only
+
+    const summaryEl = document.getElementById('error-summary');
+    const stackEl   = document.getElementById('error-stacktrace');
+    const badgeEl   = document.getElementById('error-type-badge');
+
+    if (!summaryEl || !stackEl) return; // modal not present in DOM
+
+    // Extract the human-readable root cause from the Flink stack trace
+    // Look for the deepest "Caused by:" line that isn't a CompletionException wrapper
+    const lines = (err.fullBody || err.message || '').split('\n');
+    let rootCause = err.message || 'JAR execution failed';
+
+    // Walk backwards to find the most specific Caused by line
+    for (let i = lines.length - 1; i >= 0; i--) {
+        const line = lines[i].trim();
+        if (line.startsWith('Caused by:') && !line.includes('CompletionException') && !line.includes('FlinkRuntimeException: Could not execute')) {
+            rootCause = line.replace('Caused by:', '').trim();
+            break;
+        }
+    }
+    // Fallback: first non-empty Caused by
+    if (rootCause === err.message) {
+        const causedBy = lines.find(l => l.trim().startsWith('Caused by:'));
+        if (causedBy) rootCause = causedBy.replace('Caused by:', '').trim();
+    }
+
+    summaryEl.textContent = rootCause;
+
+    // Full body with nice formatting
+    stackEl.textContent = err.fullBody || err.message;
+
+    // Badge shows the HTTP status and error class
+    if (badgeEl) {
+        const httpStr = err.httpStatus ? `HTTP ${err.httpStatus}` : 'ERROR';
+        // Try to pull the exception class name
+        const excMatch = (err.fullBody || '').match(/Caused by:\s+([\w.]+Exception|[\w.]+Error):/);
+        badgeEl.textContent = excMatch ? excMatch[1].split('.').pop() + ' · ' + httpStr : httpStr;
+        badgeEl.style.background = 'rgba(255,77,109,0.15)';
+        badgeEl.style.color      = 'var(--red)';
+        badgeEl.style.border     = '1px solid rgba(255,77,109,0.4)';
+    }
+
+    if (typeof openModal === 'function') openModal('modal-error');
+}
+
 function _jarFmtBytes(b) {
     b = Number(b) || 0;
     if (b >= 1073741824) return (b / 1073741824).toFixed(2) + ' GB';
