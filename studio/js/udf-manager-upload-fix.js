@@ -1,59 +1,45 @@
-/* udf-manager-upload-fix.js — v1.8.0
+/* udf-manager-upload-fix.js — v2.1.0
  * ─────────────────────────────────────────────────────────────────────────
- * Drop-in fix for the UDF Manager Upload JAR tab.
- * Load AFTER udf-manager.js in index.html:
+ * Correct architecture for the pre-built Studio image setup:
  *
- *   <script src="js/udf-manager.js"></script>
- *   <script src="js/udf-manager-upload-fix.js"></script>
+ *   Browser PUT /udf-jars/x.jar
+ *     → Studio nginx (same origin, port 3030)
+ *     → saved to /var/www/udf-jars/x.jar  (flink-cluster_udf-jars volume)
  *
- * HOW IT WORKS (v1.8 — shared volume approach):
+ *   SQL Gateway: ADD JAR '/var/www/udf-jars/x.jar'
+ *     → reads directly from /var/www/udf-jars/  (same shared volume)
+ *     → works because flink-sql-gateway now mounts udf-jars:/var/www/udf-jars
  *
- *   Browser (Studio at localhost:3030):
- *     PUT http://localhost:8084/udf-jars/my.jar
- *     → nginx (flink-gateway-cors-proxy) stores to /var/www/udf-jars/my.jar
- *       (via WebDAV, backed by the 'udf-jars' Docker named volume)
- *
- *   SQL Gateway (flink-sql-gateway container):
- *     The same 'udf-jars' volume is mounted at /var/www/udf-jars/
- *     ADD JAR '/var/www/udf-jars/my.jar'
- *     → Gateway reads directly from the shared volume filesystem
- *     → No HTTP fetch needed — works even without Docker DNS resolution
- *
- * PREREQUISITES (already applied if you used the fixed docker-compose.yml):
- *   1. replace nginx/flink-cors.conf with the fixed version (adds /udf-jars/ WebDAV)
- *   2. flink-gateway-cors-proxy: volumes: - udf-jars:/var/www/udf-jars
- *   3. flink-sql-gateway:        volumes: - udf-jars:/var/www/udf-jars  ← KEY FIX
- *   4. docker compose up -d --no-deps flink-gateway-cors-proxy flink-sql-gateway
+ * PREREQUISITES (already in place except #2):
+ *   1. studio.conf         — has /udf-jars/ WebDAV location ✓
+ *   2. cluster compose     — flink-sql-gateway needs: udf-jars:/var/www/udf-jars ← THE FIX
+ *   3. studio compose      — mounts flink-cluster_udf-jars:/var/www/udf-jars ✓
+ *   4. entrypoint.sh       — chowns /var/www/udf-jars to nginx ✓
  * ─────────────────────────────────────────────────────────────────────────
  */
 
-// ── URL / path constants ──────────────────────────────────────────────────────
+// ── Path helpers ──────────────────────────────────────────────────────────────
 
-/**
- * Where the browser PUTs the JAR (public-facing nginx port).
- * Auto-detects: use page origin but force port 8084.
- */
-function _jBrowserBase() {
-    const origin = window.location.origin;
-    if (origin.includes(':8084')) return origin + '/udf-jars';
-    return origin.replace(/:\d+$/, ':8084') + '/udf-jars';
-}
-
-/**
- * The container-local filesystem path the SQL Gateway should use for ADD JAR.
- * This works because both nginx and flink-sql-gateway mount the same
- * Docker named volume at /var/www/udf-jars/.
- *
- * The user can override this in the UI if their mount path differs.
- */
-function _jGatewayFsPath(jarName) {
-    const base = (document.getElementById('udf-gateway-base-input')?.value || '').trim();
-    if (base) return base.replace(/\/+$/, '') + '/' + encodeURIComponent(jarName);
-    return '/var/www/udf-jars/' + encodeURIComponent(jarName);
-}
-
+/** Browser PUT URL — always same-origin since Studio nginx handles /udf-jars/ */
 function _jBrowserPutUrl(jarName) {
-    return _jBrowserBase() + '/' + encodeURIComponent(jarName);
+    const override = (document.getElementById('udf-upload-base-override')?.value || '').trim();
+    const base = override ? override.replace(/\/+$/, '') : window.location.origin;
+    return base + '/udf-jars/' + encodeURIComponent(jarName);
+}
+
+/** Filesystem path used for ADD JAR inside the Gateway container */
+function _jGatewayFsPath(jarName) {
+    const override = (document.getElementById('udf-gateway-path-override')?.value || '').trim();
+    const base = override ? override.replace(/\/+$/, '') : '/var/www/udf-jars';
+    return base + '/' + jarName;
+}
+
+function _jUpdatePreviews() {
+    const name = _selJar?.name || 'your-udf.jar';
+    const putEl  = document.getElementById('udf-put-url-preview');
+    const pathEl = document.getElementById('udf-addjar-path-preview');
+    if (putEl)  putEl.textContent  = _jBrowserPutUrl(name);
+    if (pathEl) pathEl.textContent = _jGatewayFsPath(name);
 }
 
 // ── Drag & Drop ───────────────────────────────────────────────────────────────
@@ -72,7 +58,7 @@ function _jDrop(e)         { e.preventDefault(); _jDragLeave(e); const f = e.dat
 function _jFileSelected(e) { const f = e.target?.files?.[0]; if (f) _jSetFile(f); }
 
 function _jSetFile(file) {
-    if (!file.name.endsWith('.jar')) { _jStatus('✗ Only .jar files.', 'var(--red)'); return; }
+    if (!file.name.endsWith('.jar')) { _jStatus('✗ Only .jar files accepted.', 'var(--red)'); return; }
     _selJar = file;
     window._lastUploadedJarName = file.name;
     const i  = document.getElementById('udf-jar-file-info'); if (i) i.style.display = 'block';
@@ -80,7 +66,7 @@ function _jSetFile(file) {
     const sz = document.getElementById('udf-jar-fsize');     if (sz) sz.textContent = _fmtB(file.size);
     _jStatus('', '');
     const w = document.getElementById('udf-jar-addjar-wrap'); if (w) w.style.display = 'none';
-    _jUpdatePathPreview();
+    _jUpdatePreviews();
 }
 function _jClear() {
     _selJar = null;
@@ -104,16 +90,10 @@ function _jCopyAddJar() {
     if (!p) return;
     navigator.clipboard.writeText(`ADD JAR '${p}';`).then(() => toast('Copied', 'ok'));
 }
-function _jUpdatePathPreview() {
-    const el = document.getElementById('upl-url-preview');
-    if (!el) return;
-    const name = _selJar?.name || 'your-udf.jar';
-    el.textContent = _jGatewayFsPath(name);
-}
 
-// ── MAIN UPLOAD FUNCTION ─────────────────────────────────────────────────────
+// ── MAIN UPLOAD ───────────────────────────────────────────────────────────────
 async function _jUpload() {
-    if (!_selJar) { _jStatus('✗ Select a JAR file first.', 'var(--red)'); return; }
+    if (!_selJar)       { _jStatus('✗ Select a JAR file first.', 'var(--red)'); return; }
     if (!state.gateway) { _jStatus('✗ Not connected to a Flink session.', 'var(--red)'); return; }
 
     const pw      = document.getElementById('udf-jar-progress-wrap');
@@ -124,16 +104,16 @@ async function _jUpload() {
     const wrapEl  = document.getElementById('udf-jar-addjar-wrap');
     const copyBtn = document.getElementById('udf-jar-copy-path');
 
-    if (pw)    pw.style.display    = 'block';
+    if (pw)     pw.style.display     = 'block';
     if (wrapEl) wrapEl.style.display = 'none';
 
-    const jarName       = _selJar.name;
-    const browserPutUrl = _jBrowserPutUrl(jarName);
-    const gatewayFsPath = _jGatewayFsPath(jarName);
-    const bytes         = await _selJar.arrayBuffer();
+    const jarName = _selJar.name;
+    const putUrl  = _jBrowserPutUrl(jarName);
+    const fsPath  = _jGatewayFsPath(jarName);
+    const bytes   = await _selJar.arrayBuffer();
 
-    // ── STEP 1: Browser PUTs JAR to nginx /udf-jars/ ─────────────────────────
-    if (pl) pl.textContent = `Uploading ${jarName} to nginx…`;
+    // ── Step 1: PUT JAR to Studio nginx ──────────────────────────────────────
+    if (pl) pl.textContent = `Uploading ${jarName}…`;
 
     try {
         await new Promise((resolve, reject) => {
@@ -147,43 +127,48 @@ async function _jUpload() {
             };
             xhr.onload = () => {
                 if ([200, 201, 204].includes(xhr.status)) { resolve(); return; }
-                let msg = `HTTP ${xhr.status}`;
-                if (xhr.status === 405) msg = '405 Method Not Allowed — ensure dav_methods PUT; is in your nginx /udf-jars/ location. Replace nginx/flink-cors.conf with the fixed version.';
-                if (xhr.status === 403) msg = '403 Forbidden — /var/www/udf-jars/ not writable. Check the entrypoint in docker-compose.yml sets correct nginx ownership.';
-                if (xhr.status === 413) msg = '413 Request Entity Too Large — add client_max_body_size 512m; to nginx.';
-                if (xhr.status === 404) msg = '404 — /udf-jars/ location missing from nginx config. Replace nginx/flink-cors.conf with the fixed version and restart nginx.';
-                reject(new Error(msg));
+                const hints = {
+                    404: `404 — /udf-jars/ not found in Studio nginx.\nstudio.conf should have a /udf-jars/ WebDAV location block.`,
+                    405: `405 Method Not Allowed — dav_methods PUT not enabled in studio.conf.`,
+                    403: `403 Forbidden — /var/www/udf-jars/ not writable.\nentrypoint.sh should run: chown -R nginx:nginx /var/www/udf-jars`,
+                    413: `413 Too Large — add client_max_body_size 512m; to studio.conf.`,
+                };
+                reject(new Error(hints[xhr.status] || `HTTP ${xhr.status} — ${xhr.statusText}`));
             };
-            xhr.onerror = () => reject(new Error(`Network error — could not reach ${browserPutUrl}. Is flink-gateway-cors-proxy running on port 8084?`));
-            xhr.open('PUT', browserPutUrl);
+            xhr.onerror = () => reject(new Error(
+                `Cannot reach ${putUrl}\n` +
+                `Is Studio running and accessible at ${window.location.origin}?`
+            ));
+            xhr.open('PUT', putUrl);
             xhr.setRequestHeader('Content-Type', 'application/java-archive');
             xhr.send(bytes);
         });
 
         if (pb) pb.style.width = '75%';
         if (pp) pp.textContent = '75%';
-        addLog('OK', `JAR saved to nginx volume: ${jarName} → ${browserPutUrl}`);
+        addLog('OK', `JAR uploaded: ${jarName} → ${putUrl}`);
 
     } catch(putErr) {
         if (pw) pw.style.display = 'none';
-        _jStatus(`✗ Upload failed: ${putErr.message}`, 'var(--red)');
+        _jStatus(`✗ ${putErr.message.split('\n')[0]}`, 'var(--red)');
         if (wrapEl) wrapEl.style.display = 'block';
-        if (msgEl)  msgEl.innerHTML = `<span style="color:var(--red);">✗ ${escHtml(putErr.message)}</span>`;
+        if (msgEl)  msgEl.innerHTML = `<span style="color:var(--red);">✗ Upload failed</span>\n\n${escHtml(putErr.message)}`;
         addLog('ERR', 'JAR PUT failed: ' + putErr.message);
         return;
     }
 
-    // ── STEP 2: SQL Gateway runs ADD JAR using the shared volume path ─────────
-    // The udf-jars Docker volume is mounted at /var/www/udf-jars/ on BOTH
-    // nginx and flink-sql-gateway, so the Gateway can read the file directly.
-    if (pl) pl.textContent = `Running ADD JAR '${gatewayFsPath}'…`;
+    // ── Step 2: ADD JAR via shared volume filesystem path ─────────────────────
+    // Both Studio and flink-sql-gateway mount flink-cluster_udf-jars at
+    // /var/www/udf-jars/. The file is now on that volume, so the Gateway
+    // can read it directly — no HTTP fetch needed.
+    if (pl) pl.textContent = `Running ADD JAR '${fsPath}'…`;
     if (pb) pb.style.width = '82%';
 
-    window._lastUploadedJarPath = gatewayFsPath;
+    window._lastUploadedJarPath = fsPath;
     window._lastUploadedJarName = jarName;
 
     try {
-        await _runQ(`ADD JAR '${gatewayFsPath.replace(/'/g, "\\'")}'`);
+        await _runQ(`ADD JAR '${fsPath.replace(/'/g, "\\'")}'`);
 
         if (pb) pb.style.width = '100%';
         if (pp) pp.textContent = '100%';
@@ -192,56 +177,69 @@ async function _jUpload() {
         if (copyBtn) copyBtn.style.display = 'inline-block';
         if (msgEl) msgEl.innerHTML =
             `<span style="color:var(--green);">✓ Upload + ADD JAR succeeded</span>\n\n` +
-            `Browser PUT to:\n  ${escHtml(browserPutUrl)}\n\n` +
-            `Gateway loaded from shared volume:\n  <strong style="color:var(--accent);">${escHtml(gatewayFsPath)}</strong>\n\n` +
+            `Uploaded to:          ${escHtml(putUrl)}\n` +
+            `Gateway loaded from:  <strong style="color:var(--accent);">${escHtml(fsPath)}</strong>\n\n` +
             `JAR is on the session classpath. → Click "Go to Register UDF".`;
 
         _jStatus(`✓ ${jarName} ready on session classpath.`, 'var(--green)');
-        toast(jarName + ' ready — go to Register UDF', 'ok');
+        toast(`${jarName} ready — go to Register UDF`, 'ok');
 
-        // Pre-fill Step 1 in Register tab
         const pathInput = document.getElementById('s1-path');
-        if (pathInput) pathInput.value = gatewayFsPath;
+        if (pathInput) pathInput.value = fsPath;
         const b1 = document.getElementById('s1-badge');
         if (b1) { b1.dataset.s = 'ok'; b1.textContent = 'jar loaded ✓'; }
         const jd = document.getElementById('s1-jars');
         if (jd) {
             jd.style.display = 'block';
             jd.style.color   = 'var(--green)';
-            jd.textContent   = '✓ JAR on classpath:\n  ' + gatewayFsPath;
+            jd.textContent   = '✓ JAR on classpath:\n  ' + fsPath;
         }
 
     } catch(addErr) {
         if (wrapEl) wrapEl.style.display = 'block';
         if (copyBtn) copyBtn.style.display = 'inline-block';
+
+        const isNotFound = addErr.message.toLowerCase().includes('not found')
+            || addErr.message.toLowerCase().includes('filenotfound');
+
+        const fix = isNotFound
+            ? `The volume is NOT mounted on flink-sql-gateway.\n\n` +
+            `Add this to flink-sql-gateway in your CLUSTER docker-compose.yml:\n\n` +
+            `  volumes:\n` +
+            `    - udf-jars:/var/www/udf-jars\n\n` +
+            `And add to the volumes section at the bottom:\n\n` +
+            `  volumes:\n` +
+            `    udf-jars:\n\n` +
+            `Then restart the gateway:\n` +
+            `  docker compose up -d --no-deps flink-sql-gateway`
+            : `Check the Gateway logs:\n  docker compose logs flink-sql-gateway`;
+
         if (msgEl) msgEl.innerHTML =
-            `<span style="color:var(--green);">✓ JAR saved to nginx: ${escHtml(jarName)}</span>\n\n` +
-            `<span style="color:var(--red);">✗ ADD JAR failed: ${escHtml(addErr.message)}</span>\n\n` +
-            `The Gateway tried:\n  ADD JAR '${escHtml(gatewayFsPath)}'\n\n` +
-            `This means the udf-jars volume is NOT mounted on flink-sql-gateway.\n` +
-            `Fix: add this volume to flink-sql-gateway in docker-compose.yml:\n\n` +
-            `  volumes:\n    - udf-jars:/var/www/udf-jars\n\n` +
-            `Then: docker compose up -d --no-deps flink-sql-gateway`;
+            `<span style="color:var(--green);">✓ JAR saved to shared volume</span>\n\n` +
+            `<span style="color:var(--red);">✗ ADD JAR failed: ${escHtml(addErr.message.split('\n')[0])}</span>\n\n` +
+            `${escHtml(fix)}`;
 
         const pathInput = document.getElementById('s1-path');
-        if (pathInput) pathInput.value = gatewayFsPath;
-        _jStatus('⚠ Saved to nginx — ADD JAR failed. See details above.', 'var(--yellow,#f5a623)');
-        addLog('WARN', 'ADD JAR failed: ' + addErr.message + ' | path: ' + gatewayFsPath);
+        if (pathInput) pathInput.value = fsPath;
+        _jStatus('⚠ JAR saved — ADD JAR failed. See details above.', 'var(--yellow,#f5a623)');
+        addLog('WARN', 'ADD JAR failed: ' + addErr.message);
     }
 
     _jClear();
     if (pw) setTimeout(() => { if (pw) pw.style.display = 'none'; }, 3000);
-    setTimeout(_jLoadList, 500);
+    setTimeout(_jLoadList, 600);
 }
 
-// ── JAR list — reads from nginx /udf-jars/ via browser port ──────────────────
+// ── JAR list ──────────────────────────────────────────────────────────────────
 async function _jLoadList() {
     const el = document.getElementById('udf-jar-list'); if (!el) return;
     el.innerHTML = '<div style="font-size:11px;color:var(--text3);">Loading…</div>';
-    const base = _jBrowserBase();
     try {
-        const r = await fetch(base + '/', { signal: AbortSignal.timeout(4000) });
-        if (!r.ok) throw new Error(`HTTP ${r.status} — /udf-jars/ not configured in nginx (did you apply the fixed flink-cors.conf?)`);
+        const r = await fetch(window.location.origin + '/udf-jars/', { signal: AbortSignal.timeout(4000) });
+        if (!r.ok) throw new Error(
+            `HTTP ${r.status} — /udf-jars/ not available.\n` +
+            `Check studio.conf has the /udf-jars/ WebDAV location block.`
+        );
         const text = await r.text();
         let jars = [];
         try { const parsed = JSON.parse(text); jars = parsed.filter(f => f.name?.endsWith('.jar')); } catch(_) {}
@@ -256,22 +254,21 @@ async function _jLoadList() {
                 border:1px solid var(--border);border-radius:var(--radius);margin-bottom:4px;font-size:11px;">
               <span>📦</span>
               <div style="flex:1;min-width:0;overflow:hidden;">
-                <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono);
-                     color:var(--text0);" title="${escHtml(fsPath)}">${escHtml(name)}</div>
-                <div style="font-size:9px;color:var(--text3);font-family:var(--mono);margin-top:1px;
-                     overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(fsPath)}</div>
+                <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+                     font-family:var(--mono);color:var(--text0);">${escHtml(name)}</div>
+                <div style="font-size:9px;color:var(--text3);font-family:var(--mono);margin-top:1px;">${escHtml(fsPath)}</div>
               </div>
               <span style="color:var(--text3);flex-shrink:0;">${j.size ? _fmtB(j.size) : '—'}</span>
               <button onclick="_jUseInReg('${escHtml(fsPath)}','${escHtml(name)}')"
                 style="font-size:10px;padding:2px 7px;border-radius:2px;border:1px solid var(--border);
-                       background:var(--bg3);color:var(--text1);cursor:pointer;flex-shrink:0;">Use →</button>
+                       background:var(--bg3);color:var(--text1);cursor:pointer;">Use →</button>
               <button onclick="_jDelete('${escHtml(name)}')"
                 style="font-size:10px;padding:2px 7px;border-radius:2px;border:1px solid rgba(255,77,109,0.3);
-                       background:rgba(255,77,109,0.07);color:var(--red);cursor:pointer;flex-shrink:0;">Del</button>
+                       background:rgba(255,77,109,0.07);color:var(--red);cursor:pointer;">Del</button>
             </div>`;
         }).join('');
     } catch(e) {
-        el.innerHTML = `<div style="font-size:11px;color:var(--text3);">${escHtml(e.message)}</div>`;
+        el.innerHTML = `<div style="font-size:11px;color:var(--text3);white-space:pre-wrap;">${escHtml(e.message)}</div>`;
     }
 }
 
@@ -281,68 +278,83 @@ function _jUseInReg(fsPath, name) {
     if (p) p.value = fsPath;
     window._lastUploadedJarPath = fsPath;
     window._lastUploadedJarName = name;
-    toast('Path pre-filled in Step 1 — click ADD JAR to load into session', 'info');
+    toast('Path pre-filled — click ADD JAR to load into session', 'info');
 }
 
 async function _jDelete(name) {
     if (!confirm('Delete ' + name + '?')) return;
-    const url = _jBrowserPutUrl(name);
     try {
-        const r = await fetch(url, { method: 'DELETE' });
+        const r = await fetch(window.location.origin + '/udf-jars/' + encodeURIComponent(name), { method: 'DELETE' });
         if (!r.ok && r.status !== 404) throw new Error('HTTP ' + r.status);
         toast(name + ' deleted', 'ok');
         _jLoadList();
     } catch(e) { toast('Delete failed: ' + e.message, 'err'); }
 }
 
-// Stub out old helpers that are no longer needed
+// Compatibility stubs
 function _jSvrTest()    {}
 function _jSvrPreview() {}
-function _getJarBase()  { return _jBrowserBase(); }
-function _getJmBase()   { return _jBrowserBase().replace('/udf-jars', ''); }
+function _getJarBase()  { return window.location.origin; }
 function _getContainerJarPath(name) { return _jGatewayFsPath(name); }
 
-// ── Patch the Upload JAR pane HTML ────────────────────────────────────────────
+// ── Patch Upload pane HTML ────────────────────────────────────────────────────
 (function _patchUploadPane() {
     function _doInject() {
         const pane = document.getElementById('udf-pane-upload');
-        if (!pane || pane.dataset.v18patched) return;
-        pane.dataset.v18patched = '1';
+        if (!pane || pane.dataset.v21patched) return;
+        pane.dataset.v21patched = '1';
         pane.innerHTML = `
 <p style="font-size:12px;color:var(--text2);margin:0 0 12px;line-height:1.7;">
-  Upload JAR → nginx stores to shared Docker volume →
-  SQL Gateway reads it from the same volume via filesystem path.
-  <strong style="color:var(--accent);">Reliable. No DNS or HTTP fetch required.</strong>
+  Upload JAR → Studio nginx stores it on the shared Docker volume →
+  SQL Gateway reads it directly from the same volume path.
 </p>
 
-<!-- How it works -->
+<!-- Flow summary -->
 <div style="background:rgba(0,212,170,0.05);border:1px solid rgba(0,212,170,0.2);
      border-radius:var(--radius);padding:10px 14px;margin-bottom:12px;font-size:11px;
-     color:var(--text1);line-height:1.9;">
-  <div style="font-weight:700;color:var(--accent);margin-bottom:4px;font-size:10px;
-              letter-spacing:0.8px;text-transform:uppercase;">How it works</div>
-  Browser PUT → <code style="color:var(--accent);">localhost:8084/udf-jars/</code> → nginx saves to Docker volume<br>
-  Gateway ADD JAR → <code style="color:var(--accent);">/var/www/udf-jars/filename.jar</code> → reads from same volume
+     color:var(--text1);line-height:2;">
+  <div style="font-size:10px;font-weight:700;color:var(--accent);letter-spacing:0.8px;
+              text-transform:uppercase;margin-bottom:4px;">Upload flow</div>
+  Browser PUT →
+    <code style="color:var(--accent);">${window.location.origin}/udf-jars/</code>
+    <span style="color:var(--text3);font-size:10px;">(Studio nginx, same origin)</span><br>
+  Gateway ADD JAR →
+    <code id="udf-addjar-path-preview" style="color:var(--text2);">/var/www/udf-jars/your-udf.jar</code>
+    <span style="color:var(--text3);font-size:10px;">(shared volume filesystem)</span>
 </div>
 
-<!-- Optional filesystem path override -->
-<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);
-     padding:10px 14px;margin-bottom:12px;">
-  <div style="font-size:10px;color:var(--text3);margin-bottom:5px;font-weight:600;">
-    Gateway filesystem path base
-    <span style="font-weight:400;margin-left:4px;">(leave blank for default: /var/www/udf-jars/)</span>
+<!-- Advanced overrides -->
+<details style="margin-bottom:12px;">
+  <summary style="font-size:10px;color:var(--text3);cursor:pointer;user-select:none;
+                  letter-spacing:0.5px;text-transform:uppercase;font-weight:700;">
+    ⚙ Advanced overrides
+  </summary>
+  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);
+       padding:10px 14px;margin-top:6px;display:flex;flex-direction:column;gap:8px;">
+    <div>
+      <label style="font-size:10px;color:var(--text3);display:block;margin-bottom:3px;">
+        Browser upload base URL
+        <span style="font-weight:400;"> — defaults to current page origin</span>
+      </label>
+      <input id="udf-upload-base-override" class="field-input" type="text"
+        placeholder="${window.location.origin}  (default)"
+        style="font-size:11px;font-family:var(--mono);width:100%;box-sizing:border-box;"
+        oninput="_jUpdatePreviews();" />
+    </div>
+    <div>
+      <label style="font-size:10px;color:var(--text3);display:block;margin-bottom:3px;">
+        Gateway filesystem path base
+        <span style="font-weight:400;"> — for ADD JAR, must match volume mount in Gateway</span>
+      </label>
+      <input id="udf-gateway-path-override" class="field-input" type="text"
+        placeholder="/var/www/udf-jars  (default)"
+        style="font-size:11px;font-family:var(--mono);width:100%;box-sizing:border-box;"
+        oninput="_jUpdatePreviews();" />
+    </div>
   </div>
-  <input id="udf-gateway-base-input" class="field-input" type="text"
-    placeholder="/var/www/udf-jars  (default — matches volume mount in docker-compose.yml)"
-    style="font-size:11px;font-family:var(--mono);width:100%;box-sizing:border-box;"
-    oninput="_jUpdatePathPreview()" />
-  <div style="font-size:10px;color:var(--text3);margin-top:5px;">
-    ADD JAR will use: <code id="upl-url-preview" style="color:var(--accent);word-break:break-all;">
-      /var/www/udf-jars/your-udf.jar
-    </code>
-  </div>
-</div>
+</details>
 
+<!-- Drop zone -->
 <div id="udf-jar-dropzone"
   style="border:2px dashed var(--border2);border-radius:var(--radius);padding:24px 20px;
          text-align:center;cursor:pointer;background:var(--bg1);margin-bottom:12px;
@@ -381,7 +393,7 @@ function _getContainerJarPath(name) { return _jGatewayFsPath(name); }
 <div id="udf-jar-addjar-wrap" style="display:none;background:var(--bg2);border:1px solid var(--border);
      border-radius:var(--radius);padding:12px 14px;margin-bottom:12px;">
   <div style="font-size:10px;font-weight:700;color:var(--accent);letter-spacing:0.8px;
-              text-transform:uppercase;margin-bottom:8px;">Upload &amp; ADD JAR result</div>
+              text-transform:uppercase;margin-bottom:8px;">Result</div>
   <div id="udf-jar-addjar-msg" style="font-size:11px;font-family:var(--mono);color:var(--text1);
        line-height:1.9;white-space:pre-wrap;word-break:break-all;"></div>
   <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
@@ -405,7 +417,7 @@ function _getContainerJarPath(name) { return _jGatewayFsPath(name); }
 <div style="margin-top:18px;">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
     <span style="font-size:10px;color:var(--text3);letter-spacing:1px;text-transform:uppercase;font-weight:700;">
-      JARs on nginx / shared volume
+      JARs on shared volume
     </span>
     <button class="btn btn-secondary" style="font-size:10px;padding:3px 10px;" onclick="_jLoadList()">⟳ Refresh</button>
   </div>
