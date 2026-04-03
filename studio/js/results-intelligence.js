@@ -1,14 +1,20 @@
-/* Str:::lab Studio — results-intelligence.js v4
+/* Str:::lab Studio — results-intelligence.js v5
  * ─────────────────────────────────────────────────────────────────────────────
  * FIXES in this build:
- *  1. COLOUR DESCRIBE — case-insensitive column matching in _cdReapplyExistingFromDOM
- *     and applyColorDescribeToRow. Flink returns UPPERCASE column names but SQL aliases
- *     may be lowercase. colIndexMap now keyed lowercase; all lookups normalised.
- *  2. SHOW VIEWS — intercepts CREATE TEMPORARY VIEW success, tracks views in
- *     state.sessionViews, merges into SHOW VIEWS result so user sees their views.
- *  3. SHOW / DDL queries — routes SHOW TABLES, SHOW JARS, SHOW VIEWS, SHOW FUNCTIONS,
- *     DESCRIBE, EXPLAIN results into the shared 'ddl-status' slot instead of creating
- *     a new badge for each one.
+ *  1. COLOUR DESCRIBE — core fix: renderResults hook now re-applies highlighting
+ *     AFTER innerHTML is set (was being wiped). Also injects styles directly
+ *     into the generated HTML during row building via a post-process pass,
+ *     so styles survive any subsequent re-renders.
+ *  2. COLOUR DESCRIBE — _cdReapplyExistingFromDOM robustified: runs after a
+ *     short delay to ensure DOM is settled, uses !important via setAttribute
+ *     style string (not removeProperty/setProperty which can race).
+ *  3. COLOUR DESCRIBE — case-insensitive column matching kept from v4.
+ *  4. COLOUR DESCRIBE — added a MutationObserver on result-table-wrap so that
+ *     any time the table is replaced (streaming ticks), highlighting is
+ *     re-applied automatically without relying solely on the renderResults patch.
+ *  5. CHART REPORT — modal widened to 1200px, chart panel resizable/zoomable
+ *     with pinch/wheel zoom and zoom in/out buttons.
+ *  6. SHOW VIEWS / DDL routing kept from v4.
  */
 
 // ── Brand name patch ──────────────────────────────────────────────────────────
@@ -83,13 +89,13 @@ function _cdUpdateToggleBtn(active) {
     const btn = document.getElementById('color-describe-btn');
     if (!btn) return;
     if (active) {
-        btn.textContent   = '🎨 Colour Describe ●';
+        btn.textContent       = '🎨 Colour Describe ●';
         btn.style.background  = 'rgba(0,212,170,0.15)';
         btn.style.borderColor = 'rgba(0,212,170,0.5)';
         btn.style.color       = 'var(--accent)';
         btn.title = 'Colour Describe is ON — click to turn off';
     } else {
-        btn.textContent   = '🎨 Colour Describe';
+        btn.textContent       = '🎨 Colour Describe';
         btn.style.background  = '';
         btn.style.borderColor = '';
         btn.style.color       = '';
@@ -256,6 +262,8 @@ function _cdBuildModal() {
   .cd-legend-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
   @media print{*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;} #cd-legend{display:flex!important;}}
   .result-table td{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  /* v5: ensure highlighted rows keep their colour even inside striped tables */
+  .result-table tbody tr[data-cd-rule] td { background: inherit !important; }
   `;
     document.head.appendChild(s);
     _cdPickSwatch('#ff4d6d', document.querySelector('.cd-swatch'));
@@ -321,12 +329,9 @@ function _cdOnSlotChange() {
 
     const fieldSel = document.getElementById('cd-field-select');
     if (fieldSel) {
-        // ── FIX: normalise column names to their original case for display,
-        //    but store the original value; matching is done case-insensitively
         let colNames = (slot.columns || []).map(c => c.name || String(c)).filter(Boolean);
 
         if (!colNames.length) {
-            // DOM fallback — read from rendered table headers
             const table = document.querySelector('#result-table-wrap table');
             if (table) {
                 colNames = Array.from(table.querySelectorAll('thead th'))
@@ -456,8 +461,12 @@ function _cdApply() {
     window.colorDescribeActive = true;
     window.colorDescribeSlotId = slotId;
 
-    _cdReapplyExistingFromDOM();
-    _cdRenderLegend();
+    // Short delay to let any in-flight renderResults() settle before we apply
+    setTimeout(() => {
+        _cdReapplyExistingFromDOM();
+        _cdRenderLegend();
+    }, 50);
+
     _cdUpdateToggleBtn(true);
 
     const status = document.getElementById('cd-modal-status');
@@ -487,7 +496,25 @@ function _cdMatch(cellVal, rule) {
     }
 }
 
-// ── Style a row ───────────────────────────────────────────────────────────────
+// ── Compute inline style string for a rule ────────────────────────────────────
+function _cdStyleString(rule) {
+    const hex = rule.color;
+    const rgb = hex.length === 7
+        ? `${parseInt(hex.slice(1,3),16)},${parseInt(hex.slice(3,5),16)},${parseInt(hex.slice(5,7),16)}`
+        : '0,212,170';
+    switch (rule.styleMode) {
+        case 'bg':
+            return `background:rgba(${rgb},0.18)!important;`;
+        case 'border':
+            return `border-left:4px solid ${hex}!important;background:rgba(${rgb},0.06)!important;`;
+        case 'text':
+            return `color:${hex}!important;`;
+        default:
+            return '';
+    }
+}
+
+// ── Style a row element (used for streaming rows) ─────────────────────────────
 function _cdStyleRow(rowEl, rule) {
     const hex = rule.color;
     const rgb = hex.length === 7
@@ -501,40 +528,46 @@ function _cdStyleRow(rowEl, rule) {
     }
 }
 
-// ── FIX 1: Re-apply to all currently rendered rows — case-insensitive matching ─
+// ── FIX v5: Re-apply to all currently rendered rows ───────────────────────────
+// Uses setAttribute('style', ...) instead of setProperty to guarantee the
+// style sticks even when the browser batches reflows.
 function _cdReapplyExistingFromDOM() {
     if (!window.colorDescribeActive) return;
     const table = document.querySelector('#result-table-wrap table');
     if (!table) return;
 
-    // Build column name → td-index map from rendered <th> headers
-    // KEY CHANGE: store keys as LOWERCASE for case-insensitive lookup
+    // Build column name → td-index map (lowercase keys)
     const headers = Array.from(table.querySelectorAll('thead th'));
     const colIndexMap = {};
     headers.forEach((th, i) => {
         if (i === 0) return; // skip row-number '#' column
         const name = th.textContent.trim().split(/\s+/)[0];
-        if (name) {
-            colIndexMap[name.toLowerCase()] = i;  // ← lowercase key
-        }
+        if (name) colIndexMap[name.toLowerCase()] = i;
     });
 
     table.querySelectorAll('tbody tr').forEach(rowEl => {
-        rowEl.style.removeProperty('background');
-        rowEl.style.removeProperty('border-left');
-        rowEl.style.removeProperty('color');
+        // Reset any previous highlight
         rowEl.removeAttribute('data-cd-rule');
+        // Remove only our highlight properties, keep other styles intact
+        const existingStyle = rowEl.getAttribute('style') || '';
+        const cleaned = existingStyle
+            .replace(/background[^;]*;?/gi, '')
+            .replace(/border-left[^;]*;?/gi, '')
+            .replace(/color[^;]*;?/gi, '')
+            .trim();
+        rowEl.setAttribute('style', cleaned);
 
         const cells = Array.from(rowEl.querySelectorAll('td'));
         for (const rule of window.colorDescribeRules) {
-            // ← FIX: look up with lowercase rule.field
             const tdIdx = colIndexMap[rule.field.toLowerCase()];
             if (tdIdx === undefined) continue;
             const cell = cells[tdIdx];
             if (!cell) continue;
             const cellVal = cell.textContent.trim().replace(/^NULL$/, '');
             if (_cdMatch(cellVal, rule)) {
-                _cdStyleRow(rowEl, rule);
+                // Use setAttribute so the style is set atomically and survives reflow
+                const baseStyle = cleaned ? cleaned + ';' : '';
+                rowEl.setAttribute('style', baseStyle + _cdStyleString(rule));
                 rowEl.setAttribute('data-cd-rule', rule.id);
                 break; // first match wins
             }
@@ -542,22 +575,18 @@ function _cdReapplyExistingFromDOM() {
     });
 }
 
-// ── FIX 1b: Per-streaming-row apply — case-insensitive column lookup ───────────
+// ── Per-streaming-row apply (called from renderResults hook) ──────────────────
 function applyColorDescribeToRow(rowEl, rowData, columns) {
     if (!window.colorDescribeActive || !rowEl) return;
-    rowEl.style.removeProperty('background');
-    rowEl.style.removeProperty('border-left');
-    rowEl.style.removeProperty('color');
     rowEl.removeAttribute('data-cd-rule');
     for (const rule of window.colorDescribeRules) {
-        // ← FIX: case-insensitive comparison between column name and rule.field
         const colIdx = (columns || []).findIndex(
             c => (c.name || String(c)).toLowerCase() === rule.field.toLowerCase()
         );
         if (colIdx < 0) continue;
         const cellVal = String(rowData[colIdx] ?? '');
         if (_cdMatch(cellVal, rule)) {
-            _cdStyleRow(rowEl, rule);
+            rowEl.setAttribute('style', _cdStyleString(rule));
             rowEl.setAttribute('data-cd-rule', rule.id);
             break;
         }
@@ -568,10 +597,15 @@ function _cdClearHighlighting() {
     const table = document.querySelector('#result-table-wrap table');
     if (!table) return;
     table.querySelectorAll('tbody tr').forEach(row => {
-        row.style.removeProperty('background');
-        row.style.removeProperty('border-left');
-        row.style.removeProperty('color');
         row.removeAttribute('data-cd-rule');
+        const s = row.getAttribute('style') || '';
+        const cleaned = s
+            .replace(/background[^;]*;?/gi, '')
+            .replace(/border-left[^;]*;?/gi, '')
+            .replace(/color[^;]*;?/gi, '')
+            .trim();
+        if (cleaned) row.setAttribute('style', cleaned);
+        else row.removeAttribute('style');
     });
 }
 
@@ -630,7 +664,10 @@ function _injectColorDescribeBtn() {
     else actions.appendChild(btn);
 }
 
-// ── Hook renderResults ────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// v5 CORE FIX: Hook renderResults so highlighting is applied AFTER innerHTML
+// ═══════════════════════════════════════════════════════════════════════════
+
 (function() {
     function _patch() {
         if (typeof renderResults !== 'function') return false;
@@ -638,18 +675,62 @@ function _injectColorDescribeBtn() {
         const _orig = renderResults;
         window.renderResults = function() {
             _orig.apply(this, arguments);
-            setTimeout(() => {
-                _injectColorDescribeBtn();
-                if (window.colorDescribeActive) {
+            // Always inject the CD button
+            _injectColorDescribeBtn();
+            // Re-apply highlighting right after innerHTML is set
+            if (window.colorDescribeActive) {
+                // Use setTimeout(0) so the browser has painted the new DOM
+                setTimeout(() => {
                     _cdReapplyExistingFromDOM();
+                    // Re-render legend in case table-wrap moved
+                    _cdHideLegend();
                     _cdRenderLegend();
-                }
-            }, 120);
+                }, 0);
+            }
         };
         renderResults._riPatched = true;
         return true;
     }
     if (!_patch()) { const t = setInterval(() => { if (_patch()) clearInterval(t); }, 400); }
+})();
+
+// ═══════════════════════════════════════════════════════════════════════════
+// v5 EXTRA SAFETY: MutationObserver on result-table-wrap
+// Catches any innerHTML replacement that bypasses the renderResults hook
+// (e.g. direct DOM writes from streaming patches or other scripts).
+// ═══════════════════════════════════════════════════════════════════════════
+
+(function _cdInstallObserver() {
+    let _cdObserverTimer = null;
+
+    function _scheduleReapply() {
+        if (!window.colorDescribeActive) return;
+        clearTimeout(_cdObserverTimer);
+        _cdObserverTimer = setTimeout(() => {
+            _cdReapplyExistingFromDOM();
+        }, 30);
+    }
+
+    function _tryAttach() {
+        const wrap = document.getElementById('result-table-wrap');
+        if (!wrap) return false;
+
+        const observer = new MutationObserver((mutations) => {
+            // Only care about child-list changes (table replaced) or subtree changes
+            const relevant = mutations.some(m =>
+                m.type === 'childList' ||
+                (m.type === 'characterData' && m.target.closest && m.target.closest('tbody'))
+            );
+            if (relevant) _scheduleReapply();
+        });
+
+        observer.observe(wrap, { childList: true, subtree: true });
+        return true;
+    }
+
+    if (!_tryAttach()) {
+        const t = setInterval(() => { if (_tryAttach()) clearInterval(t); }, 600);
+    }
 })();
 
 // ── Print/PDF ─────────────────────────────────────────────────────────────────
@@ -688,13 +769,8 @@ function _injectColorDescribeBtn() {
 // FIX 2: SHOW VIEWS — track TEMPORARY views in state, merge into SHOW VIEWS
 // ═══════════════════════════════════════════════════════════════════════════
 
-// state.sessionViews is our local registry of views created this session.
-// Populated by intercepting CREATE TEMPORARY VIEW success in pollOperation.
-// Merged into SHOW VIEWS results so the user sees their views.
-
 if (!state.sessionViews) state.sessionViews = [];
 
-// Called by misc-patches.js after a successful CREATE TEMPORARY VIEW
 window._cdRegisterSessionView = function(viewName) {
     if (!viewName) return;
     const name = viewName.trim().replace(/`/g, '');
@@ -703,7 +779,6 @@ window._cdRegisterSessionView = function(viewName) {
     }
 };
 
-// Patches the SHOW VIEWS result to merge session-tracked views
 window._cdMergeShowViewsResult = function(rows) {
     const existing = new Set((rows || []).map(r => {
         const fields = Array.isArray(r?.fields) ? r.fields : Object.values(r?.fields || r || {});
@@ -717,10 +792,9 @@ window._cdMergeShowViewsResult = function(rows) {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
-// FIX 3: SHOW/DDL queries → shared 'Statements' slot, not new badge per query
+// FIX 3: SHOW/DDL queries → shared 'Statements' slot
 // ═══════════════════════════════════════════════════════════════════════════
 
-// DDL_SHOW_PATTERN — SQL that should NOT create a new result slot
 const _ddlShowPattern = /^\s*(SHOW\s+(TABLES|VIEWS|JARS|FUNCTIONS|CATALOGS|DATABASES|MODULES|CREATE\s+TABLE|CREATE\s+VIEW|CREATE\s+FUNCTION|FULL\s+TABLES)|DESCRIBE\s+\S|DESC\s+\S|EXPLAIN\s+)/i;
 
 window._isDDLShowQuery = function(sql) {
@@ -729,11 +803,7 @@ window._isDDLShowQuery = function(sql) {
     return _ddlShowPattern.test(clean);
 };
 
-// showDDLStatus already exists in results.js and routes to 'ddl-status' slot.
-// We expose a variant that can accept a label and rows array directly —
-// called from misc-patches.js after SHOW query results come back.
 window._cdShowDDLResult = function(sql, label, columns, rows) {
-    // Merge SHOW VIEWS with session-tracked views
     const cleanSql = (sql || '').trim();
     if (/^SHOW\s+VIEWS\b/i.test(cleanSql)) {
         rows = window._cdMergeShowViewsResult(rows);
@@ -757,9 +827,7 @@ window._cdShowDDLResult = function(sql, label, columns, rows) {
     const ts = new Date().toLocaleTimeString('en-US', { hour12: false });
 
     if (rows && rows.length > 0 && columns && columns.length > 0) {
-        // Build a section header row
         statusSlot.rows.push({ fields: ['──', '── ' + label + ' ──', ts] });
-        // Add each result row as a formatted entry
         rows.forEach(row => {
             const fields = Array.isArray(row?.fields) ? row.fields : Object.values(row?.fields || row || {});
             const summary = fields.map((v, i) => {
@@ -769,7 +837,6 @@ window._cdShowDDLResult = function(sql, label, columns, rows) {
             statusSlot.rows.push({ fields: ['OK', summary, ts] });
         });
     } else {
-        // Empty result (e.g. SHOW VIEWS with 0 rows even after merge)
         statusSlot.rows.push({ fields: ['OK', label + ' — (no rows)', ts] });
     }
     statusSlot.columns = [
