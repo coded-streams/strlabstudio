@@ -23,12 +23,64 @@
     #log-panel .log-line { display:flex; flex-direction:column; gap:2px; }
     #log-panel .log-line-main { display:flex; flex-direction:row; gap:8px; min-width:0; width:100%; }
 
-    /* ── Topbar overflow fix ───────────────────────────────────────── */
-    #topbar { min-width:0; overflow:hidden; }
-    .topbar-actions { flex-shrink:1!important; min-width:0!important; overflow-x:auto!important; overflow-y:hidden!important; scrollbar-width:none!important; display:flex!important; align-items:center!important; gap:2px!important; flex-wrap:nowrap!important; }
-    .topbar-actions::-webkit-scrollbar { display:none; }
-    .topbar-session { flex-shrink:0!important; min-width:0!important; white-space:nowrap!important; overflow:hidden!important; text-overflow:ellipsis!important; max-width:160px!important; }
-    .session-id { max-width:100px!important; overflow:hidden!important; text-overflow:ellipsis!important; display:inline-block!important; vertical-align:bottom!important; }
+    /* ── Topbar: fixed layout — logo | session | chip | actions→ | disconnect ── */
+    #topbar { min-width:0; overflow:visible !important; display:flex !important; align-items:center !important; }
+    .topbar-logo    { flex-shrink:0!important; }
+    .topbar-session { flex-shrink:0!important; min-width:0!important; white-space:nowrap!important; overflow:hidden!important; text-overflow:ellipsis!important; max-width:140px!important; }
+    .conn-chip      { flex-shrink:0!important; }
+    .topbar-btn.danger { flex-shrink:0!important; margin-left:4px!important; }
+    .session-id     { max-width:100px!important; overflow:hidden!important; text-overflow:ellipsis!important; display:inline-block!important; vertical-align:bottom!important; }
+    /* Actions row fills the space between chip and disconnect */
+    .topbar-actions { display:flex!important; align-items:center!important; gap:3px!important; flex:1 1 0!important; min-width:0!important; flex-wrap:nowrap!important; overflow:visible!important; }
+    /* ── Managers dropdown ──────────────────────────────────────────────────── */
+    #managers-dropdown-wrap { position:relative; flex-shrink:0; }
+    #managers-dropdown-btn  { display:flex!important; align-items:center; gap:4px; }
+    #managers-dropdown-btn .mgr-arrow { font-size:8px; opacity:0.6; transition:transform 0.15s; display:inline-block; }
+    #managers-dropdown-btn.open .mgr-arrow { transform:rotate(180deg); }
+    #managers-menu {
+      display:none; position:absolute; top:calc(100% + 6px); left:0; z-index:99999;
+      background:var(--bg2); border:1px solid var(--border2); border-radius:6px;
+      box-shadow:0 8px 32px rgba(0,0,0,0.6); min-width:190px; padding:4px;
+      flex-direction:column; gap:1px;
+    }
+    #managers-menu.open { display:flex; }
+    .mgr-item {
+      display:flex; align-items:center; gap:9px; width:100%; box-sizing:border-box;
+      padding:7px 11px; border:none; border-radius:4px;
+      background:transparent; color:var(--text1); font-family:var(--mono);
+      font-size:11px; font-weight:500; cursor:pointer; text-align:left;
+      transition:background 0.1s, color 0.1s; white-space:nowrap;
+    }
+    .mgr-item:hover { background:rgba(0,212,170,0.09); color:var(--accent); }
+    .mgr-item svg   { flex-shrink:0; opacity:0.65; }
+    .mgr-item:hover svg { opacity:1; }
+    .mgr-divider    { height:1px; background:var(--border); margin:3px 6px; flex-shrink:0; }
+
+    /* ── Pipeline Manager: SQL tab + side panel scrollability ──────── */
+    /* Ensures the large SQL view and side panel pre elements scroll    */
+    #plm-pane-sql {
+      flex-direction: column !important;
+      overflow: hidden !important;
+    }
+    #plm-sql-full {
+      flex: 1 !important;
+      min-height: 0 !important;
+      overflow: auto !important;
+      white-space: pre !important;
+      word-wrap: normal !important;
+      word-break: normal !important;
+    }
+    #plm-sql-side {
+      display: flex !important;
+      flex-direction: column !important;
+      overflow: hidden !important;
+    }
+    #plm-sql-preview {
+      flex: 1 !important;
+      min-height: 0 !important;
+      overflow: auto !important;
+      white-space: pre !important;
+    }
 
     /* ══════════════════════════════════════════════════════════════
        CONNECTION SCREEN — fullscreen background + floating panel
@@ -60,6 +112,23 @@
     @keyframes csGridScroll {
       0%   { transform: translate(0,0); }
       100% { transform: translate(36px, 36px); }
+    }
+
+    /* ── Managers dropdown theme styling ── */
+    #managers-select {
+      background: transparent !important;
+      color: var(--text0) !important;
+    }
+    #managers-select option {
+      background: var(--bg2) !important;
+      color: var(--text0) !important;
+      padding: 8px 12px !important;
+      font-family: var(--mono) !important;
+      font-size: 11px !important;
+    }
+    #managers-select option:hover {
+      background: var(--bg3) !important;
+      color: var(--accent) !important;
     }
 
     /* ── Glow orbs (theme-aware) ────────────────────────────────── */
@@ -353,7 +422,7 @@
             <strong>✦ Multi-provider</strong> · Local · Confluent · Ververica · AWS<br>
             <strong>✦ Admin sessions</strong> · Full cluster visibility · PDF reports
           </div>
-          <span class="cs-badge">v0.0.19 · MIT License · codedstreams</span>
+          <span class="cs-badge">v0.0.20 · MIT License · codedstreams</span>
           <span class="cs-flink-badge" id="cs-flink-ver" style="display:none;"></span>
         </div>
 
@@ -450,6 +519,24 @@
           </div>
         </div>
 
+        <!-- Slide 6: Second pipeline — Fraud Detection CEP -->
+        <div class="cs-slide" id="cs-slide-6">
+          <div class="cs-slide-title">⬡ <span>Fraud</span> Detection Pipeline</div>
+          <div class="cs-slide-body">
+            CEP + Tumble window + AI scoring — all wired visually,<br>
+            all generating production-ready Flink SQL automatically.
+          </div>
+          <!-- Second mini pipeline canvas -->
+          <div class="cs-pipeline-canvas" id="cs-pipeline-canvas-2">
+            <svg style="position:absolute;inset:0;width:100%;height:100%;overflow:visible;z-index:1;" id="cs-pipeline-svg-2"></svg>
+          </div>
+          <div class="cs-tips" style="font-size:10px;">
+            <strong>CEP (MATCH_RECOGNIZE)</strong> — detect multi-step fraud patterns<br>
+            <strong>AI Model node</strong> — score each event via OpenAI / Bedrock / Anthropic<br>
+            <strong>Feature Store node</strong> — enrich with pre-computed user features
+          </div>
+        </div>
+
       </div><!-- /cs-slides -->
 
       <!-- Dots -->
@@ -460,6 +547,7 @@
         <button class="cs-dot"        onclick="csGoTo(3)"></button>
         <button class="cs-dot"        onclick="csGoTo(4)"></button>
         <button class="cs-dot"        onclick="csGoTo(5)"></button>
+        <button class="cs-dot"        onclick="csGoTo(6)"></button>
       </div>
 
       <!-- Progress bar -->
@@ -803,7 +891,7 @@
           //  CONNECT SCREEN — Slideshow + Pipeline mini-canvas + Flink version
           // ═══════════════════════════════════════════════════════════════════
           (function() {
-            var cur = 0, total = 6, _timer = null, _paused = false;
+            var cur = 0, total = 7, _timer = null, _paused = false;
 
             function csGoTo(n) {
               var slides = document.querySelectorAll('.cs-slide');
@@ -815,7 +903,8 @@
               slides[cur].classList.add('active');
               dots[cur].classList.add('active');
               csRestartProgress();
-              if (cur === 1) setTimeout(csBuildPipeline, 100);
+              if (cur === 1) setTimeout(csBuildPipeline,  100);
+              if (cur === 6) setTimeout(csBuildPipeline2, 100);
             }
             window.csGoTo = csGoTo;
 
@@ -979,14 +1068,98 @@
               frame();
             }
 
-            // Stop animation when leaving slide 1
+            // Stop animation when leaving pipeline slides
             var _origGoTo = window.csGoTo;
             window.csGoTo = function(n) {
-              if (cur === 1 && n !== 1) {
+              var leaving = cur;
+              _origGoTo(n);
+              if ((leaving === 1 || leaving === 6) && cur !== leaving) {
                 if (_pipeAnim) { cancelAnimationFrame(_pipeAnim); _pipeAnim = null; }
               }
-              _origGoTo(n);
             };
+
+            // ── Second pipeline: Fraud Detection (CEP + AI + Sink) ────────
+            function csBuildPipeline2() {
+              var canvas = document.getElementById('cs-pipeline-canvas-2');
+              var svg    = document.getElementById('cs-pipeline-svg-2');
+              if (!canvas || !svg) return;
+              canvas.querySelectorAll('.cs-pnode').forEach(function(n) { n.remove(); });
+              if (_pipeAnim) { cancelAnimationFrame(_pipeAnim); _pipeAnim = null; }
+              _pipeParticles = [];
+              svg.innerHTML = '<defs>'
+                      + '<marker id="csarr2" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto">'
+                      + '<path d="M0,0 L0,6 L7,3 z" fill="#f5a623"/></marker></defs>'
+                      + '<g id="cs-edges-g2"></g><g id="cs-particles-g2"></g>';
+
+              var nodes = [
+                { id:'src2',  label:'Kafka Source',   sub:'SRC · events',   color:'#1a6fa8', x:8,   y:80  },
+                { id:'cep2',  label:'MATCH_RECOGNIZE',sub:'CEP · running',  color:'#3a0a6a', x:148, y:24  },
+                { id:'ai2',   label:'AI Model',       sub:'score · Bedrock',color:'#5a006a', x:148, y:124 },
+                { id:'agg2',  label:'Tumble 1min',    sub:'S · agg',        color:'#8a6a00', x:300, y:80  },
+                { id:'snk2',  label:'Kafka Sink',     sub:'SINK · alerts',  color:'#0a3a6a', x:420, y:80  },
+              ];
+
+              nodes.forEach(function(n) {
+                var div = document.createElement('div');
+                div.className = 'cs-pnode';
+                div.style.cssText = 'left:'+n.x+'px;top:'+n.y+'px;background:'+n.color+';color:#fff;min-width:110px;max-width:135px;';
+                div.innerHTML = '<span>'+n.label+'</span><span class="cs-pnode-sub">'+n.sub+'</span>';
+                canvas.appendChild(div);
+                n._el = div;
+              });
+
+              setTimeout(function() {
+                var edgesG = svg.querySelector('#cs-edges-g2');
+                var edgePaths = [];
+                var edgeDefs = [
+                  {from:'src2', to:'cep2', color:'#f5a623'},
+                  {from:'src2', to:'ai2',  color:'#b080e0'},
+                  {from:'cep2', to:'agg2', color:'#f5a623'},
+                  {from:'ai2',  to:'agg2', color:'#b080e0'},
+                  {from:'agg2', to:'snk2', color:'#4e9de8'},
+                ];
+                edgeDefs.forEach(function(ed) {
+                  var fn = nodes.find(function(n){return n.id===ed.from;});
+                  var tn = nodes.find(function(n){return n.id===ed.to;});
+                  if (!fn||!tn||!fn._el||!tn._el) return;
+                  var x1=fn.x+fn._el.offsetWidth, y1=fn.y+fn._el.offsetHeight/2;
+                  var x2=tn.x,                    y2=tn.y+tn._el.offsetHeight/2;
+                  var cx1=x1+(x2-x1)*0.4, cy1=y1, cx2=x1+(x2-x1)*0.6, cy2=y2;
+                  var path=document.createElementNS('http://www.w3.org/2000/svg','path');
+                  path.setAttribute('d','M'+x1+','+y1+' C'+cx1+','+cy1+' '+cx2+','+cy2+' '+x2+','+y2);
+                  path.setAttribute('stroke', ed.color);
+                  path.setAttribute('stroke-width','1.8');
+                  path.setAttribute('fill','none');
+                  path.setAttribute('opacity','0.75');
+                  path.setAttribute('marker-end','url(#csarr2)');
+                  edgesG.appendChild(path);
+                  var ep={path:path,x1:x1,y1:y1,x2:x2,y2:y2,cx1:cx1,cy1:cy1,cx2:cx2,cy2:cy2};
+                  edgePaths.push(ep);
+                  _pipeParticles.push({t:Math.random(),       edge:ep, color:ed.color});
+                  _pipeParticles.push({t:Math.random()*0.5+0.3, edge:ep, color:'#00d4aa'});
+                });
+                _animatePipeline2(svg.querySelector('#cs-particles-g2'));
+              }, 60);
+            }
+
+            function _animatePipeline2(pG) {
+              if (_pipeAnim) cancelAnimationFrame(_pipeAnim);
+              function frame() {
+                if (!pG || !pG.isConnected) return;
+                var html = '';
+                _pipeParticles.forEach(function(p) {
+                  p.t += 0.013; if (p.t > 1) p.t -= 1;
+                  var e=p.edge, t=p.t, mt=1-t;
+                  var px=mt*mt*mt*e.x1+3*mt*mt*t*e.cx1+3*mt*t*t*e.cx2+t*t*t*e.x2;
+                  var py=mt*mt*mt*e.y1+3*mt*mt*t*e.cy1+3*mt*t*t*e.cy2+t*t*t*e.y2;
+                  var alpha=Math.sin(t*Math.PI);
+                  html+='<circle cx="'+px.toFixed(1)+'" cy="'+py.toFixed(1)+'" r="3" fill="'+p.color+'" opacity="'+alpha.toFixed(2)+'"/>';
+                });
+                pG.innerHTML = html;
+                _pipeAnim = requestAnimationFrame(frame);
+              }
+              frame();
+            }
 
           })();
         </script>
@@ -995,6 +1168,7 @@
     </div><!-- /cs-layout -->
   </div><!-- /connect-screen -->
 </div>
+
   <!-- ═══════════════════════════════════════════════════════════════ -->
   <!--  MAIN APP  — completely unchanged from your original            -->
   <!-- ═══════════════════════════════════════════════════════════════ -->
@@ -1018,25 +1192,25 @@
         <span>🖧</span><span id="topbar-host-label" class="val">—</span>
       </div>
       <div class="topbar-actions">
-        <button class="topbar-btn" onclick="openNewSessionModal()"    title="New Session">＋ New Session</button>
-        <button class="topbar-btn" onclick="openCatalogManager()" title="Catalog Manager — register external catalogs">⊕ Catalogs</button>
-        <button class="topbar-btn" onclick="refreshCatalog()"         title="Refresh Catalog">⟳ Catalog</button>
-        <button class="topbar-btn" onclick="openProjectManager()"      title="Project Manager — save, load and run Str:::lab projects">⬡ Projects</button>
-        <button class="topbar-btn" onclick="openSystemsManager()" title="Systems Manager — connector JARs and external integrations">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline;vertical-align:middle;margin-right:4px;">
-            <circle cx="12" cy="12" r="3"/>
-            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/>
+        <button class="topbar-btn" onclick="openNewSessionModal()" title="New Session">＋ New Session</button>
+        <button class="topbar-btn" onclick="openProjectManager()"  title="Project Manager — save, load and run Str:::lab projects">⬡ Projects</button>
+
+        <!-- ── Managers dropdown ──────────────────────────────────── -->
+        <div class="topbar-theme-wrap" style="margin-left: 4px;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: inline-block; vertical-align: middle;">
+            <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+            <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
           </svg>
-          Systems
-        </button>
-        <button class="topbar-btn" onclick="openPipelineManager()" title="Pipeline Manager — visual pipeline builder">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline;vertical-align:middle;margin-right:4px;">
-            <circle cx="5" cy="12" r="3"/><circle cx="19" cy="5" r="3"/><circle cx="19" cy="19" r="3"/>
-            <line x1="8" y1="11.5" x2="16" y2="6.5"/><line x1="8" y1="12.5" x2="16" y2="17.5"/>
-          </svg>
-          Pipeline
-        </button>
-        <button class="topbar-btn" onclick="openUdfManager()"          title="UDF Manager — User-Defined Functions">⨍ UDFs</button>
+          <select id="managers-select" onchange="handleManagerSelect(this.value)" style="background: transparent; border: none; color: var(--text0); font-family: var(--mono); font-size: 11px; cursor: pointer; outline: none; padding: 0; margin: 0 2px; appearance: none; -webkit-appearance: none;">
+            <option value="" disabled selected style="background: var(--bg2); color: var(--text0);">Managers</option>
+            <option value="pipeline" style="background: var(--bg2); color: var(--text0);">Pipeline Manager</option>
+            <option value="systems" style="background: var(--bg2); color: var(--text0);">Systems Manager</option>
+            <option value="udf" style="background: var(--bg2); color: var(--text0);">UDF Manager</option>
+            <option value="catalog" style="background: var(--bg2); color: var(--text0);">Catalog Manager</option>
+          </select>
+          <span style="font-size: 8px; color: var(--text3); pointer-events: none;">▼</span>
+        </div>
+
         <button class="topbar-btn" onclick="openSnippets()"           title="Snippets">✂ Snippets</button>
         <button class="topbar-btn" onclick="showTipsModal()"          title="Tips &amp; Flink Concepts">💡 Tips</button>
         <button class="topbar-btn" onclick="openModal('modal-about')" title="About">ℹ About</button>
@@ -1054,8 +1228,8 @@
           <span style="font-size:8px;color:var(--text3);pointer-events:none;">▾</span>
         </div>
         <button class="topbar-btn" onclick="openModal('modal-workspace')" title="Workspace">&#128190; Workspace</button>
-        <button class="topbar-btn danger" onclick="disconnectAll()"       title="Disconnect">⏻ Disconnect</button>
       </div>
+      <button class="topbar-btn danger" onclick="disconnectAll()" title="Disconnect" style="flex-shrink:0;margin-left:4px;">⏻ Disconnect</button>
     </div>
 
     <!-- MAIN LAYOUT -->
@@ -1369,6 +1543,7 @@ SHOW CATALOGS;"></textarea>
         </div>
       </div>
     </div>
+
     <!-- STATUS BAR -->
     <div id="statusbar">
       <div class="status-item"><div class="dot" style="background:var(--green);box-shadow:0 0 4px var(--green);" id="conn-dot"></div><span id="conn-status-text">Connected</span></div>
@@ -1450,7 +1625,7 @@ SHOW CATALOGS;"></textarea>
           <div>
             <div style="font-size:18px;font-weight:700;color:var(--text0);">Str:::lab Studio</div>
             <div style="font-size:11px;color:var(--text2);margin-top:3px;">SQL Studio for Flink pipelines</div>
-            <div style="font-size:10px;color:var(--text3);margin-top:2px;font-family:var(--mono);">v0.0.19 · MIT License</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:2px;font-family:var(--mono);">v0.0.20 · MIT License</div>
           </div>
         </div>
         <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;">
@@ -1549,5 +1724,87 @@ SHOW CATALOGS;"></textarea>
   <script src="js/misc-patches.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 
+
+  <!-- ── Managers dropdown logic ────────────────────────────────────── -->
+<script>
+  // Handle manager selection from dropdown
+  function handleManagerSelect(value) {
+    if (!value) return;
+
+    // Reset the dropdown selection
+    const select = document.getElementById('managers-select');
+    if (select) select.value = '';
+
+    // Open the selected manager
+    switch(value) {
+      case 'pipeline':
+        if (typeof openPipelineManager === 'function') {
+          openPipelineManager();
+        } else {
+          console.warn('openPipelineManager not defined');
+          showToast('Pipeline Manager not available', 'err');
+        }
+        break;
+      case 'systems':
+        if (typeof openSystemsManager === 'function') {
+          openSystemsManager();
+        } else {
+          console.warn('openSystemsManager not defined');
+          showToast('Systems Manager not available', 'err');
+        }
+        break;
+      case 'udf':
+        if (typeof openUdfManager === 'function') {
+          openUdfManager();
+        } else {
+          console.warn('openUdfManager not defined');
+          showToast('UDF Manager not available', 'err');
+        }
+        break;
+      case 'catalog':
+        if (typeof openCatalogManager === 'function') {
+          openCatalogManager();
+        } else {
+          console.warn('openCatalogManager not defined');
+          showToast('Catalog Manager not available', 'err');
+        }
+        break;
+    }
+  }
+
+  // Helper function if showToast doesn't exist
+  if (typeof showToast !== 'function') {
+    window.showToast = function(message, type) {
+      console.log(`[${type}] ${message}`);
+      // You can implement a simple toast if needed
+    };
+  }
+</script>
+<script>
+  // Handle manager selection from dropdown
+  function handleManagerSelect(value) {
+    if (!value) return;
+
+    // Reset the dropdown selection
+    const select = document.getElementById('managers-select');
+    if (select) select.value = '';
+
+    // Open the selected manager
+    switch(value) {
+      case 'pipeline':
+        if (typeof openPipelineManager === 'function') openPipelineManager();
+        break;
+      case 'systems':
+        if (typeof openSystemsManager === 'function') openSystemsManager();
+        break;
+      case 'udf':
+        if (typeof openUdfManager === 'function') openUdfManager();
+        break;
+      case 'catalog':
+        if (typeof openCatalogManager === 'function') openCatalogManager();
+        break;
+    }
+  }
+</script>
 </body>
 </html>
