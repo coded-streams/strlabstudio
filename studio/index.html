@@ -56,6 +56,10 @@
     .mgr-item:hover svg { opacity:1; }
     .mgr-divider    { height:1px; background:var(--border); margin:3px 6px; flex-shrink:0; }
 
+    /* ── SQL editor: transparent text for highlight overlay ────────── */
+    /* Placeholder must stay visible even when text color is transparent */
+    #sql-editor::placeholder { color: var(--text3, #3a5a6a) !important; -webkit-text-fill-color: var(--text3, #3a5a6a) !important; opacity:1; }
+
     /* ── Pipeline Manager: SQL tab + side panel scrollability ──────── */
     /* Ensures the large SQL view and side panel pre elements scroll    */
     #plm-pane-sql {
@@ -81,6 +85,68 @@
       overflow: auto !important;
       white-space: pre !important;
     }
+
+    /* ── Onyx theme — deep charcoal with warm gold accents ─────── */
+    body.theme-onyx {
+      /* Backgrounds: rich dark charcoal, not pure black */
+      --bg0:    #1a1814;   /* deepest — editor bg, canvas              */
+      --bg1:    #221f1a;   /* panels, sidebars                         */
+      --bg2:    #2a2620;   /* raised surfaces, modal bg                */
+      --bg3:    #32302a;   /* buttons, inputs bg                       */
+
+      /* Text: warm off-white, not cold blue */
+      --text0:  #e8e0d0;   /* primary text                             */
+      --text1:  #c8bfaa;   /* secondary text                           */
+      --text2:  #9a9080;   /* muted text                               */
+      --text3:  #6a6055;   /* very muted / placeholder                 */
+
+      /* Accent: warm gold instead of teal */
+      --accent:  #c8a84b;  /* primary gold                             */
+      --accent2: #d4b860;  /* brighter gold                            */
+      --accent3: #e8c878;  /* highlight gold                           */
+
+      /* Semantic colours */
+      --green:   #63c996;
+      --red:     #e07060;
+      --yellow:  #d4b048;
+      --blue:    #7cbde8;
+      --orange:  #d08050;
+
+      /* Borders */
+      --border:   rgba(200,168,75,0.15);
+      --border2:  rgba(200,168,75,0.25);
+
+      /* Misc */
+      --radius:  3px;
+      --mono:    'IBM Plex Mono', monospace;
+      --logo-bg: #1a1814;
+    }
+
+    /* ── Managers dropdown theme styling ── */
+    #managers-select {
+      background: transparent !important;
+      color: var(--text0) !important;
+    }
+    #managers-select option {
+      background: var(--bg2) !important;
+      color: var(--text0) !important;
+      padding: 8px 12px !important;
+      font-family: var(--mono) !important;
+      font-size: 11px !important;
+    }
+    #managers-select option[value="catalog"] {
+      border-top: 1px solid var(--border) !important;
+      margin-top: 4px !important;
+      padding-top: 8px !important;
+    }
+    #managers-select option:hover {
+      background: var(--bg3) !important;
+      color: var(--accent) !important;
+    }
+
+    /* Onyx: scrollbars and selection to match */
+    body.theme-onyx ::selection { background: rgba(200,168,75,0.25); }
+    body.theme-onyx ::-webkit-scrollbar-thumb { background: rgba(200,168,75,0.25); }
 
     /* ══════════════════════════════════════════════════════════════
        CONNECTION SCREEN — fullscreen background + floating panel
@@ -112,23 +178,6 @@
     @keyframes csGridScroll {
       0%   { transform: translate(0,0); }
       100% { transform: translate(36px, 36px); }
-    }
-
-    /* ── Managers dropdown theme styling ── */
-    #managers-select {
-      background: transparent !important;
-      color: var(--text0) !important;
-    }
-    #managers-select option {
-      background: var(--bg2) !important;
-      color: var(--text0) !important;
-      padding: 8px 12px !important;
-      font-family: var(--mono) !important;
-      font-size: 11px !important;
-    }
-    #managers-select option:hover {
-      background: var(--bg3) !important;
-      color: var(--accent) !important;
     }
 
     /* ── Glow orbs (theme-aware) ────────────────────────────────── */
@@ -1169,6 +1218,7 @@
   </div><!-- /connect-screen -->
 </div>
 
+
   <!-- ═══════════════════════════════════════════════════════════════ -->
   <!--  MAIN APP  — completely unchanged from your original            -->
   <!-- ═══════════════════════════════════════════════════════════════ -->
@@ -1195,18 +1245,18 @@
         <button class="topbar-btn" onclick="openNewSessionModal()" title="New Session">＋ New Session</button>
         <button class="topbar-btn" onclick="openProjectManager()"  title="Project Manager — save, load and run Str:::lab projects">⬡ Projects</button>
 
-        <!-- ── Managers dropdown ──────────────────────────────────── -->
-        <div class="topbar-theme-wrap" style="margin-left: 4px;">
+        <!-- ── Managers dropdown ── -->
+        <div class="topbar-theme-wrap" style="margin-left: 4px; position: relative;">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: inline-block; vertical-align: middle;">
             <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
             <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
           </svg>
           <select id="managers-select" onchange="handleManagerSelect(this.value)" style="background: transparent; border: none; color: var(--text0); font-family: var(--mono); font-size: 11px; cursor: pointer; outline: none; padding: 0; margin: 0 2px; appearance: none; -webkit-appearance: none;">
             <option value="" disabled selected style="background: var(--bg2); color: var(--text0);">Managers</option>
-            <option value="pipeline" style="background: var(--bg2); color: var(--text0);">Pipeline Manager</option>
-            <option value="systems" style="background: var(--bg2); color: var(--text0);">Systems Manager</option>
-            <option value="udf" style="background: var(--bg2); color: var(--text0);">UDF Manager</option>
-            <option value="catalog" style="background: var(--bg2); color: var(--text0);">Catalog Manager</option>
+            <option value="pipeline" style="background: var(--bg2); color: var(--text0);">◈ Pipeline Manager</option>
+            <option value="systems" style="background: var(--bg2); color: var(--text0);">⚙ Systems Manager</option>
+            <option value="udf" style="background: var(--bg2); color: var(--text0);">⨍ UDF Manager</option>
+            <option value="catalog" style="background: var(--bg2); color: var(--text0); border-top: 1px solid var(--border);">⊕ Catalog Manager</option>
           </select>
           <span style="font-size: 8px; color: var(--text3); pointer-events: none;">▼</span>
         </div>
@@ -1220,10 +1270,11 @@
             <option value="dark">Dark</option>
             <option value="stdark">ST Dark</option>
             <option value="light">Light</option>
-            <option value="monokai">Monokai</option>
+<!--            <option value="monokai">Monokai</option>-->
             <option value="dracula">Dracula</option>
             <option value="nord">Nord</option>
-            <option value="contrast">Contrast</option>
+<!--            <option value="contrast">Contrast</option>-->
+            <option value="onyx">Onyx</option>
           </select>
           <span style="font-size:8px;color:var(--text3);pointer-events:none;">▾</span>
         </div>
@@ -1725,86 +1776,60 @@ SHOW CATALOGS;"></textarea>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 
 
+  <script src="js/sql-highlight.js"></script>
+
   <!-- ── Managers dropdown logic ────────────────────────────────────── -->
-<script>
-  // Handle manager selection from dropdown
-  function handleManagerSelect(value) {
-    if (!value) return;
-
-    // Reset the dropdown selection
-    const select = document.getElementById('managers-select');
-    if (select) select.value = '';
-
-    // Open the selected manager
-    switch(value) {
-      case 'pipeline':
-        if (typeof openPipelineManager === 'function') {
-          openPipelineManager();
-        } else {
-          console.warn('openPipelineManager not defined');
-          showToast('Pipeline Manager not available', 'err');
-        }
-        break;
-      case 'systems':
-        if (typeof openSystemsManager === 'function') {
-          openSystemsManager();
-        } else {
-          console.warn('openSystemsManager not defined');
-          showToast('Systems Manager not available', 'err');
-        }
-        break;
-      case 'udf':
-        if (typeof openUdfManager === 'function') {
-          openUdfManager();
-        } else {
-          console.warn('openUdfManager not defined');
-          showToast('UDF Manager not available', 'err');
-        }
-        break;
-      case 'catalog':
-        if (typeof openCatalogManager === 'function') {
-          openCatalogManager();
-        } else {
-          console.warn('openCatalogManager not defined');
-          showToast('Catalog Manager not available', 'err');
-        }
-        break;
+  <script>
+    function _toggleManagersMenu(e) {
+      e.stopPropagation();
+      const btn  = document.getElementById('managers-dropdown-btn');
+      const menu = document.getElementById('managers-menu');
+      if (!btn || !menu) return;
+      const isOpen = menu.classList.contains('open');
+      _closeManagersMenu();          // close first (handles any other open state)
+      if (!isOpen) {
+        menu.classList.add('open');
+        btn.classList.add('open');
+      }
     }
-  }
-
-  // Helper function if showToast doesn't exist
-  if (typeof showToast !== 'function') {
-    window.showToast = function(message, type) {
-      console.log(`[${type}] ${message}`);
-      // You can implement a simple toast if needed
-    };
-  }
-</script>
-<script>
-  // Handle manager selection from dropdown
-  function handleManagerSelect(value) {
-    if (!value) return;
-
-    // Reset the dropdown selection
-    const select = document.getElementById('managers-select');
-    if (select) select.value = '';
-
-    // Open the selected manager
-    switch(value) {
-      case 'pipeline':
-        if (typeof openPipelineManager === 'function') openPipelineManager();
-        break;
-      case 'systems':
-        if (typeof openSystemsManager === 'function') openSystemsManager();
-        break;
-      case 'udf':
-        if (typeof openUdfManager === 'function') openUdfManager();
-        break;
-      case 'catalog':
-        if (typeof openCatalogManager === 'function') openCatalogManager();
-        break;
+    function _closeManagersMenu() {
+      const btn  = document.getElementById('managers-dropdown-btn');
+      const menu = document.getElementById('managers-menu');
+      if (menu) menu.classList.remove('open');
+      if (btn)  btn.classList.remove('open');
     }
-  }
-</script>
+    document.addEventListener('click', function(e) {
+      if (!e.target.closest('#managers-dropdown-wrap')) _closeManagersMenu();
+    });
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') _closeManagersMenu();
+    });
+  </script>
+  <script>
+    // Handle manager selection from dropdown
+    function handleManagerSelect(value) {
+      if (!value) return;
+
+      // Reset the dropdown selection
+      const select = document.getElementById('managers-select');
+      if (select) select.value = '';
+
+      // Open the selected manager
+      switch(value) {
+        case 'pipeline':
+          if (typeof openPipelineManager === 'function') openPipelineManager();
+          break;
+        case 'systems':
+          if (typeof openSystemsManager === 'function') openSystemsManager();
+          break;
+        case 'udf':
+          if (typeof openUdfManager === 'function') openUdfManager();
+          break;
+        case 'catalog':
+          if (typeof openCatalogManager === 'function') openCatalogManager();
+          break;
+      }
+    }
+  </script>
 </body>
 </html>
