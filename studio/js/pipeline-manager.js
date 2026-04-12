@@ -485,8 +485,8 @@ function _plmBuildModal(){
     <div style="display:flex;gap:4px;margin-left:auto;flex-shrink:0;align-items:center;">
       <button class="plm-toolbar-btn" onclick="_plmClearCanvas()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg> Clear</button>
       <button class="plm-toolbar-btn" onclick="_plmAutoLayout()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> Layout</button>
-      <button class="plm-toolbar-btn" onclick="_plmExportPipeline()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Export</button>
-      <button class="plm-toolbar-btn" onclick="document.getElementById('plm-import-input').click()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Import</button>
+      <button class="plm-toolbar-btn" onclick="_plmExportPipeline()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Export</button>
+      <button class="plm-toolbar-btn" onclick="document.getElementById('plm-import-input').click()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Import</button>
       <input type="file" id="plm-import-input" accept=".json" style="display:none;" onchange="_plmImportPipeline(event)" />
       <button class="plm-toolbar-btn" onclick="_plmSaveAsProject()" style="color:var(--accent);border-color:rgba(0,212,170,0.3);"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg> Save</button>
       <button id="plm-run-btn" class="plm-toolbar-btn" onclick="_plmToggleAnimation()" style="color:var(--green);border-color:rgba(57,199,80,0.3);font-weight:600;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run</button>
@@ -704,7 +704,52 @@ function _plmCanvasWheel(e){e.preventDefault();const wrap=document.getElementByI
 function _plmKeyDown(e){const modal=document.getElementById('modal-pipeline-manager');if(!modal||!modal.classList.contains('open'))return;if((e.key==='Delete'||e.key==='Backspace')&&_plmSelectedNode&&document.activeElement?.tagName!=='INPUT'&&document.activeElement?.tagName!=='TEXTAREA'){_plmDeleteNode(_plmSelectedNode);}if(e.key==='Escape'&&window._plmState.connecting)_plmCancelConnect();}
 function _plmDeleteNode(uid){window._plmState.canvas.nodes=window._plmState.canvas.nodes.filter(n=>n.uid!==uid);window._plmState.canvas.edges=window._plmState.canvas.edges.filter(e=>e.fromUid!==uid&&e.toUid!==uid);if(_plmSelectedNode===uid)_plmSelectedNode=null;_plmRenderAll();_plmUpdateStatus();}
 window._plmSelectedEdgeType='forward';
-function _plmSelectEdgeType(id){window._plmSelectedEdgeType=id;document.querySelectorAll('.plm-edge-type-item').forEach(el=>el.classList.toggle('selected',el.id==='plm-edge-type-'+id));}
+function _plmSelectEdgeType(id) {
+  window._plmSelectedEdgeType = id;
+
+  // Update palette selection highlight
+  document.querySelectorAll('.plm-edge-type-item').forEach(el =>
+      el.classList.toggle('selected', el.id === 'plm-edge-type-' + id)
+  );
+
+  // If a single edge is currently selected (via edge config modal), update it live.
+  // Otherwise update ALL edges — this matches the UX expectation that selecting
+  // a type in the palette applies it as the active style going forward, and
+  // visually previews it on the canvas if an edge config modal is open.
+  const edgeConfigModal = document.getElementById('plm-edge-config-modal');
+  if (edgeConfigModal) {
+    // An edge is being configured — update the type select in the modal too
+    const typeSelect = document.getElementById('plm-ecfg-type');
+    if (typeSelect) typeSelect.value = id;
+
+    // Update color picker to match the new edge type's default color
+    const etype = PM_EDGE_TYPES.find(e => e.id === id);
+    if (etype) {
+      const colorInput = document.getElementById('plm-ecfg-color');
+      const colorHex   = document.getElementById('plm-ecfg-color-hex');
+      if (colorInput) colorInput.value = etype.color;
+      if (colorHex)   colorHex.value   = etype.color;
+    }
+  }
+
+  // Update the currently selected node's outgoing edges if one is selected,
+  // or fall back to updating all edges so the palette acts as a global brush.
+  const selectedUid = window._plmSelectedNode;
+  const etype = PM_EDGE_TYPES.find(e => e.id === id);
+  if (!etype) return;
+
+  if (selectedUid) {
+    // Only update edges originating from the selected node
+    window._plmState.canvas.edges.forEach(edge => {
+      if (edge.fromUid === selectedUid) {
+        edge.edgeType    = id;
+        edge.customColor = null; // reset override so new type color shows
+      }
+    });
+  }
+  // Always re-render so the change is immediately visible
+  _plmRenderEdges();
+}
 function _plmStartConnect(e,fromUid){e.stopPropagation();window._plmState.connecting={fromUid};const wrap=document.getElementById('plm-canvas-wrap');if(wrap)wrap.style.cursor='crosshair';}
 function _plmFinishConnect(toUid){const{fromUid}=window._plmState.connecting||{};if(!fromUid||fromUid===toUid){_plmCancelConnect();return;}if(window._plmState.canvas.edges.find(e=>e.fromUid===fromUid&&e.toUid===toUid)){_plmCancelConnect();return;}window._plmState.canvas.edges.push({uid:_plmEdgeUID(),fromUid,toUid,edgeType:window._plmSelectedEdgeType||'forward',label:'',customColor:null});_plmCancelConnect();_plmRenderAll();_plmUpdateStatus();}
 function _plmCancelConnect(){window._plmState.connecting=null;const wrap=document.getElementById('plm-canvas-wrap');if(wrap)wrap.style.cursor='default';const g=document.getElementById('plm-edge-draw-g');if(g)g.innerHTML='';}
@@ -720,6 +765,60 @@ const PM_OP_ABOUT = {
   filter:         { what:'Applies a SQL WHERE predicate to discard non-matching rows.', when:'Use early in the pipeline to reduce volume.', tips:['Place filters as close to the source as possible.'], sql:"SELECT * FROM upstream WHERE amount > 100" },
   project:        { what:'Maps to a SQL SELECT — selects columns, evaluates expressions.', when:'Use to reshape rows before the next stage.', tips:['Select only columns needed downstream.'], sql:"SELECT id, UPPER(status) AS status FROM upstream" },
   tumble_window:  { what:'Groups events into fixed non-overlapping time windows.', when:'Use for per-minute/per-hour aggregations.', tips:['Requires a watermark on the time column.'], sql:"TABLE(TUMBLE(TABLE t, DESCRIPTOR(ts), INTERVAL '1' MINUTE))" },
+  forward: {
+    what: 'Passes records from one operator to the next with no network shuffle. Both operators run in the same task slot at the same parallelism.',
+    when: 'Use when consecutive operators have the same parallelism and no key-based routing is needed. This is the default and most efficient edge type.',
+    tips: [
+      'Only valid when upstream and downstream parallelism are identical.',
+      'Avoids serialization overhead — records stay in-memory between operators.',
+      'Flink will automatically fall back to REBALANCE if parallelism differs.'
+    ],
+    sql: '-- No SQL hint needed — FORWARD is the default operator chaining strategy.\n-- SET \'pipeline.operator-chaining\' = \'true\'; -- (default)'
+  },
+
+  hash: {
+    what: 'Shuffles records across the network by computing a hash of a key field. All records with the same key land on the same downstream subtask.',
+    when: 'Use before stateful operators like aggregations, joins, and deduplication that must co-locate records by key.',
+    tips: [
+      'Essential before GROUP BY, JOIN, and DEDUP operators.',
+      'Poor key cardinality (e.g. boolean fields) causes data skew — choose high-cardinality keys.',
+      'Incurs network I/O — avoid unnecessary HASH edges between stateless operators.'
+    ],
+    sql: '-- Triggered automatically by keyed operations:\nSELECT user_id, COUNT(*) FROM events GROUP BY user_id;'
+  },
+
+  rebalance: {
+    what: 'Distributes records in a round-robin fashion across all downstream subtasks, regardless of content. Balances load evenly at the cost of breaking key affinity.',
+    when: 'Use when upstream data is skewed and downstream processing is stateless. Ideal after a heavy aggregation before a stateless sink.',
+    tips: [
+      'Never use before stateful operators — it breaks key co-location.',
+      'Useful for fixing hotspots caused by skewed source partitions.',
+      'Adds network overhead — only use when skew is measurable.'
+    ],
+    sql: '-- No direct SQL equivalent — controlled via DataStream API or hints.\n-- /*+ REBALANCE */ hint available in some Flink versions.'
+  },
+
+  broadcast: {
+    what: 'Sends every record to every downstream subtask. The entire dataset is replicated across the network to all parallel instances.',
+    when: 'Use for small reference datasets (e.g. config tables, lookup rules) that need to be available on every subtask for a broadcast join or rule evaluation.',
+    tips: [
+      'Only use for small datasets — broadcasting large streams causes OOM.',
+      'Classic pattern: broadcast a rules stream, join against a large event stream.',
+      'The broadcast side must be small enough to fit in each subtask\'s memory.'
+    ],
+    sql: '-- Example: broadcast join pattern\nSELECT e.*, r.rule_name\nFROM events e\nJOIN rules FOR SYSTEM_TIME AS OF e.event_time ON e.type = r.type;'
+  },
+
+  rescale: {
+    what: 'A local round-robin shuffle that only redistributes records among a subset of downstream subtasks on the same machine. Avoids full network shuffle.',
+    when: 'Use when upstream has fewer partitions than downstream and you want to scale up parallelism cheaply without a full REBALANCE across the network.',
+    tips: [
+      'More efficient than REBALANCE — stays within the same TaskManager where possible.',
+      'Only effective when upstream parallelism is a divisor of downstream parallelism.',
+      'Falls back to REBALANCE if subtasks span multiple TaskManagers.'
+    ],
+    sql: '-- No direct SQL equivalent — applies at the physical execution plan level.\n-- Visible in the Flink Web UI job graph as "RESCALE" exchange.'
+  },
 };
 function _plmGetAbout(opId){const def=PM_OPERATORS.find(o=>o.id===opId),fallback=def?def.label:opId;return PM_OP_ABOUT[opId]||{what:fallback+' is a pipeline operator.',when:'Drag this operator onto the canvas and configure it.',tips:['Fill all required fields (marked *).','Connect an edge from the previous operator.'],sql:'-- See the Live SQL panel for generated SQL'};}
 
@@ -736,7 +835,197 @@ function _plmInitPaletteGroups(){const groups=[...new Set(PM_OPERATORS.map(o=>o.
 function _plmOpenPipelineSettings(){const old=document.getElementById('plm-settings-modal');if(old){old._plmDragCleanup?.();old.remove();return;}const ps=window._plmState.pipelineSettings||{};const modal=document.createElement('div');modal.id='plm-settings-modal';modal.style.cssText='position:fixed;z-index:10000;background:var(--bg2);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 40px rgba(0,0,0,0.65);width:480px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;left:200px;top:120px;';modal.innerHTML=`<div class="plm-cfg-header" style="background:rgba(0,212,170,0.06);border-bottom:1px solid rgba(0,212,170,0.2);"><span style="color:var(--accent);">⚙</span><div style="flex:1;"><div style="font-size:13px;font-weight:700;color:var(--text0);">Pipeline Settings</div><div style="font-size:9px;color:var(--accent);">SET statements · checkpointing · parallelism</div></div><button onclick="document.getElementById('plm-settings-modal')._plmDragCleanup?.();document.getElementById('plm-settings-modal').remove();" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;">×</button></div><div class="plm-cfg-body"><div style="margin-bottom:12px;"><label class="field-label">Job Name</label><input id="plm-ps-job-name" class="field-input" type="text" value="${escHtml(ps.jobName||window._plmState.activePipeline?.name||'')}" placeholder="my-flink-pipeline" style="font-size:12px;font-family:var(--mono);"/></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;"><div><label class="field-label" style="font-size:10px;">Runtime Mode</label><select id="plm-ps-runtime" class="field-input" style="font-size:11px;"><option value="streaming" ${(ps.runtimeMode||'streaming')==='streaming'?'selected':''}>streaming</option><option value="batch" ${ps.runtimeMode==='batch'?'selected':''}>batch</option></select></div><div><label class="field-label" style="font-size:10px;">Parallelism</label><input id="plm-ps-parallelism" class="field-input" type="text" value="${escHtml(ps.parallelism||'2')}" style="font-size:11px;font-family:var(--mono);"/></div><div><label class="field-label" style="font-size:10px;">Checkpoint Interval (ms)</label><input id="plm-ps-cp-interval" class="field-input" type="text" value="${escHtml(ps.checkpointInterval||'10000')}" style="font-size:11px;font-family:var(--mono);"/></div><div><label class="field-label" style="font-size:10px;">State TTL (ms)</label><input id="plm-ps-state-ttl" class="field-input" type="text" value="${escHtml(ps.stateTtl||'3600000')}" style="font-size:11px;font-family:var(--mono);"/></div></div><div style="margin-bottom:4px;"><label class="field-label" style="font-size:10px;">Custom SET statements <span style="font-weight:400;color:var(--text3);">(key=value per line)</span></label><textarea id="plm-ps-custom-sets" class="field-input" style="font-family:var(--mono);font-size:11px;min-height:80px;resize:vertical;">${escHtml(ps.customSets||'')}</textarea></div></div><div class="plm-cfg-footer"><button class="btn btn-secondary" style="font-size:11px;" onclick="document.getElementById('plm-settings-modal')._plmDragCleanup?.();document.getElementById('plm-settings-modal').remove();">Cancel</button><button class="btn btn-primary" style="font-size:11px;" onclick="_plmSavePipelineSettings()">✓ Apply</button></div>`;document.body.appendChild(modal);_plmMakeDraggable(modal);}
 function _plmSavePipelineSettings(){window._plmState.pipelineSettings={jobName:document.getElementById('plm-ps-job-name')?.value||'',runtimeMode:document.getElementById('plm-ps-runtime')?.value||'streaming',parallelism:document.getElementById('plm-ps-parallelism')?.value||'2',checkpointInterval:document.getElementById('plm-ps-cp-interval')?.value||'10000',stateTtl:document.getElementById('plm-ps-state-ttl')?.value||'3600000',customSets:document.getElementById('plm-ps-custom-sets')?.value||''};document.getElementById('plm-settings-modal')._plmDragCleanup?.();document.getElementById('plm-settings-modal')?.remove();_plmUpdateSqlPreview();toast('Pipeline settings saved','ok');}
 function _plmBuildSettingsSql(ps){if(!ps)return'';const lines=[];if(ps.jobName)lines.push("SET 'pipeline.name' = '"+ps.jobName+"';");lines.push("SET 'execution.runtime-mode' = '"+(ps.runtimeMode||'streaming')+"';");lines.push("SET 'parallelism.default' = '"+(ps.parallelism||'2')+"';");lines.push("SET 'execution.checkpointing.interval' = '"+(ps.checkpointInterval||'10000')+"';");lines.push("SET 'table.exec.state.ttl' = '"+(ps.stateTtl||'3600000')+"';");if(ps.customSets){ps.customSets.split('\n').forEach(line=>{const l=line.trim();if(l&&l.includes('=')){const eq=l.indexOf('=');lines.push("SET '"+l.slice(0,eq).trim()+"' = '"+l.slice(eq+1).trim()+"';")}});}return lines.join('\n');}
-function _plmOpenEdgeConfig(edgeUid){const edge=window._plmState.canvas.edges.find(e=>e.uid===edgeUid);if(!edge)return;const old=document.getElementById('plm-edge-config-modal');if(old)old.remove();const modal=document.createElement('div');modal.id='plm-edge-config-modal';const etype=PM_EDGE_TYPES.find(e=>e.id===edge.edgeType)||PM_EDGE_TYPES[0];const fromNode=window._plmState.canvas.nodes.find(n=>n.uid===edge.fromUid);const toNode=window._plmState.canvas.nodes.find(n=>n.uid===edge.toUid);modal.innerHTML=`<div class="plm-cfg-header"><svg width="30" height="10" viewBox="0 0 30 10"><line x1="0" y1="5" x2="26" y2="5" stroke="${edge.customColor||etype.color}" stroke-width="2.5"/><polygon points="26,2 30,5 26,8" fill="${edge.customColor||etype.color}"/></svg><div style="flex:1;"><div style="font-size:12px;font-weight:700;color:var(--text0);">Edge Properties</div><div style="font-size:9px;color:var(--text2);">${escHtml(fromNode?.label||'?')} → ${escHtml(toNode?.label||'?')}</div></div><button onclick="document.getElementById('plm-edge-config-modal')._plmDragCleanup?.();this.closest('#plm-edge-config-modal').remove()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;">×</button></div><div class="plm-cfg-body"><div style="margin-bottom:10px;"><label class="field-label">Edge Label</label><input id="plm-ecfg-label" class="field-input" type="text" value="${escHtml(edge.label||'')}" placeholder="optional"/></div><div style="margin-bottom:10px;"><label class="field-label">Edge Type</label><select id="plm-ecfg-type" class="field-input" style="font-size:12px;">${PM_EDGE_TYPES.map(e=>`<option value="${e.id}" ${edge.edgeType===e.id?'selected':''}>${e.label} — ${e.desc}</option>`).join('')}</select></div><div style="margin-bottom:10px;"><label class="field-label">Color Override</label><div style="display:flex;gap:6px;align-items:center;"><input id="plm-ecfg-color" type="color" value="${edge.customColor||etype.color}" style="width:36px;height:28px;border:none;border-radius:4px;cursor:pointer;"/><input id="plm-ecfg-color-hex" class="field-input" type="text" value="${edge.customColor||etype.color}" style="font-size:11px;font-family:var(--mono);width:90px;"/></div></div></div><div class="plm-cfg-footer"><button class="btn btn-secondary" style="font-size:11px;" onclick="document.getElementById('plm-edge-config-modal')._plmDragCleanup?.();this.closest('#plm-edge-config-modal').remove()">Cancel</button><button class="btn btn-secondary" style="font-size:11px;color:var(--red);" onclick="_plmDeleteEdge('${edgeUid}')">Delete</button><button class="btn btn-primary" style="font-size:11px;" onclick="_plmSaveEdgeConfig('${edgeUid}')">✓ Apply</button></div>`;modal.querySelector('#plm-ecfg-color')?.addEventListener('input',function(){const h=document.getElementById('plm-ecfg-color-hex');if(h)h.value=this.value;});modal.style.left=(window.innerWidth/2-180)+'px';modal.style.top=(window.innerHeight/2-150)+'px';document.body.appendChild(modal);_plmMakeDraggable(modal);}
+function _plmOpenEdgeConfig(edgeUid) {
+  const edge = window._plmState.canvas.edges.find(e => e.uid === edgeUid);
+  if (!edge) return;
+  const old = document.getElementById('plm-edge-config-modal');
+  if (old) old.remove();
+
+  const modal      = document.createElement('div');
+  modal.id         = 'plm-edge-config-modal';
+  const etype      = PM_EDGE_TYPES.find(e => e.id === edge.edgeType) || PM_EDGE_TYPES[0];
+  const fromNode   = window._plmState.canvas.nodes.find(n => n.uid === edge.fromUid);
+  const toNode     = window._plmState.canvas.nodes.find(n => n.uid === edge.toUid);
+
+  // Pull about content for the current edge type
+  const about      = PM_OP_ABOUT[edge.edgeType] || PM_OP_ABOUT[etype.id] || null;
+  const aboutHtml  = about ? `
+    <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px;">
+      <div style="font-size:9px;font-weight:700;color:var(--text3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px;">About ${etype.label}</div>
+      <div style="font-size:11px;color:var(--text1);line-height:1.7;margin-bottom:8px;">${escHtml(about.what)}</div>
+      <div style="font-size:10px;font-weight:700;color:var(--text3);margin-bottom:4px;">When to use</div>
+      <div style="font-size:11px;color:var(--text1);line-height:1.6;margin-bottom:8px;">${escHtml(about.when)}</div>
+      ${about.tips?.length ? `
+        <div style="font-size:10px;font-weight:700;color:var(--text3);margin-bottom:4px;">Tips</div>
+        <ul style="margin:0 0 8px;padding-left:16px;font-size:11px;color:var(--text1);line-height:1.7;">
+          ${about.tips.map(t => '<li>' + escHtml(t) + '</li>').join('')}
+        </ul>` : ''}
+      ${about.sql ? `
+        <div style="font-size:10px;font-weight:700;color:var(--text3);margin-bottom:4px;">SQL / Context</div>
+        <pre style="background:var(--bg0);border:1px solid var(--border);border-left:3px solid ${etype.color};border-radius:4px;padding:8px 10px;font-size:10px;font-family:var(--mono);color:var(--text2);white-space:pre-wrap;line-height:1.6;margin:0;">${escHtml(about.sql)}</pre>` : ''}
+    </div>` : '';
+
+  modal.innerHTML = `
+    <div class="plm-cfg-header" style="cursor:move;">
+      <svg width="30" height="10" viewBox="0 0 30 10">
+        <line x1="0" y1="5" x2="26" y2="5" stroke="${edge.customColor || etype.color}" stroke-width="2.5" stroke-dasharray="${etype.dash}"/>
+        <polygon points="26,2 30,5 26,8" fill="${edge.customColor || etype.color}"/>
+      </svg>
+      <div style="flex:1;">
+        <div style="font-size:12px;font-weight:700;color:var(--text0);">Edge — ${etype.label}</div>
+        <div style="font-size:9px;color:var(--text2);">${escHtml(fromNode?.label || '?')} → ${escHtml(toNode?.label || '?')}</div>
+      </div>
+      <button onclick="document.getElementById('plm-edge-config-modal')._plmDragCleanup?.();this.closest('#plm-edge-config-modal').remove()"
+        style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;">×</button>
+    </div>
+
+    <div class="plm-cfg-body" style="overflow-y:auto;max-height:60vh;">
+      <div style="margin-bottom:10px;">
+        <label class="field-label">Edge Label</label>
+        <input id="plm-ecfg-label" class="field-input" type="text" value="${escHtml(edge.label || '')}" placeholder="optional"/>
+      </div>
+      <div style="margin-bottom:10px;">
+        <label class="field-label">Edge Type</label>
+        <select id="plm-ecfg-type" class="field-input" style="font-size:12px;" onchange="_plmEdgeCfgTypeChanged(this.value)">
+          ${PM_EDGE_TYPES.map(e => `
+            <option value="${e.id}" ${edge.edgeType === e.id ? 'selected' : ''}>${e.label} — ${e.desc}</option>
+          `).join('')}
+        </select>
+      </div>
+      <div style="margin-bottom:10px;">
+        <label class="field-label">Color Override</label>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <input id="plm-ecfg-color" type="color" value="${edge.customColor || etype.color}"
+            style="width:36px;height:28px;border:none;border-radius:4px;cursor:pointer;"/>
+          <input id="plm-ecfg-color-hex" class="field-input" type="text"
+            value="${edge.customColor || etype.color}"
+            style="font-size:11px;font-family:var(--mono);width:90px;"/>
+          <button onclick="_plmEdgeCfgResetColor()"
+            style="font-size:10px;padding:3px 7px;border-radius:3px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;">
+            Reset
+          </button>
+        </div>
+      </div>
+
+      <!-- Live preview -->
+      <div style="margin-bottom:8px;padding:8px 10px;background:var(--bg0);border:1px solid var(--border);border-radius:4px;">
+        <div style="font-size:9px;color:var(--text3);margin-bottom:5px;text-transform:uppercase;letter-spacing:1px;">Preview</div>
+        <svg id="plm-ecfg-preview-svg" width="100%" height="18" viewBox="0 0 200 18">
+          <line id="plm-ecfg-preview-line" x1="0" y1="9" x2="186" y2="9"
+            stroke="${edge.customColor || etype.color}" stroke-width="2.5"
+            stroke-dasharray="${etype.dash}"/>
+          <polygon id="plm-ecfg-preview-arrow" points="186,5 200,9 186,13"
+            fill="${edge.customColor || etype.color}"/>
+          <text id="plm-ecfg-preview-label" x="100" y="7"
+            font-family="var(--mono)" font-size="8"
+            fill="${edge.customColor || etype.color}"
+            text-anchor="middle" opacity="0.8">${etype.label}</text>
+        </svg>
+      </div>
+
+      ${aboutHtml}
+    </div>
+
+    <div class="plm-cfg-footer">
+      <button class="btn btn-secondary" style="font-size:11px;"
+        onclick="document.getElementById('plm-edge-config-modal')._plmDragCleanup?.();this.closest('#plm-edge-config-modal').remove()">
+        Cancel
+      </button>
+      <button class="btn btn-secondary" style="font-size:11px;color:var(--red);"
+        onclick="_plmDeleteEdge('${edgeUid}')">
+        Delete
+      </button>
+      <button class="btn btn-primary" style="font-size:11px;"
+        onclick="_plmSaveEdgeConfig('${edgeUid}')">
+        ✓ Apply
+      </button>
+    </div>`;
+
+  // Sync color picker ↔ hex input ↔ live preview
+  const colorInput = modal.querySelector('#plm-ecfg-color');
+  const colorHex   = modal.querySelector('#plm-ecfg-color-hex');
+  const syncPreview = (color) => {
+    document.getElementById('plm-ecfg-preview-line')?.setAttribute('stroke', color);
+    document.getElementById('plm-ecfg-preview-arrow')?.setAttribute('fill', color);
+    document.getElementById('plm-ecfg-preview-label')?.setAttribute('fill', color);
+  };
+  colorInput?.addEventListener('input', function () {
+    if (colorHex) colorHex.value = this.value;
+    syncPreview(this.value);
+  });
+  colorHex?.addEventListener('input', function () {
+    if (colorInput) colorInput.value = this.value;
+    syncPreview(this.value);
+  });
+
+  modal.style.left = (window.innerWidth / 2 - 200) + 'px';
+  modal.style.top  = (window.innerHeight / 2 - 200) + 'px';
+  document.body.appendChild(modal);
+  _plmMakeDraggable(modal);
+}
+
+// Called when the type dropdown changes inside the edge config modal
+function _plmEdgeCfgTypeChanged(newTypeId) {
+  const etype = PM_EDGE_TYPES.find(e => e.id === newTypeId);
+  if (!etype) return;
+
+  // Update color inputs to match new type default
+  const colorInput = document.getElementById('plm-ecfg-color');
+  const colorHex   = document.getElementById('plm-ecfg-color-hex');
+  if (colorInput) colorInput.value = etype.color;
+  if (colorHex)   colorHex.value   = etype.color;
+
+  // Update live preview line style and color
+  const line  = document.getElementById('plm-ecfg-preview-line');
+  const arrow = document.getElementById('plm-ecfg-preview-arrow');
+  const label = document.getElementById('plm-ecfg-preview-label');
+  if (line)  { line.setAttribute('stroke', etype.color); line.setAttribute('stroke-dasharray', etype.dash); }
+  if (arrow) { arrow.setAttribute('fill', etype.color); }
+  if (label) { label.setAttribute('fill', etype.color); label.textContent = etype.label; }
+
+  // Refresh about section inline without reopening the modal
+  const body = document.querySelector('#plm-edge-config-modal .plm-cfg-body');
+  const existingAbout = body?.querySelector('[data-edge-about]');
+  if (existingAbout) existingAbout.remove();
+
+  const about = PM_OP_ABOUT[newTypeId];
+  if (about && body) {
+    const aboutDiv = document.createElement('div');
+    aboutDiv.dataset.edgeAbout = '1';
+    aboutDiv.style.cssText = 'margin-top:12px;border-top:1px solid var(--border);padding-top:10px;';
+    aboutDiv.innerHTML = `
+      <div style="font-size:9px;font-weight:700;color:var(--text3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px;">About ${etype.label}</div>
+      <div style="font-size:11px;color:var(--text1);line-height:1.7;margin-bottom:8px;">${escHtml(about.what)}</div>
+      <div style="font-size:10px;font-weight:700;color:var(--text3);margin-bottom:4px;">When to use</div>
+      <div style="font-size:11px;color:var(--text1);line-height:1.6;margin-bottom:8px;">${escHtml(about.when)}</div>
+      ${about.tips?.length ? `
+        <div style="font-size:10px;font-weight:700;color:var(--text3);margin-bottom:4px;">Tips</div>
+        <ul style="margin:0 0 8px;padding-left:16px;font-size:11px;color:var(--text1);line-height:1.7;">
+          ${about.tips.map(t => '<li>' + escHtml(t) + '</li>').join('')}
+        </ul>` : ''}
+      ${about.sql ? `
+        <pre style="background:var(--bg0);border:1px solid var(--border);border-left:3px solid ${etype.color};border-radius:4px;padding:8px 10px;font-size:10px;font-family:var(--mono);color:var(--text2);white-space:pre-wrap;line-height:1.6;margin:0;">${escHtml(about.sql)}</pre>` : ''}
+    `;
+    body.appendChild(aboutDiv);
+  }
+}
+
+// Resets the color override back to the selected edge type's default
+function _plmEdgeCfgResetColor() {
+  const typeSelect = document.getElementById('plm-ecfg-type');
+  const etype = PM_EDGE_TYPES.find(e => e.id === typeSelect?.value) || PM_EDGE_TYPES[0];
+  const colorInput = document.getElementById('plm-ecfg-color');
+  const colorHex   = document.getElementById('plm-ecfg-color-hex');
+  if (colorInput) colorInput.value = etype.color;
+  if (colorHex)   colorHex.value   = etype.color;
+  // Sync preview
+  const line  = document.getElementById('plm-ecfg-preview-line');
+  const arrow = document.getElementById('plm-ecfg-preview-arrow');
+  const label = document.getElementById('plm-ecfg-preview-label');
+  if (line)  line.setAttribute('stroke', etype.color);
+  if (arrow) arrow.setAttribute('fill', etype.color);
+  if (label) label.setAttribute('fill', etype.color);
+}
 function _plmSaveEdgeConfig(edgeUid){const edge=window._plmState.canvas.edges.find(e=>e.uid===edgeUid);if(!edge)return;edge.label=document.getElementById('plm-ecfg-label')?.value||'';edge.edgeType=document.getElementById('plm-ecfg-type')?.value||'forward';edge.customColor=document.getElementById('plm-ecfg-color-hex')?.value||null;const m=document.getElementById('plm-edge-config-modal');m?._plmDragCleanup?.();m?.remove();_plmRenderAll();}
 function _plmDeleteEdge(edgeUid){window._plmState.canvas.edges=window._plmState.canvas.edges.filter(e=>e.uid!==edgeUid);const m=document.getElementById('plm-edge-config-modal');m?._plmDragCleanup?.();m?.remove();_plmRenderAll();_plmUpdateStatus();}
 window._plmTerminalInterval=null;window._plmTerminalEventCount=0;
