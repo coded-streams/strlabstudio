@@ -163,37 +163,23 @@
       z-index: 1000;
     }
 
-    /* ── Animated background grid (theme-aware via CSS vars) ──────── */
-    #connect-screen::before {
-      content: '';
+    /* ── Streaming canvas background (stream-bg.js handles this) ─── */
+    #connect-screen::before,
+    #connect-screen::after { display: none !important; content: none !important; }
+
+    #stream-bg-canvas {
       position: absolute;
       inset: 0;
-      background-image:
-              linear-gradient(var(--border, rgba(0,212,170,0.06)) 1px, transparent 1px),
-              linear-gradient(90deg, var(--border, rgba(0,212,170,0.06)) 1px, transparent 1px);
-      background-size: 36px 36px;
-      animation: csGridScroll 24s linear infinite;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
       pointer-events: none;
-    }
-    @keyframes csGridScroll {
-      0%   { transform: translate(0,0); }
-      100% { transform: translate(36px, 36px); }
+      display: block;
     }
 
-    /* ── Glow orbs (theme-aware) ────────────────────────────────── */
-    #connect-screen::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background:
-              radial-gradient(ellipse 600px 400px at 20% 50%, rgba(0,212,170,0.07) 0%, transparent 70%),
-              radial-gradient(ellipse 400px 600px at 80% 30%, rgba(79,163,224,0.05) 0%, transparent 70%);
-      pointer-events: none;
-      animation: csOrbPulse 6s ease-in-out infinite;
-    }
-    @keyframes csOrbPulse {
-      0%,100% { opacity: 0.7; }
-      50%     { opacity: 1; }
+    #connect-screen .cs-layout {
+      position: relative;
+      z-index: 2;
     }
 
     /* ── Main layout: slideshow left, floating panel right ────────── */
@@ -471,7 +457,7 @@
             <strong>✦ Multi-provider</strong> · Local · Confluent · Ververica · AWS<br>
             <strong>✦ Admin sessions</strong> · Full cluster visibility · PDF reports
           </div>
-          <span class="cs-badge">v0.0.20 · MIT License · codedstreams</span>
+          <span class="cs-badge">v0.0.22 · MIT License · codedstreams</span>
           <span class="cs-flink-badge" id="cs-flink-ver" style="display:none;"></span>
         </div>
 
@@ -1676,7 +1662,7 @@ SHOW CATALOGS;"></textarea>
           <div>
             <div style="font-size:18px;font-weight:700;color:var(--text0);">Str:::lab Studio</div>
             <div style="font-size:11px;color:var(--text2);margin-top:3px;">SQL Studio for Flink pipelines</div>
-            <div style="font-size:10px;color:var(--text3);margin-top:2px;font-family:var(--mono);">v0.0.21 · MIT License</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:2px;font-family:var(--mono);">v0.0.22 · MIT License</div>
           </div>
         </div>
         <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;">
@@ -1744,12 +1730,15 @@ SHOW CATALOGS;"></textarea>
   <!-- ═══════════════════════════════════════════════════════════════ -->
 
   <script src="js/state.js"></script>
+<script src="js/stream-bg.js"></script>
   <script src="js/connection.js"></script>
   <script src="js/connection-confluent.js"></script>
   <script src="js/connection-remote.js"></script>
   <script src="js/tabs.js"></script>
   <script src="js/editor.js"></script>
   <script src="js/execution.js"></script>
+<script src="js/sql-visual-panel.js"></script>
+<script src="js/sql-visual-panel-hooks.js"></script>
   <script src="js/results.js"></script>
   <script src="js/log.js"></script>
   <script src="js/catalog.js"></script>

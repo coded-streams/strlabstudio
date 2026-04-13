@@ -5,26 +5,36 @@
 const AC_KEYWORDS = [
   'SELECT','DISTINCT','FROM','WHERE','GROUP BY','HAVING','ORDER BY','LIMIT',
   'INSERT INTO','VALUES','UPDATE','SET','DELETE','CREATE TABLE','CREATE VIEW',
-  'CREATE DATABASE','CREATE CATALOG','DROP TABLE','DROP VIEW','ALTER TABLE',
+  'CREATE DATABASE','CREATE CATALOG','CREATE FUNCTION','CREATE TEMPORARY TABLE',
+  'CREATE TEMPORARY VIEW','CREATE TEMPORARY FUNCTION','CREATE TEMPORARY SYSTEM FUNCTION',
+  'DROP TABLE','DROP VIEW','DROP FUNCTION','ALTER TABLE',
   'DESCRIBE','EXPLAIN','SHOW TABLES','SHOW DATABASES','SHOW CATALOGS',
-  'SHOW FUNCTIONS','SHOW JOBS','USE CATALOG','USE','UNION ALL','UNION',
-  'INTERSECT','EXCEPT','LEFT JOIN','RIGHT JOIN','INNER JOIN','CROSS JOIN',
+  'SHOW FUNCTIONS','SHOW USER FUNCTIONS','SHOW JOBS','USE CATALOG','USE',
+  'UNION ALL','UNION','INTERSECT','EXCEPT',
+  'LEFT JOIN','RIGHT JOIN','INNER JOIN','CROSS JOIN',
   'FULL OUTER JOIN','LEFT OUTER JOIN','JOIN','ON','AS','WITH','AND','OR',
   'NOT','IN','EXISTS','BETWEEN','LIKE','IS NULL','IS NOT NULL',
   'CASE','WHEN','THEN','ELSE','END','PARTITION BY','OVER','WINDOW',
   'WATERMARK FOR','INTERVAL','TIMESTAMP','CURRENT_TIMESTAMP','PROC_TIME()',
-  'PRIMARY KEY','NOT ENFORCED','ENFORCED','EMIT','CHANGES'
+  'PRIMARY KEY','NOT ENFORCED','ENFORCED','EMIT','CHANGES',
+  'TEMPORARY','SYSTEM','FUNCTION','CATALOG','DATABASE',
+  'TABLE','DESCRIPTOR','IF NOT EXISTS','IF EXISTS',
+  'ADD JAR','EXECUTE STATEMENT SET','BEGIN','END',
+  'LANGUAGE SQL','RETURNS','AS $$'
 ];
 
 const AC_FUNCTIONS = [
   'COUNT(','SUM(','AVG(','MIN(','MAX(','COALESCE(','NULLIF(','IF(',
   'CONCAT(','SUBSTRING(','TRIM(','UPPER(','LOWER(','LENGTH(','REPLACE(',
   'CAST(','TRY_CAST(','DATE_FORMAT(','UNIX_TIMESTAMP(','TO_TIMESTAMP(',
+  'ROUND(','FLOOR(','CEIL(','ABS(','POWER(','MOD(',
   'TUMBLE(','HOP(','SESSION(','CUMULATE(',
   'ROW_NUMBER()','RANK()','DENSE_RANK()','LEAD(','LAG(',
   'FIRST_VALUE(','LAST_VALUE(','NTH_VALUE(',
   'REGEXP_EXTRACT(','REGEXP_REPLACE(','JSON_VALUE(','JSON_QUERY(',
-  'ARRAY(','MAP(','ROW(','CARDINALITY('
+  'ARRAY(','MAP(','ROW(','CARDINALITY(',
+  'PROCTIME()','NOW()','CURRENT_DATE','CURRENT_TIME',
+  'TO_DATE(','TO_TIME(','DATE_DIFF(',
 ];
 
 const AC_TYPES = [
@@ -57,23 +67,23 @@ const AC_SNIPPETS = [
            TUMBLE(ts, INTERVAL '1' MINUTE);`, detail: 'Tumble aggregation' },
   { label: 'HOP window', insert:
         `SELECT
-           HOP_START(ts, INTERVAL '5' SECOND, INTERVAL '1' MINUTE) AS window_start,
-           COUNT(*) AS cnt
-         FROM
-           source_table
-         GROUP BY
-           HOP(ts, INTERVAL '5' SECOND, INTERVAL '1' MINUTE);`, detail: 'Sliding window' },
+    HOP_START(ts, INTERVAL '5' SECOND, INTERVAL '1' MINUTE) AS window_start,
+    COUNT(*) AS cnt
+FROM
+    source_table
+GROUP BY
+    HOP(ts, INTERVAL '5' SECOND, INTERVAL '1' MINUTE);`, detail: 'Sliding window' },
   { label: 'JOIN two tables', insert:
         `SELECT
-           a.id,
-           a.name,
-           b.value
-         FROM
-           table_a AS a
-             INNER JOIN
-           table_b AS b
-           ON
-             a.id = b.id;`, detail: 'Inner join template' },
+    a.id,
+    a.name,
+    b.value
+FROM
+    table_a AS a
+INNER JOIN
+    table_b AS b
+ON
+    a.id = b.id;`, detail: 'Inner join template' },
   { label: 'CASE WHEN', insert:
         `CASE
     WHEN condition1 THEN result1
@@ -840,42 +850,8 @@ const DOCS = {
     example: "ALTER TABLE orders RENAME TO orders_v2;",
     pipeline: 'ALTER TABLE support varies by catalog. Hive catalog supports more DDL mutations than the in-memory catalog. Changing connector properties usually requires recreating the table.'
   },
-  'DESCRIBE': {
-    signature: 'DESCRIBE table_name',
-    category: 'Utility',
-    description: 'Shows the column names, types, nullability, and watermark/primary key metadata for a registered table.',
-    params: [{ name: 'table_name', desc: 'Name of the table or view to inspect.' }],
-    returns: 'Column metadata result set',
-    example: "DESCRIBE orders;",
-    pipeline: "Use DESCRIBE to verify column types before writing JOIN or aggregation queries. Useful for debugging schema mismatches from Kafka schema registry sources."
-  },
-  'EXPLAIN': {
-    signature: 'EXPLAIN [PLAN FOR] SELECT ...',
-    category: 'Utility',
-    description: 'Returns the execution plan Flink will use for the query without actually running it. Shows the physical operator graph.',
-    params: [{ name: 'query', desc: 'Any SELECT or INSERT INTO statement.' }],
-    returns: 'Execution plan string',
-    example: "EXPLAIN\nSELECT user_id, COUNT(*)\nFROM clickstream\nGROUP BY user_id, TUMBLE(ts, INTERVAL '1' MINUTE);",
-    pipeline: 'Always EXPLAIN complex streaming queries before submitting. Check for unexpected cross joins, missing watermarks, or unbounded aggregations in the plan output.'
-  },
-  'SHOW TABLES': {
-    signature: 'SHOW TABLES',
-    category: 'Utility',
-    description: 'Lists all tables registered in the current catalog and database.',
-    params: [],
-    returns: 'List of table names',
-    example: "SHOW TABLES;",
-    pipeline: 'Use at the start of a session to verify which sources and sinks are available. Combine with DESCRIBE to inspect schemas.'
-  },
-  'SHOW DATABASES': {
-    signature: 'SHOW DATABASES',
-    category: 'Utility',
-    description: 'Lists all databases in the current catalog.',
-    params: [],
-    returns: 'List of database names',
-    example: "SHOW DATABASES;",
-    pipeline: 'Use to navigate catalog structure. Switch with USE database_name before querying tables within it.'
-  },
+
+
   'USE CATALOG': {
     signature: 'USE CATALOG catalog_name',
     category: 'Utility',
@@ -1131,8 +1107,208 @@ const DOCS = {
     returns: 'N/A (DDL)',
     example: "CREATE TABLE user_profiles (\n    user_id STRING,\n    name    STRING,\n    email   STRING,\n    PRIMARY KEY (user_id) NOT ENFORCED\n) WITH (\n    'connector' = 'upsert-kafka',\n    'topic'     = 'profiles',\n    'key.format' = 'raw',\n    'value.format' = 'json',\n    'properties.bootstrap.servers' = 'localhost:9092'\n);",
     pipeline: "Required for upsert-mode connectors (upsert-kafka, JDBC upsert). The primary key determines the upsert key used when writing. Without it, the connector operates in append mode only."
+  },
+
+  // ── DDL & SYSTEM KEYWORDS ──────────────────────
+  'SET': {
+    signature: "SET 'key' = 'value'",
+    category: 'Configuration',
+    description: "Sets a Flink SQL session property. Properties control runtime mode, parallelism, checkpointing, state TTL, and more. Must be executed before the query that uses the setting.",
+    params: [
+      { name: "'key'",  desc: "Flink property name in single quotes, e.g. 'execution.runtime-mode'." },
+      { name: "'value'",desc: "Property value in single quotes." }
+    ],
+    returns: 'N/A',
+    example: "SET 'execution.runtime-mode' = 'streaming';\nSET 'parallelism.default' = '4';\nSET 'execution.checkpointing.interval' = '10000';\nSET 'table.exec.state.ttl' = '3600000';",
+    pipeline: "Always place SET statements at the top of your script before CREATE TABLE or INSERT INTO. They are session-scoped and persist for the lifetime of the session."
+  },
+  'TEMPORARY': {
+    signature: 'CREATE TEMPORARY TABLE | VIEW | FUNCTION ...',
+    category: 'DDL Modifier',
+    description: "Marks a table, view, or function as session-scoped. Temporary objects are visible only within the current session and are automatically dropped when the session ends. They take precedence over permanent catalog objects with the same name.",
+    params: [],
+    returns: 'N/A (modifier keyword)',
+    example: "CREATE TEMPORARY TABLE datagen_src (\n    id BIGINT,\n    amount DOUBLE\n) WITH ('connector' = 'datagen');\n\nCREATE TEMPORARY VIEW active_users AS\n    SELECT * FROM users WHERE active = TRUE;",
+    pipeline: "Use TEMPORARY for sources and sinks in development to avoid polluting the persistent catalog. Production pipelines should use permanent tables registered in a Hive or Iceberg catalog."
+  },
+  'DROP': {
+    signature: 'DROP [TEMPORARY] TABLE | VIEW | FUNCTION [IF EXISTS] name',
+    category: 'DDL',
+    description: "Removes a table, view, or function definition from the current catalog and database. For TEMPORARY objects, removes from the session. IF EXISTS prevents an error if the object does not exist.",
+    params: [
+      { name: 'TEMPORARY', desc: '(Optional) Drop only a session-scoped temporary object.' },
+      { name: 'IF EXISTS', desc: '(Optional) Suppresses error when the object is not found.' },
+      { name: 'name',      desc: 'Fully qualified or simple name of the object to remove.' }
+    ],
+    returns: 'N/A (DDL)',
+    example: "DROP TABLE IF EXISTS stale_source;\nDROP TEMPORARY VIEW IF EXISTS temp_view;\nDROP FUNCTION IF EXISTS my_classifier;",
+    pipeline: "Safe to use in development scripts to clean up before re-running. In production, dropping a source table while a job reads from it will immediately fail the streaming job."
+  },
+  'FUNCTION': {
+    signature: 'CREATE [TEMPORARY] [SYSTEM] FUNCTION [IF NOT EXISTS] name AS class_name [USING JAR ...]',
+    category: 'UDF',
+    description: "Registers a custom function (UDF). The function can be a ScalarFunction, TableFunction, AggregateFunction, or async variant. TEMPORARY functions are session-scoped. SYSTEM functions are visible globally across all sessions and catalogs.",
+    params: [
+      { name: 'TEMPORARY', desc: '(Optional) Register for current session only.' },
+      { name: 'SYSTEM',    desc: '(Optional) Register as a system-level function visible globally.' },
+      { name: 'name',      desc: 'Function name used in SQL queries.' },
+      { name: 'class_name',desc: 'Fully qualified Java class implementing the UDF.' },
+      { name: 'USING JAR', desc: "(Optional) Path to JAR file: USING JAR '/opt/flink/lib/my.jar'." }
+    ],
+    returns: 'N/A (DDL)',
+    example: "-- SQL UDF (no JAR needed)\nCREATE TEMPORARY FUNCTION risk_tier(score DOUBLE)\nRETURNS STRING LANGUAGE SQL AS $$\n    CASE WHEN score >= 0.8 THEN 'HIGH'\n         WHEN score >= 0.5 THEN 'MED'\n         ELSE 'LOW' END\n$$;\n\n-- Java UDF\nCREATE TEMPORARY FUNCTION fraud_score\nAS 'com.example.FraudScoreFunction'\nUSING JAR '/opt/flink/lib/fraud-udf.jar';",
+    pipeline: "SQL UDFs execute entirely inside Flink SQL — no JAR needed. Java/Python UDFs require the JAR on the Flink classpath (use ADD JAR or the UDF Manager upload). Call the function by name in any SELECT: fraud_score(amount)."
+  },
+  'SYSTEM': {
+    signature: 'CREATE TEMPORARY SYSTEM FUNCTION name AS ...',
+    category: 'UDF Modifier',
+    description: "Makes a TEMPORARY FUNCTION visible in the system namespace — callable from any catalog or database without prefix. Used for cross-catalog UDFs that need to be accessible everywhere in the session.",
+    params: [],
+    returns: 'N/A (modifier keyword)',
+    example: "CREATE TEMPORARY SYSTEM FUNCTION classify\nAS 'com.example.ClassifyFunction'\nUSING JAR '/opt/flink/lib/utils.jar';\n\n-- Now callable without catalog prefix in any database:\nSELECT classify(event_type) FROM events;",
+    pipeline: "SYSTEM functions shadow built-in functions of the same name — be careful with naming. For most use cases, non-SYSTEM TEMPORARY functions are sufficient."
+  },
+  'CREATE': {
+    signature: 'CREATE [TEMPORARY] TABLE | VIEW | FUNCTION | CATALOG | DATABASE ...',
+    category: 'DDL',
+    description: "Defines a new object in the current catalog/database. The type of object (TABLE, VIEW, FUNCTION, CATALOG, DATABASE) determines what follows. In Flink SQL, CREATE does not physically create storage — it registers a logical definition.",
+    params: [
+      { name: 'TABLE',    desc: 'Register a source or sink backed by an external connector.' },
+      { name: 'VIEW',     desc: 'Define a named virtual query (not materialised).' },
+      { name: 'FUNCTION', desc: 'Register a custom UDF (scalar, table, or aggregate).' },
+      { name: 'CATALOG',  desc: 'Register an external catalog (Hive, Iceberg, JDBC, etc.).' },
+      { name: 'DATABASE', desc: 'Create a database namespace within the active catalog.' }
+    ],
+    returns: 'N/A (DDL)',
+    example: "-- Source table backed by Kafka\nCREATE TABLE clicks (\n    user_id STRING,\n    url STRING,\n    ts TIMESTAMP(3),\n    WATERMARK FOR ts AS ts - INTERVAL '5' SECOND\n) WITH (\n    'connector' = 'kafka',\n    'topic' = 'web-clicks',\n    'properties.bootstrap.servers' = 'kafka:9092',\n    'format' = 'json'\n);",
+    pipeline: "CREATE TABLE with a connector registers the logical schema; data flows only when an INSERT INTO (or SELECT) executes. Always define WATERMARK on event-time columns for windowed queries."
+  },
+  'ROUND': {
+    signature: 'ROUND(numeric, scale)',
+    category: 'Math',
+    description: "Rounds a numeric value to the specified number of decimal places. Uses banker's rounding (HALF_EVEN) by default in Flink SQL.",
+    params: [
+      { name: 'numeric', desc: 'Numeric column or expression to round.' },
+      { name: 'scale',   desc: 'Number of decimal places. Use 0 for integer rounding.' }
+    ],
+    returns: 'Same type as numeric',
+    example: "SELECT order_id,\n       ROUND(amount, 2) AS rounded_amount,\n       ROUND(amount, 0) AS whole_number\nFROM orders;",
+    pipeline: "Use ROUND before writing to JDBC sinks with fixed-precision DECIMAL columns to avoid precision mismatch errors."
+  },
+  'TABLE': {
+    signature: 'TABLE(tvf_name(TABLE source, DESCRIPTOR(col), INTERVAL ...))',
+    category: 'Table Valued Function',
+    description: "Invokes a Table Valued Function (TVF) that returns a relation. In Flink SQL, TABLE() is used to call windowing TVFs (TUMBLE, HOP, SESSION, CUMULATE) and other polymorphic table functions. Returns rows with additional window metadata columns.",
+    params: [
+      { name: 'tvf_name',    desc: 'The TVF to call: TUMBLE, HOP, SESSION, CUMULATE.' },
+      { name: 'TABLE source',desc: 'The input table or sub-query.' },
+      { name: 'DESCRIPTOR',  desc: 'Specifies which column is the time attribute.' },
+      { name: 'INTERVAL',    desc: 'Window size (and optionally slide interval for HOP).' }
+    ],
+    returns: 'Table with added window_start, window_end, window_time columns',
+    example: "-- Tumble window using TVF syntax (Flink 1.13+)\nSELECT window_start, window_end, COUNT(*) AS cnt\nFROM TABLE(\n    TUMBLE(TABLE orders, DESCRIPTOR(order_time), INTERVAL '1' MINUTE)\n)\nGROUP BY window_start, window_end;",
+    pipeline: "The TVF syntax (using TABLE()) is the preferred windowing approach from Flink 1.13 onwards. It supports emitting windows in INSERT INTO mode and exposes window_time for downstream watermark propagation."
+  },
+  'CATALOG': {
+    signature: 'CREATE CATALOG name WITH (...) | USE CATALOG name | SHOW CATALOGS',
+    category: 'Catalog',
+    description: "A catalog is the top-level namespace that contains databases and tables. Flink supports multiple catalogs simultaneously. The default catalog is 'default_catalog'. External catalogs (Hive, Iceberg, JDBC) persist metadata across sessions.",
+    params: [
+      { name: 'name',    desc: 'Catalog identifier.' },
+      { name: 'WITH (...)', desc: "Catalog-specific properties, e.g. 'type' = 'hive', 'hive-conf-dir' = '/etc/hive/conf'." }
+    ],
+    returns: 'N/A (DDL / utility)',
+    example: "-- Register Hive catalog\nCREATE CATALOG hive_prod WITH (\n    'type' = 'hive',\n    'hive-conf-dir' = '/etc/hive/conf',\n    'default-database' = 'analytics'\n);\nUSE CATALOG hive_prod;\nSHOW DATABASES;",
+    pipeline: "Register external catalogs at the start of long-running scripts so table names resolve across sessions. USE CATALOG must come before any USE DATABASE or table references in that catalog."
+  },
+  'DATABASE': {
+    signature: 'CREATE DATABASE [IF NOT EXISTS] name | USE name | SHOW DATABASES',
+    category: 'Catalog',
+    description: "A database is a namespace within a catalog that groups related tables. Use CREATE DATABASE to organise tables by domain. USE switches the active database so table names can be referenced without a catalog prefix.",
+    params: [
+      { name: 'name', desc: 'Database identifier. Scoped within the active catalog.' }
+    ],
+    returns: 'N/A (DDL / utility)',
+    example: "CREATE DATABASE IF NOT EXISTS fraud_detection;\nUSE fraud_detection;\n-- Tables are now created in fraud_detection\nCREATE TABLE events ( ... ) WITH ( ... );",
+    pipeline: "Always explicitly USE DATABASE in production scripts to avoid accidentally creating tables in 'default'. Each Flink session starts in 'default_catalog.default' unless changed."
+  },
+  'SHOW TABLES': {
+    signature: 'SHOW TABLES [FROM | IN catalog.database] [LIKE pattern]',
+    category: 'Utility',
+    description: "Lists all tables (and views) in the current or specified database. Supports optional pattern matching with LIKE.",
+    params: [
+      { name: 'FROM / IN', desc: '(Optional) Fully qualified database path.' },
+      { name: 'LIKE pattern', desc: "(Optional) SQL pattern with % wildcard, e.g. LIKE 'kafka_%'." }
+    ],
+    returns: 'List of table names',
+    example: "SHOW TABLES;\nSHOW TABLES FROM hive_prod.analytics;\nSHOW TABLES LIKE 'kafka_%';",
+    pipeline: "Use at session start to verify available sources and sinks. Combine with DESCRIBE to inspect schemas before building queries."
+  },
+  'SHOW CATALOGS': {
+    signature: 'SHOW CATALOGS',
+    category: 'Utility',
+    description: "Lists all catalogs registered in the current Flink SQL session.",
+    params: [],
+    returns: 'List of catalog names',
+    example: "SHOW CATALOGS;",
+    pipeline: "Use after connecting to verify which external catalogs are registered. If a catalog is missing, register it with CREATE CATALOG."
+  },
+  'SHOW DATABASES': {
+    signature: 'SHOW DATABASES',
+    category: 'Utility',
+    description: "Lists all databases in the current catalog.",
+    params: [],
+    returns: 'List of database names',
+    example: "SHOW DATABASES;",
+    pipeline: "Run after USE CATALOG to see which databases are available. Pipe output into USE to switch context."
+  },
+  'SHOW FUNCTIONS': {
+    signature: 'SHOW [USER] FUNCTIONS',
+    category: 'Utility',
+    description: "Lists all functions available in the current session. USER FUNCTIONS restricts output to user-defined functions (not built-ins).",
+    params: [{ name: 'USER', desc: '(Optional) Show only UDFs, exclude built-in functions.' }],
+    returns: 'List of function names',
+    example: "SHOW FUNCTIONS;\nSHOW USER FUNCTIONS;",
+    pipeline: "Use after ADD JAR and CREATE FUNCTION to confirm the UDF registered correctly and its name is callable."
+  },
+  'DESCRIBE': {
+    signature: 'DESCRIBE | DESC table_name',
+    category: 'Utility',
+    description: "Shows the schema of a table or view: column names, data types, nullability, computed columns, watermarks, and primary key constraints.",
+    params: [{ name: 'table_name', desc: 'Table or view name (can be fully qualified: catalog.db.table).' }],
+    returns: 'Schema metadata result set',
+    example: "DESCRIBE orders;\nDESC hive_prod.analytics.events;",
+    pipeline: "Always DESCRIBE source tables before writing aggregation or JOIN queries — type mismatches are the most common cause of planning failures in Flink SQL."
+  },
+  'EXPLAIN': {
+    signature: 'EXPLAIN [PLAN FOR | CHANGELOG MODE FOR | JSON_EXECUTION_PLAN FOR] statement',
+    category: 'Utility',
+    description: "Returns the logical or physical execution plan Flink will produce for a query without actually running it. Use PLAN FOR for the default text plan, JSON_EXECUTION_PLAN for a machine-readable format.",
+    params: [
+      { name: 'PLAN FOR',              desc: '(Default) Human-readable execution plan.' },
+      { name: 'CHANGELOG MODE FOR',    desc: 'Shows the changelog mode (append/retract/upsert) per operator.' },
+      { name: 'JSON_EXECUTION_PLAN FOR',desc: 'Machine-readable JSON plan for tooling.' }
+    ],
+    returns: 'Execution plan string',
+    example: "EXPLAIN\nSELECT user_id, COUNT(*)\nFROM events\nWHERE type = 'click'\nGROUP BY user_id, TUMBLE(ts, INTERVAL '1' MINUTE);\n\nEXPLAIN CHANGELOG MODE FOR\nSELECT user_id, SUM(amount) FROM orders GROUP BY user_id;",
+    pipeline: "Run EXPLAIN before submitting long-running INSERT INTO jobs. Check for: unexpected cross-joins, missing watermarks, retraction mode on aggregations (which creates larger state), and operators with high parallelism mismatch."
+  },
+
+  'WITH_CONNECTOR': {
+    signature: "WITH (\n    'connector' = '...',\n    'key' = 'value'\n)",
+    category: 'Connector Config',
+    description: "The WITH clause in CREATE TABLE defines how Flink connects to an external system. The 'connector' key is mandatory and determines which connector plugin handles I/O.",
+    params: [
+      { name: "'connector'", desc: "Required. E.g. 'kafka','jdbc','datagen','elasticsearch-7','upsert-kafka','blackhole','print','filesystem','pulsar','kinesis'." },
+      { name: "'format'",    desc: "Serialisation format: 'json','avro','avro-confluent','csv','parquet','orc','raw'." },
+      { name: 'other props', desc: 'Additional connector-specific properties. See Flink docs.' }
+    ],
+    returns: 'N/A (CREATE TABLE clause)',
+    example: "CREATE TABLE src (\n    id STRING,\n    ts TIMESTAMP(3),\n    WATERMARK FOR ts AS ts - INTERVAL '5' SECOND\n) WITH (\n    'connector' = 'kafka',\n    'topic' = 'events',\n    'properties.bootstrap.servers' = 'kafka:9092',\n    'format' = 'json'\n);",
+    pipeline: 'All property keys must be lowercase string literals in single quotes. Connector JARs must be on the Flink classpath. Test connectivity before submitting jobs.'
   }
 };
+
 
 // ── AUTOCOMPLETE STATE ──────────────────────────
 let _acItems = [];
@@ -1491,7 +1667,8 @@ function _getWordAtPos(text, pos) {
   while (start > 0 && /[\w]/.test(text[start - 1])) start--;
   while (end < text.length && /[\w]/.test(text[end])) end++;
   const single = text.slice(start, end).toUpperCase();
-  // Try two-word combos e.g. "GROUP BY", "ORDER BY", "PARTITION BY", "TUMBLE_START"
+
+  // Try two-word combos e.g. "GROUP BY", "ORDER BY", "PARTITION BY", etc.
   const afterEnd = text.slice(end).match(/^\s+(\w+)/);
   if (afterEnd) {
     const twoWord = (single + ' ' + afterEnd[1]).toUpperCase();
@@ -1502,6 +1679,15 @@ function _getWordAtPos(text, pos) {
     const twoWord = (beforeStart[1] + ' ' + single).toUpperCase();
     if (DOCS[twoWord]) return twoWord;
   }
+
+  // Special case: hovering 'WITH' near connector property → show connector docs
+  if (single === 'WITH') {
+    const nearby = text.slice(Math.max(0, pos - 5), pos + 80).toUpperCase();
+    if (nearby.includes("'CONNECTOR'") || nearby.includes('CONNECTOR')) {
+      return 'WITH (connector)';
+    }
+  }
+
   return single;
 }
 
@@ -1945,4 +2131,4 @@ function formatSQL() {
 }
 
 // ── SQL EXECUTION
-// ──────────────────────────────────────────────
+// ─────────────────────────────────────
