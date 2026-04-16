@@ -659,7 +659,13 @@
         <line x1="8" y1="11.5" x2="16" y2="6.5"/><line x1="8" y1="12.5" x2="16" y2="17.5"/>
       </svg>
       <span>PIPELINE</span>`;
-        tab.addEventListener('click', () => _setState('default'));
+        // Collapsed tab — clicking it restores the panel
+        tab.addEventListener('click', () => {
+            // Move tab back into svp-editor-row before setState reattaches it
+            const rowEl = document.getElementById('svp-editor-row');
+            if (rowEl && tab.parentElement !== rowEl) rowEl.appendChild(tab);
+            _setState('default');
+        });
 
         // Panel
         const panel = document.createElement('div');
@@ -745,15 +751,35 @@
         if (state === 'collapsed') {
             panel.classList.add('svp-collapsed');
             panel.style.width = '0';
+
+            // Move the tab OUT of svp-editor-row onto #editor-area so it
+            // appears as a fixed tab on the right edge of the entire editor area
+            const editorArea = document.getElementById('editor-area');
+            if (tab && editorArea && tab.parentElement !== editorArea) {
+                editorArea.style.position = 'relative'; // ensure positioning context
+                editorArea.appendChild(tab);
+            }
             if (tab) tab.classList.add('svp-tab-vis');
+
         } else if (state === 'expanded') {
             panel.classList.add('svp-expanded');
             panel.style.width = '';
             if (expBtn) expBtn.textContent = '⊟';
+
+            // Move tab back into svp-editor-row if it was on editor-area
+            const rowEl = document.getElementById('svp-editor-row');
+            if (tab && rowEl && tab.parentElement !== rowEl) rowEl.appendChild(tab);
+
         } else {
+            // default state
             panel.style.width = _s.panelWidth + 'px';
             if (expBtn) expBtn.textContent = '⊞';
+
+            // Move tab back into svp-editor-row
+            const rowEl = document.getElementById('svp-editor-row');
+            if (tab && rowEl && tab.parentElement !== rowEl) rowEl.appendChild(tab);
         }
+
         if (btn) btn.innerHTML = _toggleIcon();
 
         // Give layout a tick then render
@@ -796,6 +822,8 @@
         0%,100% { filter: brightness(1); }
         50%      { filter: brightness(1.35); }
       }
+
+      /* ── Panel: normal side panel state ─────────────────────── */
       #svp-panel {
         position: relative;
         display: flex;
@@ -804,15 +832,58 @@
         border-left: 1px solid var(--border,#1a2a3a);
         flex-shrink: 0;
         overflow: hidden;
-        transition: width 0.2s ease;
+        transition: width 0.22s ease;
         z-index: 5;
+        min-width: 0;
       }
+
+      /* ── Collapsed: zero-width, removed from layout flow ────── */
       #svp-panel.svp-collapsed {
         width: 0 !important;
-        border-left: none;
         min-width: 0 !important;
+        border-left: none !important;
+        overflow: hidden !important;
+        flex: 0 0 0px !important;
+        opacity: 0;
+        pointer-events: none;
+        transition: width 0.22s ease, opacity 0.15s ease;
       }
-      /* Expanded: absolutely fills the svp-editor-row, SQL editor still usable below */
+
+      /* ── Collapsed tab: fixed to right edge of #editor-area ─── */
+      /* Positioned by JS onto #editor-area, not inside svp-editor-row */
+      #${TAB_ID} {
+        position: absolute;
+        right: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        z-index: 50;
+        background: var(--bg2,#0f1924);
+        border: 1px solid var(--border2,#2a4a5a);
+        border-right: none;
+        border-radius: 6px 0 0 6px;
+        padding: 14px 5px;
+        cursor: pointer;
+        display: none;           /* hidden by default */
+        flex-direction: column;
+        align-items: center;
+        gap: 5px;
+        color: var(--text3,#4a6a7a);
+        font-size: 9px;
+        font-family: var(--mono,monospace);
+        writing-mode: vertical-rl;
+        letter-spacing: 1.2px;
+        text-transform: uppercase;
+        box-shadow: -2px 0 12px rgba(0,0,0,0.4);
+        transition: color 0.15s, background 0.15s;
+      }
+      #${TAB_ID}:hover {
+        color: var(--accent,#00d4aa);
+        background: var(--bg1,#0c1219);
+        border-color: rgba(0,212,170,0.35);
+      }
+      #${TAB_ID}.svp-tab-vis { display: flex; }
+
+      /* ── Expanded: overlays the full editor-row ─────────────── */
       #svp-panel.svp-expanded {
         position: absolute !important;
         inset: 0 !important;
@@ -820,7 +891,11 @@
         z-index: 18 !important;
         border-left: none !important;
         transition: none !important;
+        opacity: 1;
+        pointer-events: auto;
       }
+
+      /* ── Structural ─────────────────────────────────────────── */
       #svp-hdr {
         display: flex;
         align-items: center;
@@ -854,6 +929,8 @@
         transition: background 0.15s;
       }
       #${RESIZE_ID}:hover { background: rgba(0,212,170,0.2); }
+
+      /* ── Collapse toggle button on left edge of panel ────────── */
       #${TOGGLE_ID} {
         position: absolute;
         left: -20px;
@@ -873,31 +950,7 @@
         align-items: center;
       }
       #${TOGGLE_ID}:hover { color: var(--accent,#00d4aa); background: var(--bg1,#0c1219); }
-      #${TAB_ID} {
-        position: absolute;
-        right: 0;
-        top: 50%;
-        transform: translateY(-50%);
-        z-index: 25;
-        background: var(--bg2,#0f1924);
-        border: 1px solid var(--border,#1a2a3a);
-        border-right: none;
-        border-radius: 4px 0 0 4px;
-        padding: 10px 5px;
-        cursor: pointer;
-        display: none;
-        flex-direction: column;
-        align-items: center;
-        gap: 4px;
-        color: var(--text3,#4a6a7a);
-        font-size: 9px;
-        font-family: var(--mono,monospace);
-        writing-mode: vertical-rl;
-        letter-spacing: 1px;
-      }
-      #${TAB_ID}:hover { color: var(--accent,#00d4aa); }
-      #${TAB_ID}.svp-tab-vis { display: flex; }
-      /* When expanded, allow SQL editor to still receive pointer events via pointer-events layering */
+
       #svp-editor-row { isolation: isolate; }
     `;
         document.head.appendChild(s);

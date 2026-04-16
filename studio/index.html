@@ -1243,6 +1243,11 @@
             <option value="systems" style="background: var(--bg2); color: var(--text0);">⚙ Systems Manager</option>
             <option value="udf" style="background: var(--bg2); color: var(--text0);">⨍ UDF Manager</option>
             <option value="catalog" style="background: var(--bg2); color: var(--text0); border-top: 1px solid var(--border);">⊕ Catalog Manager</option>
+            <option value="schema-registry">⊕ Schema Registry</option>
+            <option value="bp-analyser">⚠ BP Analyser</option>
+            <option value="watermarks">⏱ Watermarks</option>
+            <option value="dep-graph">⬡ Dependency Graph</option>
+            <option value="profiler">⏺ SQL Profiler</option>
           </select>
           <span style="font-size: 8px; color: var(--text3); pointer-events: none;">▼</span>
         </div>
@@ -1315,6 +1320,22 @@
           <button class="toolbar-btn" onclick="saveQuery()"  title="Save (Ctrl+S)">💾 Save</button>
           <div class="toolbar-sep"></div>
           <button class="toolbar-btn" onclick="explainSQL()" title="Explain Plan">📋 Explain</button>
+          <div class="toolbar-sep"></div>
+          <button class="toolbar-btn" onclick="openSchemaRegistry()"
+                  title="Schema Registry Browser &amp; Evolution Validator"
+                  style="color:var(--accent);">⊕ Schema Registry</button>
+          <button class="toolbar-btn" onclick="openBackpressureAnalyser()"
+                  title="Backpressure Root Cause Analyser"
+                  style="color:var(--red,#ff4d6d);">⚠ BP Analyser</button>
+          <button class="toolbar-btn" onclick="openWatermarkMonitor()"
+                  title="Watermark Health Monitor"
+                  style="color:var(--blue,#4fa3e0);">⏱ Watermarks</button>
+          <button class="toolbar-btn" onclick="openPipelineDependencyGraph()"
+                  title="Multi-Pipeline Dependency Graph"
+                  style="color:var(--accent3,#7ee8d0);">⬡ Dep Graph</button>
+          <button class="toolbar-btn" onclick="openSqlProfiler()"
+                  title="SQL Profiler — Execution Replay"
+                  style="color:var(--accent3,#818cf8);">⏺ Profiler</button>
           <div class="toolbar-info">
             <span><kbd>Ctrl+Enter</kbd> run</span>
             <span><kbd>Ctrl+S</kbd> save</span>
@@ -1762,6 +1783,11 @@ SHOW CATALOGS;"></textarea>
   <script src="js/jar-submit.js"></script>
   <script src="js/results-charts.js"></script>
   <script src="js/misc-patches.js"></script>
+<script src="js/schema-registry.js"></script>
+<script src="js/backpressure-analyser.js"></script>
+<script src="js/watermark-monitor.js"></script>
+<script src="js/pipeline-dependency-graph.js"></script>
+<script src="js/sql-profiler.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 
 
@@ -1816,6 +1842,21 @@ SHOW CATALOGS;"></textarea>
           break;
         case 'catalog':
           if (typeof openCatalogManager === 'function') openCatalogManager();
+          break;
+        case 'schema-registry':
+          if (typeof openSchemaRegistry === 'function') openSchemaRegistry();
+          break;
+        case 'bp-analyser':
+          if (typeof openBackpressureAnalyser === 'function') openBackpressureAnalyser();
+          break;
+        case 'watermarks':
+          if (typeof openWatermarkMonitor === 'function') openWatermarkMonitor();
+          break;
+        case 'dep-graph':
+          if (typeof openPipelineDependencyGraph === 'function') openPipelineDependencyGraph();
+          break;
+        case 'profiler':
+          if (typeof openSqlProfiler === 'function') openSqlProfiler();
           break;
       }
     }

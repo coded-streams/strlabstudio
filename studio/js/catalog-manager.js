@@ -1,15 +1,4 @@
 /* Str:::lab Studio — Catalog Manager v1.3.0
- * ═══════════════════════════════════════════════════════════════════════
- * v1.3.0 fixes:
- *  - CRITICAL FIX: base-url stripping regex was corrupting the URL.
- *    jdbc:postgresql://host:5432 was becoming jdbc:postgresql:/
- *    buildProps now does a simple trim of trailing slashes only — no regex.
- *  - Catalog type-grid card now shows the catalog dropdown selector in
- *    operator config modals as a compact single-line field (not a big
- *    info box). The JDBC/Hive read-only note moved to About tab.
- *  - Active Catalogs tab now has USE / DROP / REMOVE buttons per catalog.
- *  - Added: Flink CDC connector entry in CATALOG_TYPES and Systems Manager.
- * ═══════════════════════════════════════════════════════════════════════
  */
 
 // ── JAR availability helpers ───────────────────────────────────────────────
