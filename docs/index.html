@@ -228,7 +228,6 @@
   </div>
   <p class="hero-sub">A zero-dependency, browser-based SQL Studio for writing, testing, visualising, and monitoring streaming pipelines — connects to any Flink SQL Gateway.</p>
   <div class="hero-badges">
-    <span class="badge teal">Single HTML file</span>
     <span class="badge green">MIT License</span>
     <span class="badge blue">Flink 1.16+</span>
     <span class="badge teal">Live Kafka results</span>
@@ -238,6 +237,9 @@
     <span class="badge yellow">Admin Session</span>
     <span class="badge teal">PDF Reports</span>
     <span class="badge teal">Colour Describe</span>
+    <span class="badge blue">Schema Registry</span>
+    <span class="badge teal">SQL Profiler</span>
+    <span class="badge yellow">BP Analyser</span>
   </div>
   <div class="hero-cta">
     <a href="#quickstart" class="btn btn-primary">Get Started →</a>
@@ -277,6 +279,12 @@
       <a href="#udf-manager">UDF Manager</a>
       <a href="#colour-describe" class="toc-new">Colour Describe</a>
       <a href="#otter-streams" class="toc-new">Otter Streams ML</a>
+      <a href="#live-pipeline-vis" class="toc-new">Live Pipeline Vis.</a>
+      <a href="#schema-registry" class="toc-new">Schema Registry</a>
+      <a href="#bp-analyser" class="toc-new">BP Analyser</a>
+      <a href="#watermark-monitor" class="toc-new">Watermark Monitor</a>
+      <a href="#dep-graph" class="toc-new">Dep. Graph</a>
+      <a href="#sql-profiler" class="toc-new">SQL Profiler</a>
       <a href="#snippets">Snippets Library</a>
       <a href="#job-graph">Job Graph</a>
       <a href="#performance">Performance</a>
@@ -324,7 +332,7 @@
         </div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;">
-        <span style="background:rgba(0,212,170,0.1);border:1px solid rgba(0,212,170,0.3);color:var(--accent);font-size:10px;padding:3px 8px;border-radius:2px;font-family:var(--mono);">v1.3.2</span>
+        <span style="background:rgba(0,212,170,0.1);border:1px solid rgba(0,212,170,0.3);color:var(--accent);font-size:10px;padding:3px 8px;border-radius:2px;font-family:var(--mono);">v0.0.22</span>
         <span style="background:rgba(0,212,170,0.1);border:1px solid rgba(0,212,170,0.3);color:var(--accent);font-size:10px;padding:3px 8px;border-radius:2px;font-family:var(--mono);">Flink 1.16 – 2.x</span>
         <span style="background:rgba(0,151,255,0.1);border:1px solid rgba(0,151,255,0.3);color:var(--blue);font-size:10px;padding:3px 8px;border-radius:2px;font-family:var(--mono);">Zero dependencies</span>
         <span style="background:rgba(57,211,83,0.1);border:1px solid rgba(57,211,83,0.3);color:var(--green);font-size:10px;padding:3px 8px;border-radius:2px;font-family:var(--mono);">MIT License</span>
@@ -499,6 +507,40 @@ EOF</code></pre>
         <div class="feature-card"><span class="fci">🛡</span><h3>Admin Report — Technical</h3><p>Deep technical report: all active sessions, per-session job attribution, vertex-level metrics, JVM heap and CPU stats, checkpoint durations. For engineering teams.</p></div>
         <div class="feature-card"><span class="fci">📊</span><h3>Admin Report — Business / Management</h3><p>Self-explaining metrics report with plain-language annotations. Focuses on resource utilisation, job health percentages, and throughput summaries. No SQL jargon.</p></div>
         <div class="feature-card"><span class="fci">🖨</span><h3>Job Graph Report</h3><p>Per-job PDF report from the Job Graph tab — captures the DAG topology, vertex states, record counts, backpressure levels, and checkpoint history for a single job.</p></div>
+      </div>
+
+      <h3 id="observability-tools" style="margin-top:32px;">Observability &amp; Diagnostics <span class="new-badge">New — v0.0.22</span></h3>
+      <div class="feature-grid">
+        <div class="feature-card" style="border-color:rgba(0,212,170,0.3);">
+          <span class="fci">◈</span>
+          <h3>Live Pipeline Visualiser</h3>
+          <p>Embedded in the SQL editor. Parses your SQL in real time and renders a source→transform→sink DAG with pan, zoom, and streaming animation. Collapses to a vertical tab on the right edge.</p>
+        </div>
+        <div class="feature-card" style="border-color:rgba(79,163,224,0.3);">
+          <span class="fci">⊕</span>
+          <h3>Schema Registry Browser</h3>
+          <p>Connect to Confluent/Apicurio/Karapace/AWS Glue SR. Browse subjects, compare schema versions, detect breaking changes, validate CREATE TABLE compatibility, generate DDL in one click.</p>
+        </div>
+        <div class="feature-card" style="border-color:rgba(224,92,92,0.3);">
+          <span class="fci">⚠</span>
+          <h3>Backpressure Root Cause Analyser</h3>
+          <p>Diagnoses <em>why</em> backpressure exists. Traces the bottleneck vertex, correlates with checkpoint and GC health, and produces plain-English recommendations with a colour-coded heatmap.</p>
+        </div>
+        <div class="feature-card" style="border-color:rgba(0,212,170,0.3);">
+          <span class="fci">⏱</span>
+          <h3>Watermark Health Monitor</h3>
+          <p>Real-time per-vertex watermark lag, stall detection, late-event rate, sparklines, and a cross-vertex timeline canvas showing all streams' event-time positions relative to now.</p>
+        </div>
+        <div class="feature-card" style="border-color:rgba(129,140,248,0.3);">
+          <span class="fci">⬡</span>
+          <h3>Multi-Pipeline Dependency Graph</h3>
+          <p>Shows all running jobs as one connected topology (topics → pipelines → topics). Detects dead-end topics, shared sources, and circular dependencies. Animated particles for RUNNING pipelines.</p>
+        </div>
+        <div class="feature-card" style="border-color:rgba(251,146,60,0.3);">
+          <span class="fci">⏺</span>
+          <h3>SQL Profiler / Execution Replay</h3>
+          <p>Flight recorder for streaming jobs. Records operator metric snapshots every N seconds (2–30s). Replay any past moment with the scrubber — DAG re-renders with backpressure tints. Export JSON.</p>
+        </div>
       </div>
 
       <h3>Themes &amp; UX</h3>
@@ -1688,10 +1730,227 @@ applyColorDescribeToRow(rowEl, row.fields, state.resultColumns);</code></pre>
       <p>The function is a no-op when <code>window.colorDescribeActive</code> is <code>false</code>, so it is safe to call unconditionally on every row.</p>
     </section>
 
+    <!-- LIVE PIPELINE VISUALISER -->
+    <section class="doc-section" id="live-pipeline-vis">
+      <h2><span class="si">◈</span>Live Pipeline Visualiser <span class="new-badge">New — v0.0.22</span></h2>
+      <p>Embedded directly in the SQL editor panel. As you type, the visualiser parses your SQL in real time and renders a live pipeline DAG — source nodes on the left, transforms in the centre, sinks on the right — with animated data-flow particles while a job is streaming.</p>
+
+      <h3>Panel states</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>State</th><th>Behaviour</th><th>How to switch</th></tr></thead>
+          <tbody>
+          <tr><td><strong>Collapsed</strong></td><td>Zero-width — a vertical <code>◈ PIPELINE</code> tab appears pinned to the right edge of the editor column. Always visible and clickable.</td><td>Click the ◈ collapse button on the panel's left edge, or <code>Ctrl+`</code></td></tr>
+          <tr><td><strong>Default</strong></td><td>Side panel (~280px). Drag-resizable between 140px and 58% of editor width.</td><td>Click the vertical tab, or <code>Ctrl+`</code></td></tr>
+          <tr><td><strong>Expanded</strong></td><td>Overlays the full editor area. SQL editor stays functional beneath it.</td><td>Click ⊞ in the panel header</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Canvas controls</h3>
+      <ul class="doc-ul">
+        <li><strong>Pan</strong> — drag on the canvas background</li>
+        <li><strong>Zoom</strong> — mouse wheel, or +/− buttons in the header. Range: 25%–300%.</li>
+        <li><strong>Reset</strong> — double-click the canvas background, or click ⊙ in the header</li>
+        <li><strong>Zoom label</strong> — shows current zoom % in the header</li>
+      </ul>
+
+      <h3>Animation</h3>
+      <p>Starts automatically when <code>executeSQL()</code> fires. Teal particles flow along edges from source → transform → sink.</p>
+      <ul class="doc-ul">
+        <li><strong>INSERT INTO / streaming queries</strong> — animation loops continuously until you click ■ Stop or the job is cancelled.</li>
+        <li><strong>DDL / SELECT</strong> — animation runs until results arrive, then stops.</li>
+        <li>Changing sessions or loading a project resets the visualiser and clears state.</li>
+      </ul>
+
+      <h3>SQL coverage</h3>
+      <p>The parser recognises: <code>CREATE TABLE</code> (with connector type detection), <code>CREATE VIEW</code>, <code>CREATE FUNCTION</code> / UDF, <code>INSERT INTO</code>, <code>SELECT</code>, <code>SET</code>, <code>DROP</code>, <code>CREATE CATALOG</code>, <code>CREATE DATABASE</code>, <code>WITH … AS</code> (CTEs), <code>TABLE()</code> TVF syntax, <code>ROUND()</code>, JOINs, <code>GROUP BY</code>, <code>ROW_NUMBER()</code>, and user-defined UDF/VIEW names created in the current script.</p>
+
+      <div class="callout tip">
+        <span class="callout-icon">💡</span>
+        <div class="callout-body">
+          <strong>Keyboard shortcut</strong>
+          <code>Ctrl+`</code> toggles the panel between collapsed and default. The vertical tab on the right edge is always visible when collapsed so you can restore with one click.
+        </div>
+      </div>
+    </section>
+
+    <!-- SCHEMA REGISTRY -->
+    <section class="doc-section" id="schema-registry">
+      <h2><span class="si">⊕</span>Schema Registry Browser <span class="new-badge">New — v0.0.22</span></h2>
+      <p>Open with <strong>⊕ Schema Reg</strong> in the editor toolbar or via Managers → Schema Registry. Connect to any Confluent Schema Registry, Apicurio, Karapace, or AWS Glue Schema Registry endpoint.</p>
+
+      <h3>Connecting</h3>
+      <p>Enter your registry URL (e.g. <code>http://schema-registry:8081</code>) and optional API key + secret for Confluent Cloud. Click <strong>Connect to Registry</strong>. Compatible endpoints:</p>
+      <ul class="doc-ul">
+        <li>Confluent Schema Registry (self-hosted and Confluent Cloud)</li>
+        <li>Apicurio Registry</li>
+        <li>Karapace (Aiven)</li>
+        <li>AWS Glue Schema Registry</li>
+      </ul>
+
+      <h3>Browsing subjects</h3>
+      <p>After connecting, all registered subjects appear in the left sidebar with a live search filter. Click any subject to load its version history. Click a version number to view the full schema.</p>
+
+      <h3>Schema diff</h3>
+      <p>When a subject has 2+ versions, a <strong>Diff</strong> button appears in the toolbar. Select two version numbers from the dropdowns and click Diff. The result shows:</p>
+      <ul class="doc-ul">
+        <li><strong style="color:#ef4444;">Breaking changes</strong> — removed required fields, type changes without safe widening, added required fields without defaults</li>
+        <li><strong style="color:#39d353;">Non-breaking</strong> — added fields with defaults, safe type widenings (int→long, float→double)</li>
+        <li>Side-by-side raw schema comparison for both versions</li>
+      </ul>
+
+      <h3>Generate CREATE TABLE</h3>
+      <p>Click <strong>Generate CREATE TABLE</strong> on any schema version. The Studio produces a complete Flink SQL DDL with the correct <code>avro-confluent</code> connector config, schema ID, and an auto-detected watermark column for any timestamp-named field. The DDL is inserted directly into the editor.</p>
+
+      <h3>Validate Editor SQL</h3>
+      <p>With a schema version selected, click <strong>Validate Editor SQL</strong>. The Studio parses your active CREATE TABLE, extracts column names and types, and checks them against the registry schema. Mismatches are flagged by severity: errors (type incompatible), warnings (column missing), and info (optional field absent from SQL).</p>
+    </section>
+
+    <!-- BACKPRESSURE ANALYSER -->
+    <section class="doc-section" id="bp-analyser">
+      <h2><span class="si">⚠</span>Backpressure Root Cause Analyser <span class="new-badge">New — v0.0.22</span></h2>
+      <p>Open with <strong>⚠ BP Analyser</strong> in the editor toolbar. Goes beyond showing that backpressure exists — it diagnoses <em>why</em>, traces the propagation chain, and gives actionable recommendations.</p>
+
+      <h3>How it works</h3>
+      <p>For any selected running job, the analyser fetches per-vertex backpressure %, busy %, idle %, records in/out per second, late records dropped, and output watermark. It then:</p>
+      <ul class="doc-ul">
+        <li>Scores every vertex and identifies the highest-backpressure non-source as the bottleneck</li>
+        <li>Traces the propagation chain upstream and downstream from the bottleneck</li>
+        <li>Correlates with checkpoint duration and TaskManager GC pause times</li>
+        <li>Classifies the root cause: slow sink, processing bottleneck, upstream starvation, GC pressure, or checkpoint slowness</li>
+        <li>Assigns a plain-English severity: NONE / LOW / MEDIUM / HIGH / CRITICAL</li>
+      </ul>
+
+      <h3>Heatmap</h3>
+      <p>A colour-coded SVG heatmap renders all vertices. Colour scale: green (0–24% BP) · yellow (25–59%) · red (60–100%). The identified bottleneck vertex gets a red outline. Click any node for its full metric breakdown.</p>
+
+      <h3>Live mode</h3>
+      <p>Toggle <strong>▶ Live</strong> to auto-refresh the analysis every 8 seconds. The severity gauge, heatmap, and findings all update automatically.</p>
+
+      <h3>Findings and recommendations</h3>
+      <p>Each finding includes the affected vertex, specific metric values, and a concrete recommendation such as: "Increase sink parallelism", "Enable incremental checkpoints", or "Switch to G1GC". Findings are listed in severity order.</p>
+    </section>
+
+    <!-- WATERMARK MONITOR -->
+    <section class="doc-section" id="watermark-monitor">
+      <h2><span class="si">⏱</span>Watermark Health Monitor <span class="new-badge">New — v0.0.22</span></h2>
+      <p>Open with <strong>⏱ Watermarks</strong> in the editor toolbar. Polls <code>currentOutputWatermark</code>, <code>numLateRecordsDropped</code>, and <code>idleTimeMsPerSecond</code> every 2 seconds per vertex.</p>
+
+      <h3>Per-vertex cards</h3>
+      <p>Each operator card shows: current watermark value in UTC, event-time lag in seconds, idle %, and late records dropped since recording started. Colour-coded lag: green (&lt;5s) · yellow (5–30s) · red (&gt;30s).</p>
+
+      <h3>Stall detection</h3>
+      <p>When a vertex's watermark stops advancing for longer than the configured threshold, its card gets a red border and a stall duration indicator. Configure the threshold from the dropdown: 5s / 10s / 30s / 60s. This is the primary symptom of an idle source or upstream blockage.</p>
+
+      <h3>Sparklines</h3>
+      <p>Each vertex card includes a sparkline showing lag trend over the last ~4 minutes of history. The sparkline accumulates data continuously as long as the monitor is running — stop/start does not reset history.</p>
+
+      <h3>Cross-vertex timeline</h3>
+      <p>The timeline canvas at the top shows all vertices as horizontal bars relative to "NOW". A bar extending fully to the right means the watermark is nearly current. A bar far from the right means it's lagging. All sources should ideally align near the right edge.</p>
+    </section>
+
+    <!-- DEPENDENCY GRAPH -->
+    <section class="doc-section" id="dep-graph">
+      <h2><span class="si">⬡</span>Multi-Pipeline Dependency Graph <span class="new-badge">New — v0.0.22</span></h2>
+      <p>Open with <strong>⬡ Dep Graph</strong> in the editor toolbar. Fetches execution plans for every active job and builds a single cross-job topology showing how Kafka topics, JDBC tables, and Elasticsearch indices connect your pipelines.</p>
+
+      <h3>Navigation</h3>
+      <ul class="doc-ul">
+        <li><strong>Pan</strong> — drag the canvas</li>
+        <li><strong>Zoom</strong> — scroll wheel</li>
+        <li><strong>Reset</strong> — double-click canvas background</li>
+        <li><strong>Refresh</strong> — click ⟳ to re-fetch the latest cluster state</li>
+      </ul>
+
+      <h3>Animation</h3>
+      <p>Edges connected to <strong>RUNNING</strong> pipeline nodes show animated teal particles flowing from source to sink, indicating active data flow. Pipelines in FINISHED or FAILED state have no animation. The animation loop stops cleanly when the modal is closed.</p>
+
+      <h3>Issue detection</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Issue type</th><th>Colour</th><th>Meaning</th><th>Action</th></tr></thead>
+          <tbody>
+          <tr><td><strong>Dead-end</strong></td><td style="color:var(--blue);">● Blue</td><td>A topic/table is written to by a pipeline but nothing reads it.</td><td>Check if the consumer pipeline is running. May indicate a misconfiguration.</td></tr>
+          <tr><td><strong>Shared source</strong></td><td style="color:var(--yellow);">● Yellow</td><td>Multiple pipelines read the same topic.</td><td>Ensure each consumer uses a different consumer group ID to avoid offset competition.</td></tr>
+          <tr><td><strong>Circular dependency</strong></td><td style="color:var(--red);">● Red</td><td>A cycle exists in the topic graph.</td><td>Review pipeline design — cycles cause unbounded state growth or stalls.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Node colours</h3>
+      <p>Topic/table nodes are coloured by connector type: Kafka (blue) · JDBC (green) · Elasticsearch (orange) · Filesystem (purple) · Datagen (pink) · Print (grey). Pipeline nodes show their state colour: RUNNING (green) · FINISHED (grey) · RESTARTING (amber) · FAILED (red).</p>
+    </section>
+
+    <!-- SQL PROFILER -->
+    <section class="doc-section" id="sql-profiler">
+      <h2><span class="si">⏺</span>SQL Profiler / Execution Replay <span class="new-badge">New — v0.0.22</span></h2>
+      <p>Open with <strong>⏺ Profiler</strong> in the editor toolbar. A flight recorder for running Flink jobs — records per-operator metric snapshots at regular intervals, then lets you scrub back in time to replay any past moment.</p>
+
+      <h3>Recording</h3>
+      <ol class="doc-ul" style="list-style:decimal;margin-left:20px;">
+        <li>Select a RUNNING job from the dropdown.</li>
+        <li>Choose a snapshot interval: 2s / 5s / 10s / 30s.</li>
+        <li>Click <strong>⏺ Start Recording</strong>. A live mini-DAG updates with each snapshot. The counter shows how many snapshots have been captured and total time recorded.</li>
+        <li>The profiler stores up to 360 snapshots (a ring buffer). At 5s intervals this is 30 minutes of history.</li>
+      </ol>
+
+      <h3>What is recorded per snapshot</h3>
+      <ul class="doc-ul">
+        <li>Records/s in and out per vertex</li>
+        <li>Backpressure % per vertex</li>
+        <li>Busy % per vertex</li>
+        <li>Bytes/s in per vertex</li>
+        <li>Latest checkpoint duration (if checkpointing is enabled)</li>
+      </ul>
+
+      <h3>Replay</h3>
+      <p>Click <strong>■ Stop Recording</strong> to enter replay mode. The scrubber and DAG appear:</p>
+      <ul class="doc-ul">
+        <li><strong>Scrubber</strong> — drag to any snapshot. The DAG re-renders immediately at that moment's metrics.</li>
+        <li><strong>DAG</strong> — nodes are coloured by backpressure: green (0–20%) · yellow (20–50%) · red (50–100%). Nodes where output is less than 10% of input rate get a ⚠ badge.</li>
+        <li><strong>▶ Play</strong> — auto-advances through snapshots. Speed: 1× / 2× / 4×.</li>
+        <li><strong>|◀ / ▶|</strong> — jump to first or last snapshot.</li>
+      </ul>
+
+      <h3>Sparklines</h3>
+      <p>Below the DAG, a sparkline grid shows the full backpressure % and records/s history for each operator (up to 12) across the entire recording. Peak values are annotated on each chart.</p>
+
+      <h3>Export</h3>
+      <p>Click <strong>⬇ Export JSON</strong> to download the complete recording as a JSON file. The export includes all snapshot data, the job ID and name, interval, and export timestamp. Import into any JSON viewer or custom analysis tool.</p>
+
+      <div class="callout warn">
+        <span class="callout-icon">⚠</span>
+        <div class="callout-body">
+          <strong>Recordings are in-memory</strong>
+          Closing and reopening the profiler modal clears all recordings. Always export to JSON before closing if you need to keep the data. The modal status bar reminds you of this.
+        </div>
+      </div>
+    </section>
+
     <!-- CHANGELOG -->
     <section class="doc-section" id="changelog">
       <h2><span class="si">📝</span>Changelog</h2>
       <div class="version-list">
+
+        <!-- v0.0.22 -->
+        <div class="version-card" style="border-color:rgba(0,212,170,0.3);">
+          <div class="version-header">
+            <span class="version-tag" style="color:var(--accent);border-color:rgba(0,212,170,0.35);">Studio v0.0.22</span>
+            <span class="version-date">April 2026</span>
+            <span class="version-label" style="background:rgba(0,212,170,0.1);color:var(--accent);border:1px solid rgba(0,212,170,0.25);">JS release</span>
+          </div>
+          <ul>
+            <li><strong>Live Pipeline Visualiser</strong> — SQL parsed in real time. DAG rendered beside the editor with pan/zoom/animate. Collapses to a vertical tab on the right edge. Continuous animation for streaming jobs. Recognises UDFs and VIEWs created in the current script. Session change clears the visualiser and animation state.</li>
+            <li><strong>Schema Registry Browser</strong> — Connect to Confluent/Apicurio/Karapace/AWS Glue SR. Browse all subjects with live search. Compare schema versions with breaking-change detection. Validate CREATE TABLE against registered schema. One-click Generate CREATE TABLE with avro-confluent config and auto-detected watermark.</li>
+            <li><strong>Backpressure Root Cause Analyser</strong> — Plain-English bottleneck diagnosis. Traces backpressure propagation chain. Correlates with GC and checkpoint health. Colour-coded SVG heatmap. Per-finding actionable recommendations. Live auto-refresh every 8 seconds.</li>
+            <li><strong>Watermark Health Monitor</strong> — Per-vertex watermark lag, stall alerts (configurable threshold), late-event rate, sparklines, cross-vertex timeline canvas.</li>
+            <li><strong>Multi-Pipeline Dependency Graph</strong> — Cross-job topology with connector-type node colours. Dead-end, shared-source, and circular dependency detection. Animated particles on edges of RUNNING pipelines. Animation stops cleanly on modal close.</li>
+            <li><strong>SQL Profiler / Execution Replay</strong> — Flight recorder with ring buffer (up to 360 snapshots). Time-scrubber replay — DAG re-renders at each historical snapshot with backpressure colour tints and ⚠ badges. Auto-play at 1×/2×/4×. Per-operator sparklines. JSON export.</li>
+            <li><strong>SQL Editor</strong> — 109 documented keywords (up from ~95). New: SET, TEMPORARY, DROP, FUNCTION, SYSTEM, CREATE, ROUND, TABLE TVF, CATALOG, DATABASE, WITH connector, DESCRIBE, EXPLAIN, SHOW variants. Expanded autocomplete. UDF/VIEW name tracking. JavaDoc-style hover tooltips on 25+ keywords with Pipeline usage notes.</li>
+            <li><strong>SVP collapse fix</strong> — The collapsed tab is reparented onto <code>#editor-area</code> when collapsed, ensuring it is always visible and clickable regardless of flex layout. Inline style reset on collapse to prevent stale positioning.</li>
+          </ul>
+        </div>
 
         <!-- v1.3.2 — current -->
         <div class="version-card" style="border-color:rgba(63,185,80,0.3);">

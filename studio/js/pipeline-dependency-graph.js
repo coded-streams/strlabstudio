@@ -1,5 +1,5 @@
 /**
- * pipeline-dependency-graph.js  —  Str:::lab Studio v0.0.23
+ * pipeline-dependency-graph.js  —  Str:::lab Studio v0.0.22
  * ─────────────────────────────────────────────────────────────────
  * Feature 7: Multi-Pipeline Dependency Graph
  *
@@ -350,9 +350,91 @@ function _pdgRenderGraph() {
 
     wrap.innerHTML = svg;
 
+    // Store node positions and dimensions for the animation system
+    _PDG._pos = pos;
+    _PDG._NW  = NW;
+    _PDG._NHT = NHT;
+
     // Wire pan/zoom on the outer container
     _pdgWireInteraction(wrap);
     _pdgApplyTransform();
+
+    // Start particle animation for RUNNING pipelines
+    _pdgStartAnimation();
+}
+
+// ── Running pipeline animation ─────────────────────────────────────
+let _pdgAnimTimer = null;
+const _pdgParticles = [];
+
+function _pdgStartAnimation() {
+    if (_pdgAnimTimer) { cancelAnimationFrame(_pdgAnimTimer); _pdgAnimTimer = null; }
+    _pdgParticles.length = 0;
+
+    const { nodes, edges } = _PDG.graph || { nodes: [], edges: [] };
+    const pos = _PDG._pos || {};
+    const NW  = _PDG._NW  || 170;
+    const NHT = _PDG._NHT || 38;
+
+    const runningIds = new Set(
+        nodes.filter(n => n.type === 'pipeline' && n.state === 'RUNNING').map(n => n.id)
+    );
+    if (!runningIds.size) return;
+
+    edges.forEach(e => {
+        if (!runningIds.has(e.from) && !runningIds.has(e.to)) return;
+        if (!pos[e.from] || !pos[e.to]) return;
+        for (let i = 0; i < 2; i++) {
+            _pdgParticles.push({
+                edgeFrom : e.from,
+                edgeTo   : e.to,
+                t        : Math.random(),
+                spd      : 0.007 + Math.random() * 0.006,
+            });
+        }
+    });
+    if (!_pdgParticles.length) return;
+
+    const frame = () => {
+        const svgEl = document.getElementById('pdg-svg');
+        if (!svgEl) { _pdgAnimTimer = null; return; }
+
+        let pg = svgEl.querySelector('#pdg-anim-g');
+        if (!pg) {
+            pg = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            pg.id = 'pdg-anim-g';
+            svgEl.appendChild(pg);
+        }
+
+        let html = '';
+        _pdgParticles.forEach(p => {
+            p.t += p.spd;
+            if (p.t > 1) p.t -= 1;
+
+            const fp = _PDG._pos[p.edgeFrom];
+            const tp = _PDG._pos[p.edgeTo];
+            if (!fp || !tp) return;
+
+            const x1 = fp.x + NW,  y1 = fp.y + NHT / 2;
+            const x2 = tp.x,       y2 = tp.y + NHT / 2;
+            const cx1 = x1 + 40,   cy1 = y1;
+            const cx2 = x2 - 40,   cy2 = y2;
+
+            const t = p.t, mt = 1 - t;
+            const px = mt*mt*mt*x1 + 3*mt*mt*t*cx1 + 3*mt*t*t*cx2 + t*t*t*x2;
+            const py = mt*mt*mt*y1 + 3*mt*mt*t*cy1 + 3*mt*t*t*cy2 + t*t*t*y2;
+            const alpha = (Math.sin(p.t * Math.PI) * 0.85).toFixed(2);
+            html += `<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="3.5" fill="#00d4aa" opacity="${alpha}"/>`;
+        });
+        pg.innerHTML = html;
+        _pdgAnimTimer = requestAnimationFrame(frame);
+    };
+    _pdgAnimTimer = requestAnimationFrame(frame);
+}
+
+function _pdgStopAnimation() {
+    if (_pdgAnimTimer) { cancelAnimationFrame(_pdgAnimTimer); _pdgAnimTimer = null; }
+    _pdgParticles.length = 0;
 }
 
 // ── Render issues panel ────────────────────────────────────────────
@@ -477,7 +559,7 @@ function _pdgBuildModal() {
       </svg>
       Multi-Pipeline Dependency Graph
     </span>
-    <button class="modal-close" onclick="closeModal('pdg-modal')">×</button>
+    <button class="modal-close" onclick="_pdgStopAnimation();closeModal('pdg-modal')">×</button>
   </div>
 
   <div class="modal-body" style="flex:1;overflow:hidden;display:flex;flex-direction:column;gap:0;padding:0;">

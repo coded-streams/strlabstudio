@@ -163,9 +163,17 @@ async function _profTakeSnapshot() {
     _PROF.snapshots.push(snap);
     if (_PROF.snapshots.length > _PROF.maxSnapshots) _PROF.snapshots.shift();
 
-    // Update live counter and mini live DAG
+    // Update live counter and render live mini-DAG into recording pane
     _profUpdateLiveCounter();
-    if (_PROF.snapshots.length === 1) _profRenderDag(); // initial render
+    if (_PROF.snapshots.length >= 1) {
+        const liveWrap = document.getElementById('prof-dag-live-wrap');
+        if (liveWrap && _PROF.plan) {
+            const lastSnap = _PROF.snapshots[_PROF.snapshots.length - 1];
+            liveWrap.id = 'prof-dag-replay-wrap';
+            _profRenderDag(lastSnap);
+            liveWrap.id = 'prof-dag-live-wrap';
+        }
+    }
 }
 
 function _profUpdateLiveCounter() {
@@ -243,7 +251,8 @@ function _profSetSpeed(x) {
 
 // ── DAG renderer ───────────────────────────────────────────────────
 function _profRenderDag(snap) {
-    const wrap = document.getElementById('prof-dag-wrap');
+    // Always target the REPLAY pane's DAG wrap
+    const wrap = document.getElementById('prof-dag-replay-wrap');
     if (!wrap || !_PROF.plan) return;
 
     const nodes = _PROF.plan.nodes;
@@ -492,7 +501,7 @@ function _profBuildModal() {
         <span style="font-size:12px;font-weight:700;color:var(--text0);">Recording</span>
         <span id="prof-snap-count" style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-left:4px;"></span>
       </div>
-      <div id="prof-dag-wrap" style="background:var(--bg0);border:1px solid var(--border);
+      <div id="prof-dag-live-wrap" style="background:var(--bg0);border:1px solid var(--border);
         border-radius:5px;padding:10px;overflow-x:auto;min-height:80px;"></div>
       <div style="font-size:10px;color:var(--text3);">Live DAG updates with each snapshot. Stop recording to access the replay scrubber.</div>
     </div>
@@ -537,7 +546,7 @@ function _profBuildModal() {
       <div>
         <div style="font-size:9px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;
           color:var(--text3);font-family:var(--mono);margin-bottom:6px;">Pipeline state at selected time</div>
-        <div id="prof-dag-wrap" style="background:var(--bg0);border:1px solid var(--border);
+        <div id="prof-dag-replay-wrap" style="background:var(--bg0);border:1px solid var(--border);
           border-radius:5px;padding:10px;overflow-x:auto;min-height:80px;"></div>
         <div style="display:flex;gap:16px;font-size:9px;color:var(--text3);margin-top:5px;font-family:var(--mono);">
           <span style="color:var(--green);">■ 0–20% BP normal</span>
