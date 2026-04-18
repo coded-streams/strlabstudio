@@ -191,7 +191,7 @@ function _pdgBuildGraph(jobs) {
     // Pipeline nodes
     jobs.forEach(j => {
         const pid = uid();
-        gNodes.push({ id: pid, label: j.name, jid: j.jid, state: j.state, type: 'pipeline' });
+        gNodes.push({ id: pid, label: j.name, jid: j.jid, state: j.state, type: 'pipeline', sources: j.sources||[], sinks: j.sinks||[], operators: j.nodes||[] });
 
         j.sources.forEach(s => {
             const tid = topicNode(s.label, s.kind);
@@ -328,7 +328,12 @@ function _pdgRenderGraph() {
             { kafka:'⬡', jdbc:'◈', elastic:'◎', filesystem:'▤', datagen:'⊛', print:'⊘' }[n.kind] || '◦';
         const label = (n.label||'').length>22 ? n.label.slice(0,22)+'…' : (n.label||'');
 
-        svg += `<g>
+        // Store node data for the click handler
+        const nodeData = JSON.stringify({ id: n.id, type: n.type, label: n.label,
+            state: n.state||'', jid: n.jid||'', kind: n.kind||'',
+            sources: (n.sources||[]).map(s=>s.label), sinks: (n.sinks||[]).map(s=>s.label),
+            operators: n.operators||[] }).replace(/"/g,"'");
+        svg += `<g class="pdg-node-g" data-node="${_escPdg(nodeData)}" style="cursor:pointer;">
       <rect x="${p.x}" y="${p.y}" width="${NW}" height="${h}" rx="5"
         fill="${bg}" stroke="${sc}" stroke-width="${isPipeline?2:1.5}"/>
       <text x="${p.x+10}" y="${p.y+15}" font-family="monospace" font-size="11"
@@ -507,7 +512,139 @@ function _pdgWireInteraction(wrap) {
         const wrap = document.getElementById('pdg-svg-wrap');
         if (wrap) wrap.style.cursor = 'default';
     });
-    wrap.addEventListener('dblclick', () => { _PDG.zoom=1; _PDG.panX=0; _PDG.panY=0; _pdgApplyTransform(); });
+    wrap.addEventListener('dblclick', e => {
+        // Check if click landed on a node group
+        const g = e.target.closest('.pdg-node-g');
+        if (g && g.dataset.node) {
+            try {
+                // Parse the single-quoted JSON back to double-quoted
+                const data = JSON.parse(g.dataset.node.replace(/'/g, '"'));
+                _pdgShowNodeDetail(data);
+            } catch(_) {}
+        } else {
+            // Double-click on background resets pan/zoom
+            _PDG.zoom=1; _PDG.panX=0; _PDG.panY=0; _pdgApplyTransform();
+        }
+    });
+}
+
+// ── Node detail modal ─────────────────────────────────────────────
+function _pdgShowNodeDetail(node) {
+    // Remove any existing detail panel
+    const existing = document.getElementById('pdg-node-detail');
+    if (existing) existing.remove();
+
+    const isPipeline = node.type === 'pipeline';
+    const stateColor = { RUNNING:'var(--green)', FINISHED:'var(--text3)', RESTARTING:'var(--yellow)', FAILED:'var(--red)' };
+    const kindColor  = { kafka:'var(--blue)', jdbc:'var(--green)', elastic:'var(--orange)', filesystem:'var(--purple)', datagen:'var(--pink,#f472b6)', print:'var(--text3)' };
+    const sc = isPipeline ? (stateColor[node.state] || 'var(--text2)') : (kindColor[node.kind] || 'var(--blue)');
+
+    const panel = document.createElement('div');
+    panel.id = 'pdg-node-detail';
+    panel.style.cssText = `
+    position:fixed; z-index:9999;
+    top:50%; left:50%; transform:translate(-50%,-50%);
+    width:min(520px,92vw);
+    background:var(--bg1,#0d1117); border:1px solid ${sc};
+    border-radius:10px; box-shadow:0 20px 60px rgba(0,0,0,0.6);
+    font-family:var(--mono,monospace); overflow:hidden;
+    animation:pdg-node-fade-in 0.15s ease;
+  `;
+
+    const icon = isPipeline ? '⚡' :
+        { kafka:'⬡', jdbc:'◈', elastic:'◎', filesystem:'▤', datagen:'⊛', print:'⊘' }[node.kind] || '◦';
+
+    const sourcesHtml = node.sources && node.sources.length
+        ? node.sources.map(s => `<div style="padding:3px 0;color:var(--blue,#4fa3e0);font-size:11px;">↪ ${_escPdg(s)}</div>`).join('')
+        : '<div style="color:var(--text3);font-size:11px;">—</div>';
+
+    const sinksHtml = node.sinks && node.sinks.length
+        ? node.sinks.map(s => `<div style="padding:3px 0;color:var(--accent,#00d4aa);font-size:11px;">↩ ${_escPdg(s)}</div>`).join('')
+        : '<div style="color:var(--text3);font-size:11px;">—</div>';
+
+    const opsHtml = node.operators && node.operators.length
+        ? `<div style="margin-top:12px;">
+        <div style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:6px;">Operators (${node.operators.length})</div>
+        <div style="display:flex;flex-direction:column;gap:3px;max-height:160px;overflow-y:auto;">
+          ${node.operators.slice(0,20).map(op => `
+            <div style="display:flex;justify-content:space-between;padding:4px 8px;
+              background:var(--bg2,#131920);border-radius:3px;font-size:10px;">
+              <span style="color:var(--text1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70%;">${_escPdg((op.description||op.id||'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().slice(0,60))}</span>
+              <span style="color:var(--text3);flex-shrink:0;margin-left:8px;">p${op.parallelism||'?'}</span>
+            </div>`).join('')}
+        </div>
+      </div>`
+        : '';
+
+    panel.innerHTML = `
+    <style>@keyframes pdg-node-fade-in{from{opacity:0;transform:translate(-50%,-47%)}to{opacity:1;transform:translate(-50%,-50%)}}</style>
+    <!-- Header -->
+    <div style="display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.06);background:rgba(0,0,0,0.25);">
+      <span style="font-size:18px;line-height:1;">${icon}</span>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;font-weight:700;color:var(--text0);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_escPdg(node.label||'')}</div>
+        ${isPipeline
+        ? `<div style="font-size:10px;color:${sc};margin-top:2px;">${_escPdg(node.state)} ${node.jid ? '· <span style="color:var(--text3);">'+node.jid.slice(0,8)+'…</span>' : ''}</div>`
+        : `<div style="font-size:10px;color:${sc};margin-top:2px;text-transform:uppercase;letter-spacing:0.5px;">${node.kind||'topic/table'}</div>`
+    }
+      </div>
+      <button onclick="document.getElementById('pdg-node-detail').remove()"
+        style="background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer;
+        padding:0 4px;line-height:1;flex-shrink:0;">×</button>
+    </div>
+
+    <!-- Body -->
+    <div style="padding:14px 16px;">
+      ${isPipeline ? `
+        <!-- Pipeline detail -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+          <div style="background:var(--bg2,#131920);border-radius:5px;padding:10px;">
+            <div style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:6px;">Sources</div>
+            ${sourcesHtml}
+          </div>
+          <div style="background:var(--bg2,#131920);border-radius:5px;padding:10px;">
+            <div style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:6px;">Sinks</div>
+            ${sinksHtml}
+          </div>
+        </div>
+        ${opsHtml}
+        <div style="margin-top:12px;display:flex;gap:8px;">
+          <a href="#" onclick="event.preventDefault();document.getElementById('pdg-node-detail').remove();
+            const sel=document.getElementById('jg-job-select');if(sel){sel.value='${_escPdg(node.jid||'')}';const ev=new Event('change');sel.dispatchEvent(ev);}"
+            style="font-size:11px;padding:5px 14px;border-radius:4px;font-weight:600;
+            background:rgba(0,212,170,0.1);border:1px solid rgba(0,212,170,0.3);
+            color:var(--accent);text-decoration:none;cursor:pointer;">
+            Open in Job Graph →
+          </a>
+        </div>
+      ` : `
+        <!-- Topic/Table detail -->
+        <div style="margin-bottom:10px;">
+          <div style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:6px;">Written by</div>
+          ${sourcesHtml}
+        </div>
+        <div>
+          <div style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:6px;">Read by</div>
+          ${sinksHtml}
+        </div>
+      `}
+
+      <!-- Connected edges info -->
+      <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.05);
+        font-size:9px;color:var(--text3);text-align:right;">
+        Double-click background to reset view · Click Open in Job Graph to inspect
+      </div>
+    </div>`;
+
+    document.body.appendChild(panel);
+
+    // Close on outside click
+    setTimeout(() => {
+        const handler = e => {
+            if (!panel.contains(e.target)) { panel.remove(); document.removeEventListener('click', handler); }
+        };
+        document.addEventListener('click', handler);
+    }, 100);
 }
 
 function _pdgApplyTransform() {

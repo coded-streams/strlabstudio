@@ -174,7 +174,15 @@
                 else if (chunk.match(/'CONNECTOR'\s*=\s*'(DATAGEN|KAFKA|PULSAR|KINESIS)'/)) type = 'source';
             }
             if (nodes.find(n => n.label === tbl)) continue; // already added
-            nodes.push({ id: uid(), label: tbl, type, sql: sm[0] });
+
+            // Capture full DDL for this table (up to next CREATE or semicolon)
+            const ddlStart = sm.index;
+            const ddlEnd   = clean.indexOf(';', ddlStart);
+            const tableSql = ddlEnd > -1
+                ? clean.slice(ddlStart, ddlEnd + 1)
+                : clean.slice(ddlStart, Math.min(ddlStart + 1200, clean.length));
+
+            nodes.push({ id: uid(), label: tbl, type, sql: tableSql });
         }
 
         // ── CREATE VIEW ────────────────────────────────────────────────
@@ -183,7 +191,14 @@
             const vw = sm[1].replace(/[`'"]/g,'').replace(/[;(]/g,'');
             _s.userUdfs.add(vw.toUpperCase()); // views also act as custom identifiers
             if (nodes.find(n => n.label === vw)) continue;
-            nodes.push({ id: uid(), label: vw, type: 'cte', sql: sm[0] });
+
+            const ddlStart = sm.index;
+            const ddlEnd   = clean.indexOf(';', ddlStart);
+            const viewSql  = ddlEnd > -1
+                ? clean.slice(ddlStart, ddlEnd + 1)
+                : clean.slice(ddlStart, Math.min(ddlStart + 1200, clean.length));
+
+            nodes.push({ id: uid(), label: vw, type: 'cte', sql: viewSql });
         }
 
         // ── SHOW / DESCRIBE / EXPLAIN (utility) ───────────────────────
@@ -229,6 +244,52 @@
                 xforms.forEach(t => { nodes.push(t); edges.push({ from: prev, to: t.id }); prev = t.id; });
                 const out = findOrAdd('Results', 'sink');
                 edges.push({ from: prev, to: out.id });
+            } else {
+                // SELECT without FROM — pure expression query (e.g. UDF smoke-test, scalar calls)
+                const selNoFrom = /SELECT\s+([\s\S]*?)(?:;|$)/i.exec(clean);
+                if (selNoFrom) {
+                    const cols  = selNoFrom[1];
+                    const colsU = cols.toUpperCase();
+                    // Find every function-call pattern: word( — collect unique function names
+                    const fnRe  = /\b([A-Z_][A-Z0-9_]*)\s*\(/gi;
+                    let fm;
+                    const builtins = new Set(['COUNT','SUM','AVG','MIN','MAX','CAST','TRY_CAST',
+                        'COALESCE','NULLIF','IF','CONCAT','SUBSTRING','TRIM','UPPER','LOWER',
+                        'LENGTH','REPLACE','DATE_FORMAT','TO_TIMESTAMP','UNIX_TIMESTAMP',
+                        'TUMBLE','HOP','SESSION','CUMULATE','ROW_NUMBER','RANK','DENSE_RANK',
+                        'LEAD','LAG','FIRST_VALUE','LAST_VALUE','NTH_VALUE','REGEXP_EXTRACT',
+                        'REGEXP_REPLACE','JSON_VALUE','JSON_QUERY','ARRAY','MAP','ROW',
+                        'CARDINALITY','ROUND','FLOOR','CEIL','ABS','MOD','POWER','SQRT',
+                        'PROCTIME','NOW','CURRENT_TIMESTAMP','CURRENT_DATE','CURRENT_TIME']);
+                    const udfsInQuery = new Set();
+                    while ((fm = fnRe.exec(colsU)) !== null) {
+                        const name = fm[1];
+                        if (!builtins.has(name)) udfsInQuery.add(name);
+                    }
+                    // Also add any names already registered in _s.userUdfs
+                    _s.userUdfs.forEach(fn => { if (colsU.includes(fn + '(')) udfsInQuery.add(fn); });
+
+                    if (udfsInQuery.size) {
+                        const srcNode = findOrAdd('Input', 'source');
+                        let prev = srcNode.id;
+                        udfsInQuery.forEach(fn => {
+                            const t = { id: uid(), label: `UDF\n${fn}`, type: 'udf', sql: '' };
+                            nodes.push(t);
+                            edges.push({ from: prev, to: t.id });
+                            prev = t.id;
+                        });
+                        const out = findOrAdd('Results', 'sink');
+                        edges.push({ from: prev, to: out.id });
+                    } else {
+                        // Scalar-only SELECT — show as a single project node
+                        const srcNode = findOrAdd('Input', 'source');
+                        const t = { id: uid(), label: 'Project / Map', type: 'project', sql: '' };
+                        nodes.push(t);
+                        edges.push({ from: srcNode.id, to: t.id });
+                        const out = findOrAdd('Results', 'sink');
+                        edges.push({ from: t.id, to: out.id });
+                    }
+                }
             }
         }
 
@@ -301,12 +362,34 @@
         if (colsU.match(/\bROUND\s*\(/))
             xforms.push({ id: uid(), label: 'ROUND\n(scalar)', type: 'project', sql: '' });
 
-        // User-defined UDFs / VIEWs referenced in SELECT
+        // User-defined UDFs / VIEWs referenced in SELECT columns
+        // First: names explicitly registered via CREATE FUNCTION in this script
         _s.userUdfs.forEach(fn => {
             if (colsU.includes(fn + '(') || colsU.includes(fn + ' ')) {
                 xforms.push({ id: uid(), label: `UDF\n${fn}`, type: 'udf', sql: '' });
             }
         });
+        // Second: any unrecognised function call pattern that wasn't handled above
+        // Catches UDFs whose CREATE FUNCTION is in a different tab or was run earlier
+        const _builtinFns = new Set(['COUNT','SUM','AVG','MIN','MAX','CAST','TRY_CAST',
+            'COALESCE','NULLIF','IF','CONCAT','SUBSTRING','TRIM','UPPER','LOWER',
+            'LENGTH','REPLACE','DATE_FORMAT','TO_TIMESTAMP','UNIX_TIMESTAMP',
+            'TUMBLE','HOP','SESSION','CUMULATE','ROW_NUMBER','RANK','DENSE_RANK',
+            'LEAD','LAG','FIRST_VALUE','LAST_VALUE','NTH_VALUE','REGEXP_EXTRACT',
+            'REGEXP_REPLACE','JSON_VALUE','JSON_QUERY','ARRAY','MAP','ROW',
+            'CARDINALITY','ROUND','FLOOR','CEIL','ABS','MOD','POWER','SQRT',
+            'PROCTIME','NOW','CURRENT_TIMESTAMP','CURRENT_DATE','CURRENT_TIME',
+            'TUMBLE_START','TUMBLE_END','HOP_START','HOP_END','SESSION_START','SESSION_END']);
+        const _fnCallRe = /\b([A-Z_][A-Z0-9_]*)\s*\(/g;
+        const _alreadyAdded = new Set(xforms.map(x => x.label.split('\n').pop()));
+        let _fm;
+        while ((_fm = _fnCallRe.exec(colsU)) !== null) {
+            const name = _fm[1];
+            if (!_builtinFns.has(name) && !_s.userUdfs.has(name) && !_alreadyAdded.has(name)) {
+                xforms.push({ id: uid(), label: `UDF\n${name}`, type: 'udf', sql: '' });
+                _alreadyAdded.add(name);
+            }
+        }
 
         // Generic project if SELECT has expressions and no other transforms
         if (!xforms.length && (colsU.includes('CASE') || colsU.includes('CAST(') || colsU.match(/\w+\s*\(/)))
@@ -441,8 +524,20 @@
             el.style.cssText = `position:absolute;left:${nd.x}px;top:${nd.y}px;width:${nd.w}px;
         height:${nd.h}px;background:${c.bg};border:1.5px solid ${c.border};border-radius:6px;
         display:flex;flex-direction:column;align-items:flex-start;justify-content:center;
-        padding:4px 8px;box-sizing:border-box;z-index:2;cursor:default;
+        padding:4px 8px;box-sizing:border-box;z-index:2;cursor:pointer;
         transition:box-shadow 0.25s,border-color 0.25s;user-select:none;overflow:hidden;`;
+            el.addEventListener('mouseenter', () => {
+                el.style.boxShadow = `0 0 0 2px ${c.border}`;
+                el.style.borderColor = c.text;
+            });
+            el.addEventListener('mouseleave', () => {
+                el.style.boxShadow = '';
+                el.style.borderColor = c.border;
+            });
+            el.addEventListener('dblclick', e => {
+                e.stopPropagation();
+                _svpShowNodeDetail(nd, c);
+            });
             el.innerHTML = `
         <div style="display:flex;align-items:center;gap:5px;width:100%;min-width:0;">
           <span style="font-size:12px;flex-shrink:0;line-height:1;">${icon}</span>
@@ -461,6 +556,651 @@
 
         // Re-apply animation highlight if already running
         if (_s.animating) _highlightNodes(true);
+    }
+
+
+    // ── Node detail modal ─────────────────────────────────────────────
+    function _svpShowNodeDetail(nd, c) {
+        const old = document.getElementById('svp-node-detail');
+        if (old) old.remove();
+
+        const type  = nd.type || 'default';
+        const lines = (nd.label || '').split('\n');
+        const title = lines[0] || type;
+        const sub   = lines[1] || '';
+        const sql   = nd.sql || '';
+
+        // ── Shared render helpers ─────────────────────────────────────────
+
+        const _esc = s => (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+        const pill = (text, color) =>
+            `<span style="display:inline-block;font-size:9px;font-family:var(--mono);padding:1px 7px;
+        border-radius:10px;background:${color}22;border:1px solid ${color}55;color:${color};
+        white-space:nowrap;">${_esc(text)}</span>`;
+
+        const kv = (label, val, extra) =>
+            `<div style="display:flex;align-items:baseline;gap:8px;padding:5px 0;
+        border-bottom:1px solid rgba(255,255,255,0.04);">
+        <span style="font-size:9px;text-transform:uppercase;letter-spacing:.8px;
+          color:var(--text3);font-family:var(--mono);width:88px;flex-shrink:0;">${label}</span>
+        <span style="font-size:11px;font-family:var(--mono);color:var(--text1);
+          flex:1;word-break:break-all;">${val}${extra ? `<span style="margin-left:6px;">${extra}</span>` : ''}</span>
+      </div>`;
+
+        const section = (heading, html) =>
+            `<div style="margin-bottom:14px;">
+        <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;
+          color:var(--text3);font-family:var(--mono);margin-bottom:6px;padding-bottom:4px;
+          border-bottom:1px solid rgba(255,255,255,0.06);">${heading}</div>
+        ${html}
+      </div>`;
+
+        const noData = msg =>
+            `<div style="font-size:11px;color:var(--text3);padding:4px 0;">${msg}</div>`;
+
+        const codeSnippet = text =>
+            `<pre style="margin:0;padding:8px 10px;background:var(--bg0);border:1px solid var(--border);
+        border-radius:4px;font-size:10px;font-family:var(--mono);color:var(--text1);
+        line-height:1.6;overflow-x:auto;white-space:pre-wrap;word-break:break-all;
+        max-height:180px;overflow-y:auto;">${_esc(text)}</pre>`;
+
+        // ── SQL parsers ───────────────────────────────────────────────────
+
+        /**
+         * Parse column definitions from CREATE TABLE DDL.
+         * Returns [{name, type, extras}]
+         */
+        function parseColumns(ddl) {
+            const cols = [];
+            const bodyMatch = ddl.match(/CREATE\s+(?:TEMPORARY\s+)?TABLE[^(]*\(([\s\S]+?)(?:\)\s*(?:WITH|COMMENT|;|$))/i);
+            if (!bodyMatch) return cols;
+
+            const body = bodyMatch[1];
+            const segments = [];
+            let depth = 0, cur = '';
+            for (const ch of body) {
+                if (ch === '(') { depth++; cur += ch; }
+                else if (ch === ')') { depth--; cur += ch; }
+                else if (ch === ',' && depth === 0) { segments.push(cur.trim()); cur = ''; }
+                else cur += ch;
+            }
+            if (cur.trim()) segments.push(cur.trim());
+
+            const skipKw = /^(PRIMARY\s+KEY|UNIQUE\s+KEY|KEY\s+|INDEX\s+|CONSTRAINT\s+|CHECK\s*\(|WATERMARK\s+FOR|PERIOD\s+FOR)/i;
+
+            segments.forEach(seg => {
+                if (!seg || skipKw.test(seg)) return;
+                const m = seg.match(/^[`"]?(\w+)[`"]?\s+((?:ARRAY\s*<[^>]+>|MAP\s*<[^>]+>|ROW\s*\([^)]+\)|MULTISET\s*<[^>]+>|\w+(?:\s*\(\s*\d+(?:\s*,\s*\d+)?\s*\))?))(.*)$/i);
+                if (!m) return;
+                const name   = m[1];
+                const type   = m[2].trim().toUpperCase();
+                const rest   = (m[3] || '').trim();
+                const extras = [];
+                if (/NOT\s+NULL/i.test(rest))    extras.push('NOT NULL');
+                if (/PRIMARY\s+KEY/i.test(rest)) extras.push('PK');
+                if (/METADATA/i.test(rest))      extras.push('METADATA');
+                if (/VIRTUAL/i.test(rest))       extras.push('VIRTUAL');
+                const commentM = rest.match(/COMMENT\s+'([^']{0,60})'/i);
+                if (commentM) extras.push(`"${commentM[1]}"`);
+                cols.push({ name, type, extras });
+            });
+            return cols;
+        }
+
+        /** Parse watermark clause */
+        function parseWatermark(ddl) {
+            const m = ddl.match(/WATERMARK\s+FOR\s+(\w+)\s+AS\s+([^\n,)]+)/i);
+            return m ? { col: m[1], expr: m[2].trim() } : null;
+        }
+
+        /** Extract WITH properties as a map */
+        function parseWith(ddl) {
+            const props = {};
+            const re = /'([^']+)'\s*=\s*'([^']*)'/g;
+            let m;
+            while ((m = re.exec(ddl)) !== null) {
+                props[m[1].toLowerCase()] = m[2];
+            }
+            return props;
+        }
+
+        /** Parse UDF/function signature from CREATE FUNCTION DDL */
+        function parseUdfDdl(ddl) {
+            const sigM = ddl.match(/FUNCTION\s+(?:IF\s+NOT\s+EXISTS\s+)?(\S+?)\s*\(([^)]*)\)\s*(?:RETURNS\s+(\S+))?/i);
+            if (!sigM) return null;
+            const name    = sigM[1].replace(/[`'"]/g,'');
+            const rawArgs = sigM[2].trim();
+            const ret     = sigM[3] ? sigM[3].toUpperCase() : null;
+
+            const args = [];
+            if (rawArgs) {
+                rawArgs.split(',').forEach(a => {
+                    const p = a.trim().match(/^(\w+)\s+(.+)$/);
+                    if (p) args.push({ name: p[1], type: p[2].trim().toUpperCase() });
+                    else if (a.trim()) args.push({ name: '—', type: a.trim().toUpperCase() });
+                });
+            }
+
+            const langM  = ddl.match(/LANGUAGE\s+(\w+)/i);
+            const classM = ddl.match(/AS\s+'([^']+)'/i);
+            const jarM   = ddl.match(/USING\s+JAR\s+'([^']+)'/i);
+
+            return { name, args, returns: ret, language: langM?.[1]?.toUpperCase(), className: classM?.[1], jar: jarM?.[1] };
+        }
+
+        /** Parse GROUP BY columns */
+        function parseGroupBy(sqlStr) {
+            const m = sqlStr.match(/GROUP\s+BY\s+([\s\S]+?)(?:HAVING|ORDER|LIMIT|;|$)/i);
+            if (!m) return [];
+            return m[1].split(',').map(s => s.trim()).filter(Boolean);
+        }
+
+        /** Parse aggregate functions from SELECT columns string */
+        function parseAggFunctions(colStr) {
+            const re = /\b(COUNT|SUM|AVG|MIN|MAX|FIRST_VALUE|LAST_VALUE|LISTAGG|STDDEV|VARIANCE)\s*\(([^)]*)\)(?:\s+AS\s+(\w+))?/gi;
+            const fns = [];
+            let m;
+            while ((m = re.exec(colStr)) !== null) {
+                fns.push({ fn: m[1].toUpperCase(), arg: m[2].trim().slice(0,60), alias: m[3] || null });
+            }
+            return fns;
+        }
+
+        // ── Build body per node type ──────────────────────────────────────
+
+        let bodyHtml = '';
+
+        // ─── SOURCE or SINK table ──────────────────────────────────────
+        if (type === 'source' || type === 'sink') {
+            const props = parseWith(sql);
+            const cols  = parseColumns(sql);
+            const wm    = parseWatermark(sql);
+
+            // Connector block
+            const connector = props['connector'] || props['type'] || null;
+            if (connector || Object.keys(props).length) {
+                let connHtml = '';
+
+                if (connector) {
+                    const connColor = { kafka:'#4fa3e0', datagen:'#34d399', jdbc:'#a78bfa',
+                        elasticsearch:'#e879f9', blackhole:'#6b7280', print:'#6b7280',
+                        filesystem:'#fb923c', redis:'#f5c518', pulsar:'#60a5fa',
+                        kinesis:'#00d4aa' }[connector.toLowerCase()] || c.border;
+                    connHtml += kv('connector', `<span style="color:${connColor};font-weight:700;">${_esc(connector.toUpperCase())}</span>`);
+                }
+
+                if (props['topic'])                              connHtml += kv('topic',       props['topic']);
+                if (props['properties.bootstrap.servers'])       connHtml += kv('bootstrap',   props['properties.bootstrap.servers'].slice(0,60));
+                if (props['properties.group.id'])                connHtml += kv('group.id',    props['properties.group.id']);
+                if (props['scan.startup.mode'])                  connHtml += kv('startup',     props['scan.startup.mode']);
+                if (props['rows-per-second'])                    connHtml += kv('rows/s',      props['rows-per-second']);
+                if (props['number-of-rows'])                     connHtml += kv('# rows',      props['number-of-rows']);
+                if (props['format'])                             connHtml += kv('format',      props['format']);
+                if (props['json.fail-on-missing-field'])         connHtml += kv('fail-missing',props['json.fail-on-missing-field']);
+                if (props['json.ignore-parse-errors'])           connHtml += kv('ignore-errs', props['json.ignore-parse-errors']);
+                if (props['avro-confluent.schema-registry.url']) connHtml += kv('schema-reg',  props['avro-confluent.schema-registry.url'].slice(0,50));
+                if (props['url'])                                connHtml += kv('url',         props['url'].slice(0,70));
+                if (props['table-name'])                         connHtml += kv('table-name',  props['table-name']);
+                if (props['index'])                              connHtml += kv('index',       props['index']);
+                if (props['username'])                           connHtml += kv('username',    props['username']);
+                if (props['path'])                               connHtml += kv('path',        props['path']);
+                if (props['file.path'])                          connHtml += kv('path',        props['file.path']);
+                if (props['sink.rolling-policy.file-size'])      connHtml += kv('roll-size',   props['sink.rolling-policy.file-size']);
+                if (props['sink.parallelism'])                   connHtml += kv('parallelism', props['sink.parallelism']);
+                if (props['sink.buffer-flush.max-rows'])         connHtml += kv('flush-rows',  props['sink.buffer-flush.max-rows']);
+
+                bodyHtml += section('Connector', connHtml || noData('No WITH properties found.'));
+            }
+
+            // Schema / columns
+            if (cols.length) {
+                const colRows = cols.map(col => {
+                    const extraPills = col.extras.map(e => {
+                        const color = e === 'PK' ? '#f5c518'
+                            : e === 'NOT NULL' ? '#e879f9'
+                                : e === 'METADATA' ? '#60a5fa'
+                                    : e === 'VIRTUAL'  ? '#34d399'
+                                        : '#9ca3af';
+                        return pill(e, color);
+                    }).join(' ');
+                    return `<div style="display:flex;align-items:center;gap:8px;padding:4px 8px;
+            border-bottom:1px solid rgba(255,255,255,0.04);font-family:var(--mono);">
+            <span style="font-size:11px;color:${c.text};flex:1;white-space:nowrap;overflow:hidden;
+              text-overflow:ellipsis;">${_esc(col.name)}</span>
+            <span style="font-size:10px;color:${c.border};flex-shrink:0;">${_esc(col.type)}</span>
+            ${extraPills ? `<span style="display:flex;gap:4px;flex-shrink:0;">${extraPills}</span>` : ''}
+          </div>`;
+                }).join('');
+
+                const header = `<div style="display:flex;gap:8px;padding:3px 8px 5px;
+          border-bottom:1px solid rgba(255,255,255,0.08);font-family:var(--mono);">
+          <span style="font-size:9px;text-transform:uppercase;letter-spacing:.8px;
+            color:var(--text3);flex:1;">Column</span>
+          <span style="font-size:9px;text-transform:uppercase;letter-spacing:.8px;
+            color:var(--text3);">Type</span>
+        </div>`;
+
+                bodyHtml += section(`Schema (${cols.length} columns)`, header + colRows);
+            } else if (sql) {
+                bodyHtml += section('DDL snippet', codeSnippet(sql.slice(0, 400)));
+            }
+
+            // Watermark
+            if (wm) {
+                bodyHtml += section('Watermark',
+                    kv('event-time col', `<span style="color:${c.text};">${_esc(wm.col)}</span>`) +
+                    kv('strategy', _esc(wm.expr))
+                );
+            }
+
+            // Datagen field-level generators
+            const fieldKinds = {};
+            Object.entries(props).forEach(([k,v]) => {
+                const m = k.match(/^fields\.([^.]+)\.(kind|length|max|min|var-len)$/i);
+                if (m) {
+                    const field = m[1], prop = m[2];
+                    fieldKinds[field] = fieldKinds[field] || {};
+                    fieldKinds[field][prop] = v;
+                }
+            });
+            if (Object.keys(fieldKinds).length) {
+                const rows = Object.entries(fieldKinds).map(([field, cfg]) =>
+                    `<div style="display:flex;align-items:center;gap:8px;padding:4px 8px;
+            border-bottom:1px solid rgba(255,255,255,0.04);font-family:var(--mono);">
+            <span style="font-size:11px;color:${c.text};flex:1;">${_esc(field)}</span>
+            <span style="font-size:10px;color:${c.border};">${_esc(cfg.kind || '—')}</span>
+            ${cfg.min !== undefined ? `<span style="font-size:9px;color:var(--text3);">min:${cfg.min}</span>` : ''}
+            ${cfg.max !== undefined ? `<span style="font-size:9px;color:var(--text3);">max:${cfg.max}</span>` : ''}
+            ${cfg.length !== undefined ? `<span style="font-size:9px;color:var(--text3);">len:${cfg.length}</span>` : ''}
+          </div>`
+                ).join('');
+                bodyHtml += section('Datagen field config', rows);
+            }
+        }
+
+        // ─── UDF / FUNCTION ───────────────────────────────────────────
+        else if (type === 'udf') {
+            const fnName = sub || title.replace(/^UDF\n?/i, '').trim();
+            const parsed = sql ? parseUdfDdl(sql) : null;
+
+            if (parsed) {
+                let infoHtml = kv('function', `<span style="color:${c.border};font-weight:700;">${_esc(parsed.name)}</span>`);
+                if (parsed.language)  infoHtml += kv('language', pill(parsed.language, c.border));
+                if (parsed.className) infoHtml += kv('class',    _esc(parsed.className));
+                if (parsed.jar)       infoHtml += kv('jar',      _esc(parsed.jar.split('/').pop()));
+                if (parsed.returns)   infoHtml += kv('returns',  `<span style="color:${c.text};">${_esc(parsed.returns)}</span>`);
+                bodyHtml += section('Function info', infoHtml);
+
+                if (parsed.args.length) {
+                    const argRows = parsed.args.map((a, i) =>
+                        `<div style="display:flex;align-items:center;gap:10px;padding:5px 8px;
+              border-bottom:1px solid rgba(255,255,255,0.04);font-family:var(--mono);">
+              <span style="font-size:9px;color:var(--text3);width:20px;flex-shrink:0;">${i+1}</span>
+              <span style="font-size:11px;color:${c.text};flex:1;">${_esc(a.name)}</span>
+              <span style="font-size:10px;color:${c.border};">${_esc(a.type)}</span>
+            </div>`
+                    ).join('');
+                    bodyHtml += section(`Parameters (${parsed.args.length})`, argRows);
+                } else {
+                    bodyHtml += section('Parameters', noData('No parameters — scalar function with no args.'));
+                }
+
+                if (sql) bodyHtml += section('DDL', codeSnippet(sql.slice(0,500)));
+
+            } else {
+                // UDF referenced in SELECT but not defined in this script
+                bodyHtml += section('Function', kv('name', `<span style="color:${c.border};font-weight:700;">${_esc(fnName)}</span>`));
+
+                const editorSql = (document.getElementById('sql-editor') || {}).value || '';
+                const callRe = new RegExp(fnName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*\\(([^)]{0,200})\\)', 'gi');
+                const calls = [];
+                let cm;
+                while ((cm = callRe.exec(editorSql)) !== null) calls.push(cm[1].trim());
+
+                if (calls.length) {
+                    const parseArgs = str => {
+                        const args = []; let depth = 0, cur = '';
+                        for (const ch of str) {
+                            if (ch === '(') { depth++; cur += ch; }
+                            else if (ch === ')') { depth--; cur += ch; }
+                            else if (ch === ',' && depth === 0) { args.push(cur.trim()); cur = ''; }
+                            else cur += ch;
+                        }
+                        if (cur.trim()) args.push(cur.trim());
+                        return args;
+                    };
+                    const inferType = expr => {
+                        const u = expr.toUpperCase();
+                        const castM = u.match(/CAST\s*\([^)]+AS\s+(\w+(?:\(\d+\))?)/);
+                        if (castM) return castM[1];
+                        if (/^\d+\.\d+$/.test(expr)) return 'DOUBLE';
+                        if (/^\d+$/.test(expr))       return 'BIGINT';
+                        if (/^'[^']*'$/.test(expr))   return 'STRING';
+                        if (/^true$|^false$/i.test(expr)) return 'BOOLEAN';
+                        if (/\bINTERVAL\b/i.test(u))  return 'INTERVAL';
+                        if (/\bCURRENT_TIMESTAMP\b/i.test(u)) return 'TIMESTAMP';
+                        return 'expression';
+                    };
+                    const args = parseArgs(calls[0]);
+                    const argRows = args.map((a, i) =>
+                        `<div style="display:flex;align-items:center;gap:10px;padding:5px 8px;
+              border-bottom:1px solid rgba(255,255,255,0.04);font-family:var(--mono);">
+              <span style="font-size:9px;color:var(--text3);width:20px;flex-shrink:0;">${i+1}</span>
+              <span style="font-size:11px;color:${c.text};flex:1;word-break:break-all;">${_esc(a.slice(0,80))}</span>
+              <span style="font-size:10px;color:${c.border};">${_esc(inferType(a))}</span>
+            </div>`
+                    ).join('');
+                    bodyHtml += section(`Inferred call-site args (${args.length})`, argRows);
+                    bodyHtml += section('Note', noData('CREATE FUNCTION not found in current script — args inferred from usage.'));
+                } else {
+                    bodyHtml += section('Note', noData('Function referenced in SELECT columns but no CREATE FUNCTION or call-site found in this script.'));
+                }
+            }
+        }
+
+        // ─── CTE / VIEW ───────────────────────────────────────────────
+        else if (type === 'cte') {
+            const isView = /CREATE\s+(?:TEMPORARY\s+)?VIEW/i.test(sql);
+            if (isView) {
+                bodyHtml += section('View',
+                    kv('name', `<span style="color:${c.border};">${_esc(title)}</span>`) +
+                    (sql.match(/TEMPORARY/i) ? kv('scope', pill('TEMPORARY', '#9ca3af')) : '')
+                );
+                const cols = parseColumns(sql);
+                if (cols.length) {
+                    const colRows = cols.map(col =>
+                        `<div style="display:flex;align-items:center;gap:8px;padding:4px 8px;
+              border-bottom:1px solid rgba(255,255,255,0.04);font-family:var(--mono);">
+              <span style="font-size:11px;color:${c.text};flex:1;">${_esc(col.name)}</span>
+              <span style="font-size:10px;color:${c.border};">${_esc(col.type)}</span>
+            </div>`
+                    ).join('');
+                    bodyHtml += section(`Schema (${cols.length} columns)`, colRows);
+                }
+                const selM = sql.match(/AS\s+(SELECT[\s\S]{0,400})/i);
+                if (selM) bodyHtml += section('Underlying SELECT', codeSnippet(selM[1].trim().slice(0,400)));
+                else if (sql) bodyHtml += section('DDL', codeSnippet(sql.slice(0,400)));
+            } else {
+                bodyHtml += section('CTE', kv('name', `<span style="color:${c.border};">${_esc(title)}</span>`));
+                if (sql) bodyHtml += section('Definition', codeSnippet(sql.slice(0,400)));
+            }
+        }
+
+        // ─── WINDOW ───────────────────────────────────────────────────
+        else if (type === 'window') {
+            const winType = title.split('\n')[0];
+            const edSql   = (document.getElementById('sql-editor') || {}).value || '';
+            const winRe   = new RegExp(`(${winType.toUpperCase()})\\s*\\(([^)]{0,300})\\)`, 'i');
+            const winCall = winRe.exec(edSql);
+
+            let winHtml = kv('function', `<span style="color:${c.border};font-weight:700;">${_esc(winType.toUpperCase())}()</span>`);
+
+            if (winCall) {
+                const args = winCall[2].split(',').map(s => s.trim());
+                if (args[0]) winHtml += kv('table',   _esc(args[0]));
+                if (args[1]) winHtml += kv('time col',_esc(args[1]));
+                if (winType.toUpperCase().startsWith('HOP') && args[2] && args[3]) {
+                    winHtml += kv('slide', _esc(args[2]));
+                    winHtml += kv('size',  _esc(args[3]));
+                } else if (args[2]) {
+                    winHtml += kv('size', _esc(args[2]));
+                }
+                if (winType.toUpperCase().startsWith('CUMULATE') && args[3]) {
+                    winHtml += kv('max size', _esc(args[3]));
+                }
+            } else {
+                const intervalM = (nd.label + edSql).match(/INTERVAL\s+'([^']+)'\s*(MINUTE|SECOND|HOUR|DAY|MONTH)?/i);
+                if (intervalM) winHtml += kv('size', `${_esc(intervalM[1])} ${_esc(intervalM[2] || '')}`);
+            }
+
+            const partM = edSql.match(/PARTITION\s+BY\s+([^\n)]+)/i);
+            if (partM) winHtml += kv('partition by', _esc(partM[1].trim().slice(0,80)));
+
+            bodyHtml += section('Window function', winHtml);
+        }
+
+        // ─── JOIN ─────────────────────────────────────────────────────
+        else if (type === 'join') {
+            const joinTypeParts = title.split('\n');
+            const joinKind  = joinTypeParts[0];
+            const joinTable = sub || joinTypeParts[1] || '—';
+            const edSql     = (document.getElementById('sql-editor') || {}).value || '';
+
+            let joinHtml = kv('join type',    `<span style="color:${c.border};font-weight:700;">${_esc(joinKind)}</span>`) +
+                kv('joined table', `<span style="color:${c.text};">${_esc(joinTable)}</span>`);
+
+            const onRe = new RegExp(`JOIN\\s+${joinTable.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}\\s+(?:\\w+\\s+)?ON\\s+([^\\n;]{1,120})`, 'i');
+            const onM  = onRe.exec(edSql) || edSql.match(/ON\s+([^\n;]{1,120})/i);
+            if (onM) joinHtml += kv('ON', _esc(onM[1].trim().slice(0,100)));
+
+            const intM = edSql.match(/INTERVAL\s+'([^']+)'\s*(MINUTE|SECOND|HOUR|DAY)?/i);
+            if (intM)  joinHtml += kv('interval', `${_esc(intM[1])} ${_esc(intM[2]||'')}`);
+
+            if (/FOR\s+SYSTEM_TIME\s+AS\s+OF/i.test(edSql))
+                joinHtml += kv('join style', pill('TEMPORAL', c.border));
+            else if (intM)
+                joinHtml += kv('join style', pill('INTERVAL', c.border));
+            else
+                joinHtml += kv('join style', pill('REGULAR', '#9ca3af'));
+
+            bodyHtml += section('Join details', joinHtml);
+        }
+
+        // ─── AGG / GROUP BY ───────────────────────────────────────────
+        else if (type === 'agg') {
+            const edSql  = (document.getElementById('sql-editor') || {}).value || '';
+            const selM   = edSql.match(/SELECT\s+([\s\S]+?)\s+FROM/i);
+            const selCols= selM ? selM[1] : '';
+            const aggFns = parseAggFunctions(selCols || edSql);
+            const gbCols = parseGroupBy(edSql);
+
+            if (/MATCH_RECOGNIZE/i.test(title + edSql)) {
+                const patternM = edSql.match(/PATTERN\s*\(([^)]+)\)/i);
+                const defineM  = edSql.match(/DEFINE\s+([\s\S]{0,200})(?:MEASURES|PATTERN|;)/i);
+                let mrHtml = kv('operator', pill('CEP MATCH_RECOGNIZE', c.border));
+                if (patternM) mrHtml += kv('pattern', _esc(patternM[1].trim()));
+                if (defineM)  mrHtml += kv('define',  _esc(defineM[1].trim().slice(0,120)));
+                const partM = edSql.match(/PARTITION\s+BY\s+([^\n)]+)/i);
+                if (partM)  mrHtml += kv('partition', _esc(partM[1].trim().slice(0,80)));
+                bodyHtml += section('CEP / Pattern', mrHtml);
+            } else {
+                if (gbCols.length) {
+                    const colPills = gbCols.map(col => pill(col, c.border)).join(' ');
+                    bodyHtml += section('Group by columns',
+                        `<div style="display:flex;flex-wrap:wrap;gap:6px;padding:4px 0;">${colPills}</div>`);
+                }
+                if (aggFns.length) {
+                    const aggRows = aggFns.map(f =>
+                        `<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;
+              border-bottom:1px solid rgba(255,255,255,0.04);font-family:var(--mono);">
+              <span style="font-size:11px;color:${c.border};font-weight:700;flex-shrink:0;">${_esc(f.fn)}</span>
+              <span style="font-size:11px;color:${c.text};flex:1;">(${_esc(f.arg)})</span>
+              ${f.alias ? `<span style="font-size:9px;color:var(--text3);">→ ${_esc(f.alias)}</span>` : ''}
+            </div>`
+                    ).join('');
+                    bodyHtml += section(`Aggregate functions (${aggFns.length})`, aggRows);
+                }
+                if (!gbCols.length && !aggFns.length) {
+                    if (edSql) bodyHtml += section('SQL context', codeSnippet(edSql.slice(0,300)));
+                    else bodyHtml += section('Aggregation', noData('GROUP BY or aggregate functions detected.'));
+                }
+                const havingM = edSql.match(/HAVING\s+(.{1,120})/i);
+                if (havingM) bodyHtml += section('Having', codeSnippet(havingM[1].trim()));
+            }
+        }
+
+        // ─── FILTER / WHERE ───────────────────────────────────────────
+        else if (type === 'filter') {
+            const edSql  = (document.getElementById('sql-editor') || {}).value || '';
+            const whereM = edSql.match(/WHERE\s+([\s\S]{1,400}?)(?:GROUP\s+BY|ORDER\s+BY|LIMIT|HAVING|;|$)/i);
+
+            if (whereM) {
+                bodyHtml += section('Filter condition', codeSnippet(whereM[1].trim()));
+                const cond  = whereM[1];
+                const preds = [];
+                if (/IS\s+NOT\s+NULL|IS\s+NULL/i.test(cond))       preds.push('null check');
+                if (/BETWEEN\s+/i.test(cond))                       preds.push('BETWEEN range');
+                if (/LIKE\s+'/i.test(cond))                         preds.push('LIKE pattern');
+                if (/REGEXP_/i.test(cond))                          preds.push('regex');
+                if (/IN\s*\(/i.test(cond))                          preds.push('IN list');
+                if (/>|>=|<|<=/g.test(cond))                        preds.push('comparison');
+                if (/=\s*'[^']+'/g.test(cond))                      preds.push('equality');
+                if (/\bAND\b/i.test(cond) || /\bOR\b/i.test(cond)) {
+                    const ands = (cond.match(/\bAND\b/gi)||[]).length;
+                    const ors  = (cond.match(/\bOR\b/gi)||[]).length;
+                    preds.push(`compound (${ands} AND / ${ors} OR)`);
+                }
+                if (preds.length) {
+                    bodyHtml += section('Predicate types',
+                        `<div style="display:flex;flex-wrap:wrap;gap:6px;padding:4px 0;">${preds.map(p=>pill(p,c.border)).join('')}</div>`);
+                }
+            } else {
+                bodyHtml += section('Filter', noData('WHERE condition could not be extracted.'));
+            }
+        }
+
+        // ─── PROJECT / MAP ────────────────────────────────────────────
+        else if (type === 'project') {
+            const edSql  = (document.getElementById('sql-editor') || {}).value || '';
+            const selM   = edSql.match(/SELECT\s+([\s\S]+?)\s+FROM/i);
+            const selCols= selM ? selM[1].trim() : '';
+
+            if (selCols) {
+                const splitCols = [];
+                let depth2 = 0, cur2 = '';
+                for (const ch of selCols) {
+                    if (ch === '(') { depth2++; cur2 += ch; }
+                    else if (ch === ')') { depth2--; cur2 += ch; }
+                    else if (ch === ',' && depth2 === 0) { splitCols.push(cur2.trim()); cur2 = ''; }
+                    else cur2 += ch;
+                }
+                if (cur2.trim()) splitCols.push(cur2.trim());
+
+                const colRows = splitCols.slice(0,20).map(col => {
+                    const aliasM = col.match(/\bAS\s+(\w+)$/i);
+                    const alias  = aliasM ? aliasM[1] : null;
+                    const expr   = alias ? col.slice(0, col.lastIndexOf(aliasM[0])).trim() : col;
+                    return `<div style="display:flex;align-items:center;gap:8px;padding:4px 8px;
+            border-bottom:1px solid rgba(255,255,255,0.04);font-family:var(--mono);">
+            <span style="font-size:11px;color:${c.text};flex:1;word-break:break-all;
+              white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"
+              title="${_esc(expr)}">${_esc(expr.slice(0,70))}</span>
+            ${alias ? `<span style="font-size:9px;color:var(--text3);flex-shrink:0;">→ ${_esc(alias)}</span>` : ''}
+          </div>`;
+                }).join('');
+
+                bodyHtml += section(`Projected columns (${Math.min(splitCols.length,20)}${splitCols.length>20?' of '+splitCols.length:''})`, colRows);
+            } else {
+                bodyHtml += section('Projection', noData('No SELECT columns found.'));
+            }
+        }
+
+        // ─── DDL ─────────────────────────────────────────────────────
+        else if (type === 'ddl') {
+            const op   = title.split('\n')[0];
+            const name = title.split('\n')[1] || sub;
+
+            let ddlHtml = kv('operation', `<span style="color:${c.border};font-weight:700;">${_esc(op)}</span>`);
+            if (name) ddlHtml += kv('object', `<span style="color:${c.text};">${_esc(name)}</span>`);
+            if (/IF\s+NOT\s+EXISTS/i.test(sql)) ddlHtml += kv('guard', pill('IF NOT EXISTS', '#34d399'));
+            if (/IF\s+EXISTS/i.test(sql))       ddlHtml += kv('guard', pill('IF EXISTS', '#fb923c'));
+            if (/TEMPORARY/i.test(sql))         ddlHtml += kv('scope', pill('TEMPORARY', '#9ca3af'));
+            if (sql) ddlHtml += `<div style="margin-top:8px;">${codeSnippet(sql.slice(0,300))}</div>`;
+
+            bodyHtml += section('DDL statement', ddlHtml);
+        }
+
+        // ─── SET ──────────────────────────────────────────────────────
+        else if (type === 'set') {
+            const m = sql.match(/SET\s+'([^']+)'\s*=\s*'([^']*)'/i);
+            if (m) {
+                bodyHtml += section('Session config',
+                    kv('key',   _esc(m[1])) +
+                    kv('value', `<span style="color:${c.border};">${_esc(m[2])}</span>`)
+                );
+            } else {
+                bodyHtml += section('SET', kv('statement', _esc(sql.slice(0,100))));
+            }
+        }
+
+        // ─── UTILITY ─────────────────────────────────────────────────
+        else if (type === 'util') {
+            const opM = sql.match(/^(SHOW\s+\w+|DESCRIBE\s+\S+|EXPLAIN\s+)/i);
+            const op  = opM ? opM[0].trim().toUpperCase() : title;
+            bodyHtml += section('Utility statement', kv('operation', pill(op, c.border)));
+            if (sql && sql.length > op.length + 2) {
+                bodyHtml += section('Full statement', codeSnippet(sql.slice(0,300)));
+            }
+        }
+
+        // ─── Fallback ─────────────────────────────────────────────────
+        else {
+            if (sql) bodyHtml += section('SQL', codeSnippet(sql.slice(0,400)));
+            else     bodyHtml  = noData('No details available for this node.');
+        }
+
+        // ── Assemble panel ────────────────────────────────────────────────
+
+        const icon = _icon(type);
+
+        const panel = document.createElement('div');
+        panel.id = 'svp-node-detail';
+        panel.style.cssText = `
+      position:fixed; z-index:9999;
+      top:50%; left:50%; transform:translate(-50%,-50%);
+      width:min(500px,94vw);
+      background:var(--bg1,#0d1117);
+      border:1.5px solid ${c.border};
+      border-radius:10px;
+      box-shadow:0 24px 64px rgba(0,0,0,0.75),0 0 0 1px rgba(0,0,0,0.3);
+      font-family:var(--sans,sans-serif);
+      overflow:hidden;
+      animation:svp-node-in 0.14s ease;
+    `;
+
+        panel.innerHTML = `
+      <style>
+        @keyframes svp-node-in{
+          from{opacity:0;transform:translate(-50%,-46%)}
+          to  {opacity:1;transform:translate(-50%,-50%)}
+        }
+      </style>
+      <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;
+        background:rgba(0,0,0,0.3);border-bottom:1px solid rgba(255,255,255,0.06);">
+        <span style="font-size:16px;line-height:1;flex-shrink:0;">${icon}</span>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:700;color:var(--text0);
+            overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_esc(title)}</div>
+          ${sub ? `<div style="font-size:10px;color:${c.border};font-family:var(--mono);margin-top:1px;">${_esc(sub)}</div>` : ''}
+        </div>
+        <span style="font-size:9px;font-family:var(--mono);padding:2px 7px;border-radius:10px;
+          background:${c.bg};border:1px solid ${c.border};color:${c.text};
+          text-transform:uppercase;letter-spacing:.5px;flex-shrink:0;">${type}</span>
+        <button onclick="document.getElementById('svp-node-detail').remove()"
+          style="background:none;border:none;color:var(--text3);font-size:20px;
+          cursor:pointer;padding:0 2px;line-height:1;flex-shrink:0;margin-left:4px;">×</button>
+      </div>
+      <div style="padding:14px;max-height:65vh;overflow-y:auto;">
+        ${bodyHtml}
+      </div>
+      <div style="padding:6px 14px;border-top:1px solid rgba(255,255,255,0.05);
+        background:rgba(0,0,0,0.2);font-size:9px;color:var(--text3);
+        font-family:var(--mono);">
+        Double-click a node to inspect &nbsp;·&nbsp; Double-click canvas background to reset zoom
+      </div>`;
+
+        document.body.appendChild(panel);
+
+        setTimeout(() => {
+            const handler = e => {
+                if (!panel.contains(e.target)) {
+                    panel.remove();
+                    document.removeEventListener('mousedown', handler);
+                }
+            };
+            document.addEventListener('mousedown', handler);
+        }, 80);
     }
 
     function _icon(t) {
@@ -493,14 +1233,12 @@
         const my = (cy !== undefined ? cy : r.top  + r.height / 2) - r.top;
         const prev = _s.zoom;
         _s.zoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, _s.zoom + delta));
-        // Zoom toward pointer
         _s.panX = mx - (mx - _s.panX) * (_s.zoom / prev);
         _s.panY = my - (my - _s.panY) * (_s.zoom / prev);
         _applyTransform();
     }
 
     function _wireCanvasInteraction(canvas) {
-        // Wheel zoom
         canvas.addEventListener('wheel', e => {
             e.preventDefault();
             e.stopPropagation();
@@ -508,9 +1246,7 @@
             _zoomBy(e.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP, e.clientX - r.left, e.clientY - r.top);
         }, { passive: false });
 
-        // Pan (mousedown on canvas background — not on node divs)
         canvas.addEventListener('mousedown', e => {
-            // Only pan if not clicking a node
             if (e.target.id !== CANVAS_ID && e.target.id !== VIEWPORT_ID && !e.target.closest('svg')) return;
             if (e.button !== 0) return;
             _s.isPanning   = true;
@@ -535,7 +1271,6 @@
             canvas.style.cursor = 'default';
         };
 
-        // Double-click on background resets view
         canvas.addEventListener('dblclick', e => {
             if (e.target.id === CANVAS_ID || e.target.id === VIEWPORT_ID) _resetView();
         });
@@ -546,7 +1281,6 @@
 
     // ── Animation ──────────────────────────────────────────────────────
     function startAnimation(looping) {
-        // looping = true for INSERT INTO / streaming; false for DDL/SELECT
         _s.looping   = !!looping;
         if (_s.animating) return;
         _s.animating = true;
@@ -558,7 +1292,7 @@
     }
 
     function stopAnimation() {
-        if (_s.looping) return;   // streaming — keep running
+        if (_s.looping) return;
         _s.animating = false;
         if (_s.animTimer) { clearInterval(_s.animTimer); _s.animTimer = null; }
         _s.particles = [];
@@ -594,7 +1328,6 @@
             }
         });
 
-        // Edge highlight
         document.querySelectorAll('#svp-edges-g path').forEach(p => {
             p.setAttribute('stroke',       on ? 'rgba(0,212,170,0.65)' : 'rgba(100,160,220,0.4)');
             p.setAttribute('stroke-width', on ? '2.2' : '1.8');
@@ -611,7 +1344,6 @@
                 _s.particles.push({ from: e.from, to: e.to, t: 0, spd: 0.016 + Math.random() * 0.014, r: 3.5 });
             }, delay);
         });
-        // Continuous respawn
         setTimeout(() => { if (_s.animating) _scheduleParticles(); }, 1000);
     }
 
@@ -649,7 +1381,6 @@
     function _buildPanel() {
         _injectCSS();
 
-        // Collapsed tab
         const tab = document.createElement('button');
         tab.id = TAB_ID;
         tab.title = 'Show pipeline visualiser';
@@ -659,26 +1390,21 @@
         <line x1="8" y1="11.5" x2="16" y2="6.5"/><line x1="8" y1="12.5" x2="16" y2="17.5"/>
       </svg>
       <span>PIPELINE</span>`;
-        // Collapsed tab — clicking it restores the panel
         tab.addEventListener('click', () => {
-            // Move tab back into svp-editor-row before setState reattaches it
             const rowEl = document.getElementById('svp-editor-row');
             if (rowEl && tab.parentElement !== rowEl) rowEl.appendChild(tab);
             _setState('default');
         });
 
-        // Panel
         const panel = document.createElement('div');
         panel.id = PANEL_ID;
         panel.style.width = _s.panelWidth + 'px';
 
-        // Resize handle (left edge)
         const handle = document.createElement('div');
         handle.id = RESIZE_ID;
         panel.appendChild(handle);
         _wireResize(handle);
 
-        // Collapse button on left edge of panel
         const toggleBtn = document.createElement('button');
         toggleBtn.id    = TOGGLE_ID;
         toggleBtn.title = 'Collapse panel';
@@ -686,7 +1412,6 @@
         toggleBtn.addEventListener('click', _cycleState);
         panel.appendChild(toggleBtn);
 
-        // Header
         const hdr = document.createElement('div');
         hdr.id = 'svp-hdr';
         hdr.innerHTML = `
@@ -714,10 +1439,8 @@
         padding:1px 4px;font-size:12px;line-height:1;">⊞</button>`;
         panel.appendChild(hdr);
 
-        // Canvas (outer scroll + interaction surface)
         const canvas = document.createElement('div');
         canvas.id = CANVAS_ID;
-        // Viewport (inner panned/zoomed surface)
         const vp = document.createElement('div');
         vp.id    = VIEWPORT_ID;
         canvas.appendChild(vp);
@@ -739,10 +1462,12 @@
 
     function _setState(state) {
         _s.panelState = state;
-        const panel  = document.getElementById(PANEL_ID);
-        const tab    = document.getElementById(TAB_ID);
-        const btn    = document.getElementById(TOGGLE_ID);
-        const expBtn = document.getElementById('svp-expand-btn');
+        const panel      = document.getElementById(PANEL_ID);
+        const tab        = document.getElementById(TAB_ID);
+        const btn        = document.getElementById('toggle-btn-svp') || document.getElementById(TOGGLE_ID);
+        const expBtn     = document.getElementById('svp-expand-btn');
+        const rowEl      = document.getElementById('svp-editor-row');
+        const editorArea = document.getElementById('editor-area');
         if (!panel) return;
 
         panel.classList.remove('svp-collapsed', 'svp-expanded');
@@ -751,13 +1476,10 @@
         if (state === 'collapsed') {
             panel.classList.add('svp-collapsed');
             panel.style.width = '0';
-
-            // Move the tab OUT of svp-editor-row onto #editor-area so it
-            // appears as a fixed tab on the right edge of the entire editor area
-            const editorArea = document.getElementById('editor-area');
-            if (tab && editorArea && tab.parentElement !== editorArea) {
-                editorArea.style.position = 'relative'; // ensure positioning context
-                editorArea.appendChild(tab);
+            if (tab && editorArea) {
+                editorArea.style.position = 'relative';
+                if (tab.parentElement !== editorArea) editorArea.appendChild(tab);
+                tab.style.cssText = '';
             }
             if (tab) tab.classList.add('svp-tab-vis');
 
@@ -765,28 +1487,21 @@
             panel.classList.add('svp-expanded');
             panel.style.width = '';
             if (expBtn) expBtn.textContent = '⊟';
-
-            // Move tab back into svp-editor-row if it was on editor-area
-            const rowEl = document.getElementById('svp-editor-row');
             if (tab && rowEl && tab.parentElement !== rowEl) rowEl.appendChild(tab);
 
         } else {
-            // default state
             panel.style.width = _s.panelWidth + 'px';
             if (expBtn) expBtn.textContent = '⊞';
-
-            // Move tab back into svp-editor-row
-            const rowEl = document.getElementById('svp-editor-row');
             if (tab && rowEl && tab.parentElement !== rowEl) rowEl.appendChild(tab);
         }
 
-        if (btn) btn.innerHTML = _toggleIcon();
+        const toggleBtn = document.getElementById(TOGGLE_ID);
+        if (toggleBtn) toggleBtn.innerHTML = _toggleIcon();
 
-        // Give layout a tick then render
         setTimeout(_render, 30);
     }
 
-    // ── Panel resize (drag handle) ─────────────────────────────────────
+    // ── Panel resize ───────────────────────────────────────────────────
     function _wireResize(handle) {
         handle.addEventListener('mousedown', e => {
             e.preventDefault();
@@ -812,7 +1527,7 @@
         });
     }
 
-    // ── CSS injection ─────────────────────────────────────────────────
+    // ── CSS injection ──────────────────────────────────────────────────
     function _injectCSS() {
         if (document.getElementById('svp-css')) return;
         const s = document.createElement('style');
@@ -823,7 +1538,6 @@
         50%      { filter: brightness(1.35); }
       }
 
-      /* ── Panel: normal side panel state ─────────────────────── */
       #svp-panel {
         position: relative;
         display: flex;
@@ -837,7 +1551,6 @@
         min-width: 0;
       }
 
-      /* ── Collapsed: zero-width, removed from layout flow ────── */
       #svp-panel.svp-collapsed {
         width: 0 !important;
         min-width: 0 !important;
@@ -849,21 +1562,19 @@
         transition: width 0.22s ease, opacity 0.15s ease;
       }
 
-      /* ── Collapsed tab: fixed to right edge of #editor-area ─── */
-      /* Positioned by JS onto #editor-area, not inside svp-editor-row */
       #${TAB_ID} {
+        display: none;
         position: absolute;
         right: 0;
         top: 50%;
         transform: translateY(-50%);
-        z-index: 50;
+        z-index: 60;
         background: var(--bg2,#0f1924);
         border: 1px solid var(--border2,#2a4a5a);
         border-right: none;
         border-radius: 6px 0 0 6px;
-        padding: 14px 5px;
+        padding: 18px 5px;
         cursor: pointer;
-        display: none;           /* hidden by default */
         flex-direction: column;
         align-items: center;
         gap: 5px;
@@ -873,17 +1584,19 @@
         writing-mode: vertical-rl;
         letter-spacing: 1.2px;
         text-transform: uppercase;
-        box-shadow: -2px 0 12px rgba(0,0,0,0.4);
-        transition: color 0.15s, background 0.15s;
+        box-shadow: -3px 0 14px rgba(0,0,0,0.5);
+        transition: color 0.15s, background 0.15s, border-color 0.15s;
+        white-space: nowrap;
+        user-select: none;
       }
       #${TAB_ID}:hover {
         color: var(--accent,#00d4aa);
         background: var(--bg1,#0c1219);
-        border-color: rgba(0,212,170,0.35);
+        border-color: rgba(0,212,170,0.4);
+        box-shadow: -3px 0 18px rgba(0,212,170,0.15);
       }
       #${TAB_ID}.svp-tab-vis { display: flex; }
 
-      /* ── Expanded: overlays the full editor-row ─────────────── */
       #svp-panel.svp-expanded {
         position: absolute !important;
         inset: 0 !important;
@@ -895,7 +1608,6 @@
         pointer-events: auto;
       }
 
-      /* ── Structural ─────────────────────────────────────────── */
       #svp-hdr {
         display: flex;
         align-items: center;
@@ -930,7 +1642,6 @@
       }
       #${RESIZE_ID}:hover { background: rgba(0,212,170,0.2); }
 
-      /* ── Collapse toggle button on left edge of panel ────────── */
       #${TOGGLE_ID} {
         position: absolute;
         left: -20px;
@@ -977,41 +1688,34 @@
         };
 
         ed.addEventListener('input', onChange);
-        // Poll for programmatic changes (tab switch, project load)
         _s.pollTimer = setInterval(() => {
             const sql = (ed.value || '');
             if (sql !== _s.lastSql) onChange();
         }, 1500);
 
-        // Initial parse
         if (ed.value) onChange();
     }
 
-    // ── Session / project change hooks ────────────────────────────────
-    // Patches clearResults and switchSession to reset the visualiser state
+    // ── Session / project change hooks ─────────────────────────────────
     function _patchSessionClear() {
-        // Clear visualiser when the studio clears results/logs (new project loaded)
         const _origClearResults = root.clearResults;
         root.clearResults = function () {
             _resetVisualisations();
             if (_origClearResults) return _origClearResults.apply(this, arguments);
         };
 
-        // Patch switchSession to clear job graph display and SVP state
         const _origSwitch = root.switchSession;
         root.switchSession = function () {
             _resetVisualisations();
             if (_origSwitch) return _origSwitch.apply(this, arguments);
         };
 
-        // Also patch addTab / loadHistoryItem to re-parse on tab switch
         const _origLoadHistory = root.loadHistoryItem;
         root.loadHistoryItem = function () {
             const res = _origLoadHistory ? _origLoadHistory.apply(this, arguments) : undefined;
-            // Re-trigger parse on next tick
             setTimeout(() => {
                 const ed = document.getElementById('sql-editor');
-                if (ed) { _s.lastSql = ''; /* force reparse */ }
+                if (ed) { _s.lastSql = ''; }
             }, 80);
             return res;
         };
@@ -1026,7 +1730,6 @@
         const cnt = document.getElementById('svp-node-count');
         if (cnt) cnt.textContent = '';
         if (_s.panelState !== 'collapsed') _render();
-        // Also clear job graph from previous project
         const jgSel = document.getElementById('jg-job-select');
         const jgWrap= document.getElementById('jg-canvas-wrap');
         if (jgSel) {
@@ -1039,7 +1742,6 @@
         <div style="font-size:12px;">Session changed — refresh jobs to reload</div>
       </div>`;
         }
-        // Reset status badge
         const badge = document.getElementById('jg-job-status-badge');
         if (badge) badge.style.display = 'none';
     }
@@ -1063,7 +1765,6 @@
         const editorWrapper = document.getElementById('editor-wrapper');
         if (!editorArea || !editorWrapper) { setTimeout(_init, 400); return; }
 
-        // Create flex-row container around editor-wrapper + panel
         let rowEl = document.getElementById('svp-editor-row');
         if (!rowEl) {
             rowEl = document.createElement('div');
@@ -1071,7 +1772,6 @@
             rowEl.style.cssText = 'display:flex;flex:1;overflow:hidden;min-height:0;position:relative;';
             editorWrapper.parentNode.insertBefore(rowEl, editorWrapper);
             rowEl.appendChild(editorWrapper);
-            // Make editor-wrapper flex:1 so it fills remaining space
             editorWrapper.style.flex = '1';
             editorWrapper.style.minWidth = '0';
         }
