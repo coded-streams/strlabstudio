@@ -127,41 +127,76 @@
                 // Sources: current tab SQL, all other editor textareas, sessionStorage, localStorage
                 const _corpus = [sql]; // always include current tab first
 
-                // Other open editor tabs (CodeMirror instances / plain textareas)
+                // ── All textareas (other editor tabs) ────────────────────
                 try {
-                    document.querySelectorAll('textarea.CodeMirror-textarea, textarea[id*="sql"], textarea[class*="editor"]')
-                        .forEach(el => { if (el.value && el !== document.getElementById('sql-editor')) _corpus.push(el.value); });
+                    document.querySelectorAll('textarea')
+                        .forEach(el => {
+                            if (el.value && el.value.length > 10 && el !== document.getElementById('sql-editor'))
+                                _corpus.push(el.value);
+                        });
                 } catch(_) {}
 
-                // Session / local storage — look for keys that hold SQL (tab content)
+                // ── CodeMirror editor instances ──────────────────────────
                 try {
-                    const _storages = [sessionStorage, localStorage];
-                    _storages.forEach(store => {
-                        for (let i = 0; i < store.length; i++) {
-                            const key = store.key(i);
-                            if (!key) continue;
-                            // Keys that likely hold SQL tab content
-                            if (/sql|tab|session|query|script|editor/i.test(key)) {
+                    document.querySelectorAll('.CodeMirror').forEach(el => {
+                        if (el.CodeMirror) {
+                            const v = el.CodeMirror.getValue();
+                            if (v && v.length > 10) _corpus.push(v);
+                        }
+                    });
+                } catch(_) {}
+
+                // ── Studio global state (window.state / sessions / tabs) ─
+                try {
+                    ['state','_state','appState','sessions','_sessions','tabs','_tabs',
+                        'editorState','studioState','projectState'].forEach(key => {
+                        const obj = root[key];
+                        if (!obj) return;
+                        const arr = Array.isArray(obj) ? obj : Object.values(obj);
+                        arr.forEach(item => {
+                            if (typeof item === 'string' && item.length > 10) { _corpus.push(item); return; }
+                            if (!item || typeof item !== 'object') return;
+                            const s = item.sql || item.content || item.text || item.query || item.script || item.value || '';
+                            if (s && s.length > 10) _corpus.push(s);
+                            ['tabs','sessions','queries','scripts'].forEach(k => {
+                                if (Array.isArray(item[k])) item[k].forEach(t => {
+                                    const ts = typeof t === 'string' ? t : (t.sql || t.content || t.text || '');
+                                    if (ts && ts.length > 10) _corpus.push(ts);
+                                });
+                            });
+                        });
+                    });
+                } catch(_) {}
+
+                // ── sessionStorage / localStorage ────────────────────────
+                try {
+                    [sessionStorage, localStorage].forEach(store => {
+                        try {
+                            for (let i = 0; i < store.length; i++) {
+                                const key = store.key(i);
+                                if (!key || !/sql|tab|session|query|script|editor|content/i.test(key)) continue;
                                 try {
                                     const val = store.getItem(key);
-                                    if (val && val.length > 10) {
-                                        // Could be JSON array of tabs or plain SQL
-                                        if (val.trimStart().startsWith('[') || val.trimStart().startsWith('{')) {
-                                            try {
-                                                const parsed = JSON.parse(val);
-                                                const items = Array.isArray(parsed) ? parsed : Object.values(parsed);
-                                                items.forEach(item => {
-                                                    const s = typeof item === 'string' ? item : (item.sql || item.content || item.text || '');
-                                                    if (s && s.length > 10) _corpus.push(s);
+                                    if (!val || val.length < 10) continue;
+                                    const c0 = val.trimStart()[0];
+                                    if (c0 === '[' || c0 === '{') {
+                                        try {
+                                            const parsed = JSON.parse(val);
+                                            const items = Array.isArray(parsed) ? parsed : Object.values(parsed);
+                                            items.forEach(item => {
+                                                const s = typeof item === 'string' ? item
+                                                    : (item.sql || item.content || item.text || item.query || '');
+                                                if (s && s.length > 10) _corpus.push(s);
+                                                if (Array.isArray(item.tabs)) item.tabs.forEach(t => {
+                                                    const ts = t.sql || t.content || t.text || '';
+                                                    if (ts && ts.length > 10) _corpus.push(ts);
                                                 });
-                                            } catch(_) { _corpus.push(val); }
-                                        } else {
-                                            _corpus.push(val);
-                                        }
-                                    }
+                                            });
+                                        } catch(_) { _corpus.push(val); }
+                                    } else { _corpus.push(val); }
                                 } catch(_) {}
                             }
-                        }
+                        } catch(_) {}
                     });
                 } catch(_) {}
 
