@@ -312,7 +312,8 @@ function _pdgRenderGraph() {
         const x1=fp.x+NW, y1=fp.y+NHT/2;
         const x2=tp.x,    y2=tp.y+NHT/2;
         const kc = kindColor[e.kind] || '#4b5563';
-        svg += `<path d="M${x1},${y1} C${x1+40},${y1} ${x2-40},${y2} ${x2},${y2}"
+        svg += `<path data-from="${e.from}" data-to="${e.to}"
+      d="M${x1},${y1} C${x1+40},${y1} ${x2-40},${y2} ${x2},${y2}"
       stroke="${kc}" stroke-width="1.8" fill="none" opacity="0.6" marker-end="url(#pdg-arr)"/>`;
     });
 
@@ -359,6 +360,83 @@ function _pdgRenderGraph() {
     _PDG._pos = pos;
     _PDG._NW  = NW;
     _PDG._NHT = NHT;
+
+    // Wire node dragging — mousedown on a node group starts drag
+    const svgEl = document.getElementById('pdg-svg');
+    if (svgEl) {
+        svgEl.querySelectorAll('.pdg-node-g').forEach(g => {
+            let dragging = false, dragId = null, dragSX = 0, dragSY = 0, dragOX = 0, dragOY = 0;
+            let clickPrevented = false;
+
+            g.addEventListener('mousedown', ev => {
+                if (ev.button !== 0) return;
+                let nodeId = null;
+                try { nodeId = JSON.parse(g.dataset.node.replace(/'/g, '"')).id; } catch(_) {}
+                if (!nodeId) return;
+                dragging = true; dragId = nodeId; clickPrevented = false;
+                const svgRect = svgEl.getBoundingClientRect();
+                dragSX = (ev.clientX - svgRect.left - _PDG.panX) / _PDG.zoom;
+                dragSY = (ev.clientY - svgRect.top  - _PDG.panY) / _PDG.zoom;
+                dragOX = (_PDG._pos[nodeId]||{x:0}).x;
+                dragOY = (_PDG._pos[nodeId]||{y:0}).y;
+                ev.stopPropagation();
+                ev.preventDefault();
+            });
+
+            window.addEventListener('mousemove', ev => {
+                if (!dragging || dragId !== ((() => { try { return JSON.parse(g.dataset.node.replace(/'/g,'"')).id; } catch(_){return null;} })()) ) return;
+                const svgRect = svgEl.getBoundingClientRect();
+                const nx = (ev.clientX - svgRect.left - _PDG.panX) / _PDG.zoom;
+                const ny = (ev.clientY - svgRect.top  - _PDG.panY) / _PDG.zoom;
+                const dx = nx - dragSX, dy = ny - dragSY;
+                if (Math.abs(dx) > 3 || Math.abs(dy) > 3) clickPrevented = true;
+                const newX = Math.max(0, dragOX + dx);
+                const newY = Math.max(0, dragOY + dy);
+                _PDG._pos[dragId] = { x: newX, y: newY };
+
+                // Move the node group via transform
+                g.setAttribute('transform', `translate(${dx},${dy})`);
+
+                // Update all connected edges live
+                const allEdges = (_PDG.graph||{}).edges || [];
+                svgEl.querySelectorAll('path[data-from], path[data-to]').forEach(p => {
+                    const from = p.getAttribute('data-from');
+                    const to   = p.getAttribute('data-to');
+                    if (from !== dragId && to !== dragId) return;
+                    const fp = _PDG._pos[from] || {}; const tp = _PDG._pos[to] || {};
+                    const x1 = (fp.x||0) + NW, y1 = (fp.y||0) + NHT/2;
+                    const x2 = (tp.x||0),      y2 = (tp.y||0) + NHT/2;
+                    p.setAttribute('d', `M${x1},${y1} C${x1+40},${y1} ${x2-40},${y2} ${x2},${y2}`);
+                });
+            });
+
+            window.addEventListener('mouseup', () => {
+                if (!dragging) return;
+                dragging = false;
+                // Commit the final position by removing transform and baking into pos
+                const finalPos = _PDG._pos[dragId];
+                if (finalPos) {
+                    // Clear the CSS transform — position is now baked into _PDG._pos
+                    g.removeAttribute('transform');
+                    // Update all rect/text elements inside this group to the new absolute position
+                    g.querySelectorAll('rect').forEach(r => {
+                        r.setAttribute('x', finalPos.x);
+                        r.setAttribute('y', finalPos.y);
+                    });
+                    g.querySelectorAll('text').forEach((t, i) => {
+                        const baseX = finalPos.x;
+                        const baseY = finalPos.y;
+                        // Re-read original offsets from current cx/y minus old position
+                        // Simpler: just re-render the whole graph
+                    });
+                    // Re-render cleanly with new positions
+                    const { nodes: rn, edges: re } = _PDG.graph || { nodes:[], edges:[] };
+                    _pdgRenderGraph(rn, re, _PDG._pos);
+                }
+                dragId = null;
+            });
+        });
+    }
 
     // Wire pan/zoom on the outer container
     _pdgWireInteraction(wrap);
@@ -465,18 +543,79 @@ function _pdgRenderIssues() {
 function _pdgRenderJobList() {
     const el = document.getElementById('pdg-job-list');
     if (!el) return;
+
+    let _activeJobId = null;
+
     el.innerHTML = _PDG.jobs.map(j => {
         const sc = { RUNNING:'var(--green)', FINISHED:'var(--text3)', RESTARTING:'var(--yellow)', FAILED:'var(--red)' }[j.state] || 'var(--text3)';
         const srcNames = j.sources.map(s=>s.label).join(', ') || '—';
         const snkNames = j.sinks.map(s=>s.label).join(', ')   || '—';
-        return `<div style="padding:8px 10px;border-bottom:1px solid var(--border);font-size:10px;">
-      <div style="font-weight:700;color:var(--text0);font-family:var(--mono);
-        white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_escPdg(j.name.slice(0,38))}</div>
-      <div style="color:${sc};font-size:9px;margin-top:2px;">${j.state}</div>
-      <div style="color:var(--text3);margin-top:4px;">↪ Sources: <span style="color:var(--accent);">${_escPdg(srcNames.slice(0,50))}</span></div>
-      <div style="color:var(--text3);">↩ Sinks: <span style="color:var(--accent3,#7ee8d0);">${_escPdg(snkNames.slice(0,50))}</span></div>
+        return `<div class="pdg-job-item" data-jid="${_escPdg(j.jid)}"
+      style="padding:8px 10px;border-bottom:1px solid var(--border);font-size:10px;
+      cursor:pointer;transition:background 0.15s;"
+      onmouseenter="this.style.background='rgba(0,212,170,0.06)'"
+      onmouseleave="this.style.background=this.classList.contains('pdg-job-active')?'rgba(0,212,170,0.08)':''"
+      onclick="_pdgOnJobClick(this,'${_escPdg(j.jid)}')">
+      <div style="display:flex;align-items:center;gap:6px;">
+        <span style="font-size:9px;color:${sc};">●</span>
+        <div style="font-weight:700;color:var(--text0);font-family:var(--mono);
+          white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;">${_escPdg(j.name.slice(0,34))}</div>
+      </div>
+      <div style="color:${sc};font-size:9px;margin-top:2px;padding-left:15px;">${j.state}</div>
+      <div style="color:var(--text3);margin-top:4px;padding-left:15px;">
+        ↪ <span style="color:var(--accent);">${_escPdg(srcNames.slice(0,40))}</span>
+      </div>
+      <div style="color:var(--text3);padding-left:15px;">
+        ↩ <span style="color:var(--accent3,#7ee8d0);">${_escPdg(snkNames.slice(0,40))}</span>
+      </div>
     </div>`;
     }).join('') || '<div style="font-size:11px;color:var(--text3);padding:10px;">No jobs loaded.</div>';
+}
+
+function _pdgOnJobClick(el, jobId) {
+    const container = document.getElementById('pdg-job-list');
+    if (!container) return;
+
+    const alreadyActive = el.classList.contains('pdg-job-active');
+
+    // Deactivate all
+    container.querySelectorAll('.pdg-job-item').forEach(item => {
+        item.classList.remove('pdg-job-active');
+        item.style.background = '';
+        item.style.borderLeft = '';
+    });
+
+    if (alreadyActive) {
+        // Second click: deselect and clear highlights
+        _pdgHighlightPipeline(null);
+        return;
+    }
+
+    // Activate clicked item
+    el.classList.add('pdg-job-active');
+    el.style.background = 'rgba(0,212,170,0.08)';
+    el.style.borderLeft = '3px solid var(--accent,#00d4aa)';
+
+    // Find the graph node id that corresponds to this job
+    const gNodes = (_PDG.graph || {}).nodes || [];
+    const gNode  = gNodes.find(n => n.jid === jobId || n.id === jobId);
+    const highlightId = gNode ? gNode.id : jobId;
+
+    // Highlight on the graph
+    _pdgHighlightPipeline(highlightId);
+
+    // Scroll that node into view in the SVG
+    const pos = (_PDG._pos || {})[highlightId];
+    if (pos) {
+        const wrap = document.getElementById('pdg-svg-wrap');
+        if (wrap) {
+            const wRect = wrap.getBoundingClientRect();
+            // Center the node in the view
+            _PDG.panX = wRect.width  / 2 - (pos.x + (_PDG._NW||120)/2) * _PDG.zoom;
+            _PDG.panY = wRect.height / 2 - (pos.y + 20) * _PDG.zoom;
+            _pdgApplyTransform();
+        }
+    }
 }
 
 // ── Pan / zoom ─────────────────────────────────────────────────────
@@ -647,6 +786,100 @@ function _pdgShowNodeDetail(node) {
     }, 100);
 }
 
+// ── Maximize / restore the PDG modal ──────────────────────────────
+function _pdgToggleMaximize() {
+    const modalEl = document.querySelector('#pdg-modal .modal');
+    const btn = document.getElementById('pdg-maximize-btn');
+    if (!modalEl) return;
+    const isMax = modalEl.getAttribute('data-pdg-max') === '1';
+    if (isMax) {
+        modalEl.removeAttribute('data-pdg-max');
+        modalEl.style.width = '';
+        modalEl.style.maxHeight = '';
+        modalEl.style.height = '';
+        modalEl.style.borderRadius = '';
+        if (btn) btn.textContent = '⊞';
+    } else {
+        modalEl.setAttribute('data-pdg-max', '1');
+        modalEl.style.width = '100vw';
+        modalEl.style.maxHeight = '100vh';
+        modalEl.style.height = '100vh';
+        modalEl.style.borderRadius = '0';
+        if (btn) btn.textContent = '⊟';
+    }
+    // Re-render graph after resize
+    setTimeout(() => {
+        if (_PDG.graph && _PDG.graph.nodes.length) _pdgRenderGraph(_PDG.graph.nodes, _PDG.graph.edges, _PDG._pos || {});
+    }, 80);
+}
+
+// ── Highlight a pipeline and its connected nodes ────────────────────
+function _pdgHighlightPipeline(jobId) {
+    const svgEl = document.getElementById('pdg-svg');
+    if (!svgEl) return;
+
+    // Remove existing highlights
+    svgEl.querySelectorAll('.pdg-node-g').forEach(g => {
+        const rect = g.querySelector('rect');
+        if (rect) {
+            rect.style.filter = '';
+            rect.style.opacity = '1';
+        }
+    });
+    svgEl.querySelectorAll('path[data-from]').forEach(p => {
+        p.style.stroke = '';
+        p.style.strokeWidth = '';
+        p.style.opacity = '0.5';
+    });
+
+    if (!jobId) return; // just clear
+
+    // Find the node whose id matches
+    const nodes = _PDG.graph ? _PDG.graph.nodes : [];
+    const edges = _PDG.graph ? _PDG.graph.edges : [];
+
+    // Collect connected node ids (the pipeline itself + all its source/sink topics)
+    const relatedIds = new Set([jobId]);
+    edges.forEach(e => {
+        if (e.from === jobId) relatedIds.add(e.to);
+        if (e.to   === jobId) relatedIds.add(e.from);
+    });
+
+    // Dim all, then highlight related
+    svgEl.querySelectorAll('.pdg-node-g').forEach(g => {
+        let nodeId = null;
+        // Try to get id from data-node attribute
+        if (g.dataset.node) {
+            try { nodeId = JSON.parse(g.dataset.node.replace(/'/g, '"')).id; } catch(_) {}
+        }
+        const rect = g.querySelector('rect');
+        if (!rect) return;
+        if (nodeId && relatedIds.has(nodeId)) {
+            rect.style.filter = 'drop-shadow(0 0 6px var(--accent,#00d4aa))';
+            rect.style.opacity = '1';
+            // Pulse animation on the group
+            g.style.animation = 'pdg-spin 0s'; // trigger reflow
+            g.style.animation = '';
+        } else {
+            rect.style.filter = '';
+            rect.style.opacity = '0.35';
+        }
+    });
+
+    // Highlight edges connected to this pipeline
+    svgEl.querySelectorAll('path').forEach(p => {
+        const from = p.getAttribute('data-from');
+        const to   = p.getAttribute('data-to');
+        if (from && to && (from === jobId || to === jobId)) {
+            p.style.stroke = 'var(--accent,#00d4aa)';
+            p.style.strokeWidth = '2.5';
+            p.style.opacity = '1';
+        } else if (from && to) {
+            p.style.opacity = '0.15';
+        }
+    });
+}
+
 function _pdgApplyTransform() {
     const svg = document.getElementById('pdg-svg');
     if (svg) svg.style.transform = `translate(${_PDG.panX}px,${_PDG.panY}px) scale(${_PDG.zoom})`;
@@ -715,7 +948,11 @@ function _pdgBuildModal() {
       <button onclick="_PDG.zoom=1;_PDG.panX=0;_PDG.panY=0;_pdgApplyTransform()"
         style="font-size:10px;padding:3px 8px;border-radius:3px;border:1px solid var(--border);
         background:var(--bg3);color:var(--text3);cursor:pointer;">⊙ Reset</button>
-      <span style="font-size:10px;color:var(--text3);margin-left:4px;">scroll to zoom · drag to pan · dblclick to reset</span>
+      <button id="pdg-maximize-btn" onclick="_pdgToggleMaximize()"
+        title="Maximize / restore"
+        style="font-size:13px;padding:2px 8px;border-radius:3px;border:1px solid var(--border);
+        background:var(--bg3);color:var(--text3);cursor:pointer;line-height:1;">⊞</button>
+      <span style="font-size:10px;color:var(--text3);margin-left:4px;">scroll · drag · dblclick reset · drag nodes</span>
       <span id="pdg-status" style="margin-left:auto;font-size:10px;color:var(--text3);font-family:var(--mono);"></span>
     </div>
 

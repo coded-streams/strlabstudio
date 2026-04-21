@@ -121,128 +121,46 @@
             const lo = label.toLowerCase();
             let n = nodes.find(x => x.label.toLowerCase() === lo);
             if (!n) {
+                // Search all available SQL sources for a CREATE TABLE matching this label.
+                // _svpFindDdl also checks the current tab's raw sql first via DOM.
+                // Also directly search the raw sql passed to _parseSql (fastest path).
                 let ddl = '';
-
-                // ── Build a corpus of all SQL text we can access ──────────────
-                // Sources: current tab SQL, all other editor textareas, sessionStorage, localStorage
-                const _corpus = [sql]; // always include current tab first
-
-                // ── All textareas (other editor tabs) ────────────────────
-                try {
-                    document.querySelectorAll('textarea')
-                        .forEach(el => {
-                            if (el.value && el.value.length > 10 && el !== document.getElementById('sql-editor'))
-                                _corpus.push(el.value);
-                        });
-                } catch(_) {}
-
-                // ── CodeMirror editor instances ──────────────────────────
-                try {
-                    document.querySelectorAll('.CodeMirror').forEach(el => {
-                        if (el.CodeMirror) {
-                            const v = el.CodeMirror.getValue();
-                            if (v && v.length > 10) _corpus.push(v);
-                        }
-                    });
-                } catch(_) {}
-
-                // ── Studio global state (window.state / sessions / tabs) ─
-                try {
-                    ['state','_state','appState','sessions','_sessions','tabs','_tabs',
-                        'editorState','studioState','projectState'].forEach(key => {
-                        const obj = root[key];
-                        if (!obj) return;
-                        const arr = Array.isArray(obj) ? obj : Object.values(obj);
-                        arr.forEach(item => {
-                            if (typeof item === 'string' && item.length > 10) { _corpus.push(item); return; }
-                            if (!item || typeof item !== 'object') return;
-                            const s = item.sql || item.content || item.text || item.query || item.script || item.value || '';
-                            if (s && s.length > 10) _corpus.push(s);
-                            ['tabs','sessions','queries','scripts'].forEach(k => {
-                                if (Array.isArray(item[k])) item[k].forEach(t => {
-                                    const ts = typeof t === 'string' ? t : (t.sql || t.content || t.text || '');
-                                    if (ts && ts.length > 10) _corpus.push(ts);
-                                });
-                            });
-                        });
-                    });
-                } catch(_) {}
-
-                // ── sessionStorage / localStorage ────────────────────────
-                try {
-                    [sessionStorage, localStorage].forEach(store => {
-                        try {
-                            for (let i = 0; i < store.length; i++) {
-                                const key = store.key(i);
-                                if (!key || !/sql|tab|session|query|script|editor|content/i.test(key)) continue;
-                                try {
-                                    const val = store.getItem(key);
-                                    if (!val || val.length < 10) continue;
-                                    const c0 = val.trimStart()[0];
-                                    if (c0 === '[' || c0 === '{') {
-                                        try {
-                                            const parsed = JSON.parse(val);
-                                            const items = Array.isArray(parsed) ? parsed : Object.values(parsed);
-                                            items.forEach(item => {
-                                                const s = typeof item === 'string' ? item
-                                                    : (item.sql || item.content || item.text || item.query || '');
-                                                if (s && s.length > 10) _corpus.push(s);
-                                                if (Array.isArray(item.tabs)) item.tabs.forEach(t => {
-                                                    const ts = t.sql || t.content || t.text || '';
-                                                    if (ts && ts.length > 10) _corpus.push(ts);
-                                                });
-                                            });
-                                        } catch(_) { _corpus.push(val); }
-                                    } else { _corpus.push(val); }
-                                } catch(_) {}
-                            }
-                        } catch(_) {}
-                    });
-                } catch(_) {}
-
-                // ── Search corpus for matching CREATE TABLE DDL ───────────────
-                const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                const ddlRe1  = new RegExp(
+                const _esc2 = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const _re = new RegExp(
                     'CREATE\\s+(?:TEMPORARY\\s+)?TABLE\\s+(?:IF\\s+NOT\\s+EXISTS\\s+)?' +
-                    '[`\'\"]+?' + escaped + '[`\'\"]+?\\s*\\(', 'i'
+                    _esc2 + '\\s*\\(', 'i'
                 );
-                const ddlRe2  = new RegExp(
-                    'CREATE\\s+(?:TEMPORARY\\s+)?TABLE\\s+(?:IF\\s+NOT\\s+EXISTS\\s+)?' +
-                    escaped + '\\s*\\(', 'i'
-                );
-
-                // Extract DDL from a source string starting at a match index
-                const _extractDdl = (src, matchIdx) => {
-                    let depth = 0, pos = matchIdx, inBody = false;
-                    while (pos < src.length) {
-                        const ch = src[pos];
+                const _m = _re.exec(sql);
+                if (_m) {
+                    // Fast path: found in current tab's raw sql
+                    let depth = 0, pos = _m.index, inBody = false;
+                    while (pos < sql.length) {
+                        const ch = sql[pos];
                         if (ch === '(')      { depth++; inBody = true; }
                         else if (ch === ')') { depth--; }
                         else if (ch === ';' && depth === 0 && inBody) { pos++; break; }
                         pos++;
                         if (inBody && depth === 0) {
-                            const rest = src.slice(pos);
-                            const withM = rest.match(/^\s*WITH\s*\(/i);
-                            if (withM) {
+                            const rest = sql.slice(pos);
+                            const wm = rest.match(/^\s*WITH\s*\(/i);
+                            if (wm) {
                                 pos += rest.indexOf('(') + 1;
                                 let d2 = 1;
-                                while (pos < src.length && d2 > 0) {
-                                    if (src[pos] === '(') d2++;
-                                    else if (src[pos] === ')') d2--;
+                                while (pos < sql.length && d2 > 0) {
+                                    if (sql[pos] === '(') d2++;
+                                    else if (sql[pos] === ')') d2--;
                                     pos++;
                                 }
                             }
-                            const semi = src.slice(pos).match(/^\s*;/);
+                            const semi = sql.slice(pos).match(/^\s*;/);
                             if (semi) pos += semi[0].length;
                             break;
                         }
                     }
-                    return src.slice(matchIdx, pos).trim();
-                };
-
-                for (const src of _corpus) {
-                    const m = ddlRe1.exec(src) || ddlRe2.exec(src);
-                    if (m) { ddl = _extractDdl(src, m.index); break; }
+                    ddl = sql.slice(_m.index, pos).trim();
+                } else {
+                    // Slow path: search all other accessible SQL sources
+                    ddl = _svpFindDdl(label);
                 }
 
                 n = { id: uid(), label, type, sql: ddl };
@@ -617,6 +535,137 @@
         return positioned;
     }
 
+    // ── Live DDL lookup (used by both parser and modal) ─────────────────
+    // Builds a corpus of all SQL accessible in the browser right now and
+    // searches it for a CREATE TABLE matching the given table name.
+    function _svpFindDdl(label) {
+        const corpus = [];
+
+        // 1. Current editor tab
+        try {
+            const ed = document.getElementById('sql-editor');
+            if (ed && ed.value) corpus.push(ed.value);
+        } catch(_) {}
+
+        // 2. All textarea elements (other open tabs)
+        try {
+            document.querySelectorAll('textarea').forEach(el => {
+                if (el.value && el.value.length > 10 && el !== document.getElementById('sql-editor'))
+                    corpus.push(el.value);
+            });
+        } catch(_) {}
+
+        // 3. CodeMirror instances
+        try {
+            document.querySelectorAll('.CodeMirror').forEach(el => {
+                if (el.CodeMirror) {
+                    const v = el.CodeMirror.getValue();
+                    if (v && v.length > 10) corpus.push(v);
+                }
+            });
+        } catch(_) {}
+
+        // 4. Studio global state objects
+        try {
+            ['state','_state','appState','sessions','_sessions','tabs','_tabs',
+                'editorState','studioState','projectState'].forEach(key => {
+                const obj = window[key];
+                if (!obj) return;
+                const arr = Array.isArray(obj) ? obj : Object.values(obj);
+                arr.forEach(item => {
+                    if (typeof item === 'string' && item.length > 10) { corpus.push(item); return; }
+                    if (!item || typeof item !== 'object') return;
+                    const s = item.sql || item.content || item.text || item.query || item.script || item.value || '';
+                    if (s && s.length > 10) corpus.push(s);
+                    ['tabs','sessions','queries','scripts'].forEach(k => {
+                        if (Array.isArray(item[k])) item[k].forEach(t => {
+                            const ts = typeof t === 'string' ? t : (t.sql || t.content || t.text || '');
+                            if (ts && ts.length > 10) corpus.push(ts);
+                        });
+                    });
+                });
+            });
+        } catch(_) {}
+
+        // 5. sessionStorage / localStorage
+        try {
+            [sessionStorage, localStorage].forEach(store => {
+                try {
+                    for (let i = 0; i < store.length; i++) {
+                        const key = store.key(i);
+                        if (!key || !/sql|tab|session|query|script|editor|content/i.test(key)) continue;
+                        try {
+                            const val = store.getItem(key);
+                            if (!val || val.length < 10) continue;
+                            const c0 = val.trimStart()[0];
+                            if (c0 === '[' || c0 === '{') {
+                                try {
+                                    const parsed = JSON.parse(val);
+                                    const items = Array.isArray(parsed) ? parsed : Object.values(parsed);
+                                    items.forEach(item => {
+                                        const s = typeof item === 'string' ? item
+                                            : (item.sql || item.content || item.text || item.query || '');
+                                        if (s && s.length > 10) corpus.push(s);
+                                        if (Array.isArray(item.tabs)) item.tabs.forEach(t => {
+                                            const ts = t.sql || t.content || t.text || '';
+                                            if (ts && ts.length > 10) corpus.push(ts);
+                                        });
+                                    });
+                                } catch(_) { corpus.push(val); }
+                            } else { corpus.push(val); }
+                        } catch(_) {}
+                    }
+                } catch(_) {}
+            });
+        } catch(_) {}
+
+        if (!corpus.length) return '';
+
+        // Search corpus for CREATE TABLE <label>
+        const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const re1 = new RegExp(
+            'CREATE\\s+(?:TEMPORARY\\s+)?TABLE\\s+(?:IF\\s+NOT\\s+EXISTS\\s+)?' +
+            '[`\'\"]+?' + escaped + '[`\'\"]+?\\s*\\(', 'i'
+        );
+        const re2 = new RegExp(
+            'CREATE\\s+(?:TEMPORARY\\s+)?TABLE\\s+(?:IF\\s+NOT\\s+EXISTS\\s+)?' +
+            escaped + '\\s*\\(', 'i'
+        );
+
+        for (const src of corpus) {
+            const m = re1.exec(src) || re2.exec(src);
+            if (!m) continue;
+            // Extract full DDL including WITH block and semicolon
+            let depth = 0, pos = m.index, inBody = false;
+            while (pos < src.length) {
+                const ch = src[pos];
+                if (ch === '(')      { depth++; inBody = true; }
+                else if (ch === ')') { depth--; }
+                else if (ch === ';' && depth === 0 && inBody) { pos++; break; }
+                pos++;
+                if (inBody && depth === 0) {
+                    const rest = src.slice(pos);
+                    const withM = rest.match(/^\s*WITH\s*\(/i);
+                    if (withM) {
+                        pos += rest.indexOf('(') + 1;
+                        let d2 = 1;
+                        while (pos < src.length && d2 > 0) {
+                            if (src[pos] === '(') d2++;
+                            else if (src[pos] === ')') d2--;
+                            pos++;
+                        }
+                    }
+                    const semi = src.slice(pos).match(/^\s*;/);
+                    if (semi) pos += semi[0].length;
+                    break;
+                }
+            }
+            const ddl = src.slice(m.index, pos).trim();
+            if (ddl) return ddl;
+        }
+        return '';
+    }
+
     // ── Render ─────────────────────────────────────────────────────────
     function _render() {
         const vp = document.getElementById(VIEWPORT_ID);
@@ -912,26 +961,108 @@
           </div>`);
             }
 
-            // ── Named table — no DDL in this script ──────────────────────
+            // ── Named table — DDL not in parsed SQL; try live lookup ──────
             else if (!sql) {
-                const dir = type === 'source' ? 'Reading from' : 'Writing to';
-                const dirIcon = type === 'source' ? '↪' : '↩';
-                bodyHtml += `
-          <div style="display:flex;align-items:center;gap:10px;padding:10px 0 14px;">
-            <span style="font-size:22px;opacity:0.6;">${dirIcon}</span>
-            <div>
-              <div style="font-size:13px;font-weight:700;color:var(--text0);font-family:var(--mono);">
-                ${_esc(title)}
-              </div>
-              <div style="font-size:10px;color:var(--text3);margin-top:2px;">${dir}</div>
-            </div>
-          </div>
-          <div style="padding:10px 12px;background:var(--bg0);border:1px solid var(--border);
-            border-radius:6px;font-size:11px;color:var(--text3);line-height:1.8;">
-            No <code style="font-size:10px;color:var(--text2);">CREATE TABLE</code> definition found in this script.
-            This table is defined in a prior session or a separate tab —
-            connector and schema details aren't available here.
+                // Do a fresh search right now across all open tabs + storage
+                const liveDdl = _svpFindDdl(title);
+                if (liveDdl) {
+                    // Found DDL in another tab — parse and display it
+                    const props = parseWith(liveDdl);
+                    const cols  = parseColumns(liveDdl);
+                    const wm    = parseWatermark(liveDdl);
+                    const connector = props['connector'] || props['type'] || null;
+
+                    if (connector || Object.keys(props).length) {
+                        let connHtml = '';
+                        if (connector) {
+                            const connColor = {
+                                kafka:'#4fa3e0', 'upsert-kafka':'#60a5fa', datagen:'#34d399',
+                                jdbc:'#a78bfa', elasticsearch:'#e879f9', blackhole:'#6b7280',
+                                print:'#6b7280', filesystem:'#fb923c', redis:'#f5c518',
+                                pulsar:'#60a5fa', kinesis:'#00d4aa', mongodb:'#47a248'
+                            }[connector.toLowerCase()] || c.border;
+                            connHtml += kv('connector', `<span style="color:${connColor};font-weight:700;">${_esc(connector.toUpperCase())}</span>`);
+                        }
+                        if (props['topic'])                              connHtml += kv('topic',       `<span style="color:var(--accent);">${_esc(props['topic'])}</span>`);
+                        if (props['properties.bootstrap.servers'])       connHtml += kv('bootstrap',   _esc(props['properties.bootstrap.servers'].slice(0,60)));
+                        if (props['properties.group.id'])                connHtml += kv('group.id',    _esc(props['properties.group.id']));
+                        if (props['scan.startup.mode'])                  connHtml += kv('startup',     _esc(props['scan.startup.mode']));
+                        if (props['rows-per-second'])                    connHtml += kv('rows/s',      `<span style="color:var(--green);">${_esc(props['rows-per-second'])}</span>`);
+                        if (props['number-of-rows'])                     connHtml += kv('# rows',      _esc(props['number-of-rows']));
+                        if (props['format'])                             connHtml += kv('format',      _esc(props['format']));
+                        if (props['json.fail-on-missing-field'])         connHtml += kv('fail-missing',_esc(props['json.fail-on-missing-field']));
+                        if (props['json.ignore-parse-errors'])           connHtml += kv('ignore-errs', _esc(props['json.ignore-parse-errors']));
+                        if (props['avro-confluent.schema-registry.url']) connHtml += kv('schema-reg',  _esc(props['avro-confluent.schema-registry.url'].slice(0,50)));
+                        if (props['avro-confluent.schema-id'])           connHtml += kv('schema-id',   _esc(props['avro-confluent.schema-id']));
+                        if (props['url'])                                connHtml += kv('url',         _esc(props['url'].slice(0,70)));
+                        if (props['table-name'])                         connHtml += kv('table-name',  _esc(props['table-name']));
+                        if (props['index'])                              connHtml += kv('index',       _esc(props['index']));
+                        if (props['username'])                           connHtml += kv('username',    _esc(props['username']));
+                        if (props['path'] || props['file.path'])         connHtml += kv('path',        _esc(props['path'] || props['file.path']));
+                        if (props['sink.rolling-policy.file-size'])      connHtml += kv('roll-size',   _esc(props['sink.rolling-policy.file-size']));
+                        if (props['sink.parallelism'])                   connHtml += kv('parallelism', _esc(props['sink.parallelism']));
+                        if (props['sink.buffer-flush.max-rows'])         connHtml += kv('flush-rows',  _esc(props['sink.buffer-flush.max-rows']));
+                        bodyHtml += section('Connector', connHtml || noData('No WITH properties found.'));
+                    }
+
+                    if (cols.length) {
+                        const colRows = cols.map(col => {
+                            const extraPills = col.extras.map(e => {
+                                const color = e==='PK'?'#f5c518':e==='NOT NULL'?'#e879f9':e==='METADATA'?'#60a5fa':e==='VIRTUAL'?'#34d399':'#9ca3af';
+                                return pill(e, color);
+                            }).join(' ');
+                            return `<div style="display:flex;align-items:center;gap:8px;padding:4px 8px;
+                border-bottom:1px solid rgba(255,255,255,0.04);font-family:var(--mono);">
+                <span style="font-size:11px;color:${c.text};flex:1;white-space:nowrap;overflow:hidden;
+                  text-overflow:ellipsis;">${_esc(col.name)}</span>
+                <span style="font-size:10px;color:${c.border};flex-shrink:0;">${_esc(col.type)}</span>
+                ${extraPills ? `<span style="display:flex;gap:4px;flex-shrink:0;">${extraPills}</span>` : ''}
+              </div>`;
+                        }).join('');
+                        const header = `<div style="display:flex;gap:8px;padding:3px 8px 5px;
+              border-bottom:1px solid rgba(255,255,255,0.08);font-family:var(--mono);">
+              <span style="font-size:9px;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);flex:1;">Column</span>
+              <span style="font-size:9px;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);">Type</span>
+            </div>`;
+                        bodyHtml += section(`Schema (${cols.length} column${cols.length!==1?'s':''})`, header + colRows);
+                    } else {
+                        bodyHtml += section('DDL', codeSnippet(liveDdl.slice(0,400)));
+                    }
+
+                    if (wm) {
+                        bodyHtml += section('Watermark',
+                            kv('event-time col', `<span style="color:${c.text};">${_esc(wm.col)}</span>`) +
+                            kv('strategy', _esc(wm.expr))
+                        );
+                    }
+
+                    // Note that DDL came from another tab
+                    bodyHtml += `<div style="margin-top:8px;font-size:9px;color:var(--text3);
+            font-style:italic;border-top:1px solid rgba(255,255,255,0.05);padding-top:6px;">
+            DDL resolved from another open tab
           </div>`;
+
+                } else {
+                    // Genuinely not found anywhere
+                    const dir = type === 'source' ? 'Reading from' : 'Writing to';
+                    const dirIcon = type === 'source' ? '↪' : '↩';
+                    bodyHtml += `
+            <div style="display:flex;align-items:center;gap:10px;padding:10px 0 14px;">
+              <span style="font-size:22px;opacity:0.6;">${dirIcon}</span>
+              <div>
+                <div style="font-size:13px;font-weight:700;color:var(--text0);font-family:var(--mono);">
+                  ${_esc(title)}
+                </div>
+                <div style="font-size:10px;color:var(--text3);margin-top:2px;">${dir}</div>
+              </div>
+            </div>
+            <div style="padding:10px 12px;background:var(--bg0);border:1px solid var(--border);
+              border-radius:6px;font-size:11px;color:var(--text3);line-height:1.8;">
+              No <code style="font-size:10px;color:var(--text2);">CREATE TABLE</code> definition found.
+              Open the tab containing this table's DDL alongside this one,
+              or add the DDL to this script.
+            </div>`;
+                }
             }
 
             // ── Named table — DDL found ─────────────────────────────────
