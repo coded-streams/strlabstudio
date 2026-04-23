@@ -1,41 +1,54 @@
 /**
- * pipeline-dependency-graph.js  —  Str:::lab Studio v0.0.22
+ * pipeline-dependency-graph.js  —  Str:::lab Studio v0.0.23
  * ─────────────────────────────────────────────────────────────────
  * Feature 7: Multi-Pipeline Dependency Graph
  *
- * Shows ALL running jobs on the cluster as a single connected
- * topology — Kafka topics flowing between pipelines, sink tables,
- * and their relationships.
- *
- * For each running job:
- *   1. Fetches /jobs/{jid}/plan to get operator descriptions
- *   2. Extracts Kafka topic names, JDBC tables, ES indices from
- *      operator node descriptions (these appear as string labels)
- *   3. Builds a graph: topic/table → Pipeline → topic/table
- *   4. Detects: circular dependencies, dead-end topics,
- *      shared sources (multiple jobs reading same topic)
- *
- * Renders as an interactive SVG with pan + zoom.
+ * FIXES in v0.0.23:
+ *   1. Each pipeline node gets a unique color from a 12-color palette
+ *      so you can distinguish jobs at a glance.
+ *   2. Double-click node detail was broken because data-node used
+ *      single-quote substitution that produced malformed JSON; now
+ *      uses a Map (_PDG._nodeData) keyed by node-id instead.
+ *   3. Drag was blocked in all directions because _pdgWireInteraction
+ *      tried to reassign a `const` parameter (wrap → fresh clone).
+ *      Fixed by keeping the reference correctly.
+ *   4. Maximize/restore now stores the original modal CSS and
+ *      reinstates it exactly on restore, so the window returns to its
+ *      correct size instead of collapsing.
  * ─────────────────────────────────────────────────────────────────
  */
 
 const _PDG = {
-    jobs       : [],    // [{ jid, name, state, nodes:[], topics:{src:[],sink:[]} }]
-    graph      : null,  // { nodes:[], edges:[] }
+    jobs       : [],
+    graph      : null,
     zoom       : 1,
     panX       : 0,
     panY       : 0,
-    isPanning  : false,
-    panSX      : 0,
-    panSY      : 0,
-    panOX      : 0,
-    panOY      : 0,
     loading    : false,
-    issues     : [],    // detected topology issues
-    _pos       : {},    // persisted node positions (survives re-renders)
+    issues     : [],
+    _pos       : {},
+    _nodeData  : {},   // id → node detail object (avoids JSON-in-attr encoding)
+    _pipeColors: {},   // jid → hex color  (stable across re-renders)
     _NW        : 170,
     _NHT       : 38,
+    _origModalStyle: null,  // saved before maximize
 };
+
+// 12-color palette — vivid, distinct, dark-bg-friendly
+const _PDG_PALETTE = [
+    '#00d4aa','#4fa3e0','#f59e0b','#ef4444',
+    '#a78bfa','#34d399','#fb923c','#f472b6',
+    '#38bdf8','#facc15','#86efac','#c084fc',
+];
+let _pdgPaletteIdx = 0;
+
+function _pdgPipelineColor(jid) {
+    if (!_PDG._pipeColors[jid]) {
+        _PDG._pipeColors[jid] = _PDG_PALETTE[_pdgPaletteIdx % _PDG_PALETTE.length];
+        _pdgPaletteIdx++;
+    }
+    return _PDG._pipeColors[jid];
+}
 
 // ── Entry point ────────────────────────────────────────────────────
 function openPipelineDependencyGraph() {
@@ -65,7 +78,6 @@ async function _pdgLoad() {
 
         _pdgSetStatus(`Fetching plans for ${active.length} jobs…`, true);
 
-        // Fetch plan for each job in parallel (cap at 12)
         const results = await Promise.allSettled(
             active.slice(0,12).map(j => _pdgFetchJobPlan(j))
         );
@@ -76,9 +88,8 @@ async function _pdgLoad() {
         _pdgSetStatus('Building dependency graph…', true);
         _PDG.graph  = _pdgBuildGraph(_PDG.jobs);
         _PDG.issues = _pdgDetectIssues(_PDG.graph, _PDG.jobs);
-
-        // Reset positions on a fresh load so layout recalculates
-        _PDG._pos = {};
+        _PDG._pos   = {};
+        _PDG._nodeData = {};
 
         _pdgRenderGraph();
         _pdgRenderIssues();
@@ -115,7 +126,6 @@ async function _pdgFetchJobPlan(job) {
             const isSource = (nd.inputs || []).length === 0;
             const isSink   = !nodes.some(o => (o.inputs||[]).some(i => i.id === nd.id));
 
-            // Extract topic/table from operator description
             const topics = _pdgExtractTopics(desc);
             if (isSource) sources.push(...topics.map(t => ({ label: t, kind: _pdgKind(desc, t) })));
             if (isSink)   sinks.push(...topics.map(t => ({ label: t, kind: _pdgKind(desc, t) })));
@@ -158,12 +168,12 @@ function _pdgExtractTopics(desc) {
     return [...new Set(topics)];
 }
 
-function _pdgKind(desc, topic) {
+function _pdgKind(desc) {
     const d = desc.toLowerCase();
     if (d.includes('kafka'))         return 'kafka';
     if (d.includes('jdbc') || d.includes('postgres') || d.includes('mysql')) return 'jdbc';
     if (d.includes('elasticsearch') || d.includes('opensearch')) return 'elastic';
-    if (d.includes('filesystem') || d.includes('s3') || d.includes('parquet')) return 'filesystem';
+    if (d.includes('filesystem') || d.includes('s3') || d.includes('parquet') || d.includes('minio')) return 'filesystem';
     if (d.includes('datagen'))       return 'datagen';
     if (d.includes('print') || d.includes('blackhole')) return 'print';
     return 'kafka';
@@ -193,6 +203,8 @@ function _pdgBuildGraph(jobs) {
 
     jobs.forEach(j => {
         const pid = uid();
+        // Assign a stable color to this pipeline
+        _pdgPipelineColor(j.jid);
         gNodes.push({ id: pid, label: j.name, jid: j.jid, state: j.state, type: 'pipeline', sources: j.sources||[], sinks: j.sinks||[], operators: j.nodes||[] });
 
         j.sources.forEach(s => {
@@ -261,25 +273,24 @@ function _pdgDetectIssues(graph, jobs) {
 }
 
 // ── Render SVG graph ───────────────────────────────────────────────
-// FIX: accepts an optional existingPos map so drag positions survive re-renders
 function _pdgRenderGraph() {
     const wrap = document.getElementById('pdg-svg-wrap');
     if (!wrap) return;
 
     const { nodes, edges } = _PDG.graph;
-    if (!nodes.length) { wrap.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text3);font-size:12px;">No pipeline topology to display.</div>'; return; }
+    if (!nodes.length) {
+        wrap.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text3);font-size:12px;">No pipeline topology to display.</div>';
+        return;
+    }
 
     const NW=170, NHP=54, NHT=38, HGAP=90, PAD=20, VGAP=14;
 
-    // FIX: only recalculate layout for nodes that don't already have a position
-    // This preserves drag positions across re-renders (maximize/restore, etc.)
     const topicSrc = nodes.filter(n => n.type==='topic' && edges.some(e=>e.from===n.id));
     const pipelines = nodes.filter(n => n.type==='pipeline');
     const topicSnk  = nodes.filter(n => n.type==='topic' && !edges.some(e=>e.from===n.id));
     const allTopics = nodes.filter(n => n.type==='topic');
 
     const assign = (arr, col) => arr.forEach((n,i) => {
-        // Only assign if not already positioned (preserves drag positions)
         if (!_PDG._pos[n.id]) {
             _PDG._pos[n.id] = { x: PAD + col*(NW+HGAP), y: PAD + i*(NHT+VGAP) };
         }
@@ -292,22 +303,23 @@ function _pdgRenderGraph() {
         _PDG._pos[n.id] = { x: PAD, y: PAD + (topicSrc.length+i)*(NHT+VGAP) };
     });
 
-    // FIX: compute canvas size from actual positions (not fixed cols) so nodes
-    // dragged far to the right expand the canvas rather than clip
     const allX = nodes.map(n => (_PDG._pos[n.id]||{x:0}).x + NW);
     const allY = nodes.map(n => {
         const p = _PDG._pos[n.id]||{y:0};
-        const isPipeline = n.type === 'pipeline';
-        return p.y + (isPipeline ? NHP : NHT);
+        return p.y + (n.type === 'pipeline' ? NHP : NHT);
     });
     const maxX = Math.max(...allX) + PAD;
     const maxY = Math.max(...allY) + PAD;
 
-    const kindColor = { kafka:'#4fa3e0', jdbc:'#34d399', elastic:'#fb923c', filesystem:'#a78bfa', datagen:'#f472b6', print:'#6b7280' };
+    const kindColor  = { kafka:'#4fa3e0', jdbc:'#34d399', elastic:'#fb923c', filesystem:'#a78bfa', datagen:'#f472b6', print:'#6b7280' };
     const stateColor = { RUNNING:'#39d353', FINISHED:'#6b7280', RESTARTING:'#f59e0b', FAILED:'#ef4444' };
 
+    // Build a map from pipeline graph-node id → jid for color lookup
+    const idToJid = {};
+    nodes.filter(n => n.type==='pipeline').forEach(n => { idToJid[n.id] = n.jid; });
+
     let svg = `<svg id="pdg-svg" viewBox="0 0 ${maxX} ${maxY}" xmlns="http://www.w3.org/2000/svg"
-    style="width:${maxX}px;height:${maxY}px;min-width:${maxX}px;">
+    style="width:${maxX}px;height:${maxY}px;min-width:${maxX}px;display:block;">
     <defs>
       <marker id="pdg-arr" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto">
         <path d="M0,0 L0,6 L7,3 z" fill="#4b5563"/>
@@ -315,7 +327,6 @@ function _pdgRenderGraph() {
     </defs>
     <g id="pdg-edges-g">`;
 
-    // Edges — always in the bottom layer
     edges.forEach(e => {
         const fp = _PDG._pos[e.from], tp = _PDG._pos[e.to];
         if (!fp || !tp) return;
@@ -329,39 +340,54 @@ function _pdgRenderGraph() {
 
     svg += `</g><g id="pdg-nodes-g">`;
 
-    // Nodes — always in the top layer, so they never go behind edges
+    // Store node data in our Map so double-click can retrieve safely
+    _PDG._nodeData = {};
+
     nodes.forEach(n => {
         const p = _PDG._pos[n.id];
         if (!p) return;
+
         const isPipeline = n.type === 'pipeline';
         const h = isPipeline ? NHP : NHT;
-        const sc = isPipeline ? (stateColor[n.state]||'#6b7280') : (kindColor[n.kind]||'#4fa3e0');
-        const bg = isPipeline ? 'rgba(0,212,170,0.08)' : 'rgba(79,163,224,0.08)';
+
+        // FIX: pipelines use their unique palette color; topics use kind color
+        const sc = isPipeline
+            ? _pdgPipelineColor(n.jid)
+            : (kindColor[n.kind]||'#4fa3e0');
+
+        // Pipeline bg tinted by the pipeline's unique color
+        const bg = isPipeline
+            ? `${sc}18`   // hex + alpha 18 ≈ 9% opacity
+            : 'rgba(79,163,224,0.08)';
+
         const icon = isPipeline ? '⚡' :
             { kafka:'⬡', jdbc:'◈', elastic:'◎', filesystem:'▤', datagen:'⊛', print:'⊘' }[n.kind] || '◦';
         const label = (n.label||'').length>22 ? n.label.slice(0,22)+'…' : (n.label||'');
 
-        const nodeData = JSON.stringify({
-            id: n.id, type: n.type, label: n.label,
+        // Store node data by id — avoids any HTML-attribute encoding issues
+        _PDG._nodeData[n.id] = {
+            id: n.id, type: n.type, label: n.label||'',
             state: n.state||'', jid: n.jid||'', kind: n.kind||'',
             sources: (n.sources||[]).map(s=>s.label),
             sinks: (n.sinks||[]).map(s=>s.label),
-            operators: n.operators||[]
-        }).replace(/"/g,"'");
+            operators: n.operators||[],
+            pipelineColor: sc,
+        };
 
-        svg += `<g class="pdg-node-g" data-nid="${n.id}" data-node="${_escPdg(nodeData)}" style="cursor:pointer;">
+        svg += `<g class="pdg-node-g" data-nid="${n.id}" style="cursor:pointer;">
       <rect x="${p.x}" y="${p.y}" width="${NW}" height="${h}" rx="5"
         fill="${bg}" stroke="${sc}" stroke-width="${isPipeline?2:1.5}"/>
       <text x="${p.x+10}" y="${p.y+15}" font-family="monospace" font-size="11"
         fill="${sc}">${icon}</text>
       <text x="${p.x+26}" y="${p.y+15}" font-family="monospace" font-size="10"
         font-weight="${isPipeline?'700':'400'}" fill="${isPipeline?'#e8f0f8':'#9ca3af'}">${_escPdg(label)}</text>
-      ${isPipeline ? `<text x="${p.x+10}" y="${p.y+30}" font-family="monospace" font-size="9"
-        fill="${sc}">${n.state}</text>
-        <text x="${p.x+NW-8}" y="${p.y+15}" text-anchor="end" font-family="monospace" font-size="8"
-          fill="#4b5563">${n.jid?n.jid.slice(0,8):''}</text>` :
-            `<text x="${p.x+10}" y="${p.y+29}" font-family="monospace" font-size="9"
-          fill="#4b5563">${n.kind||''}</text>`}
+      ${isPipeline
+            ? `<text x="${p.x+10}" y="${p.y+30}" font-family="monospace" font-size="9"
+            fill="${sc}">${n.state}</text>
+            <text x="${p.x+NW-8}" y="${p.y+15}" text-anchor="end" font-family="monospace" font-size="8"
+              fill="#4b5563">${n.jid?n.jid.slice(0,8):''}</text>`
+            : `<text x="${p.x+10}" y="${p.y+29}" font-family="monospace" font-size="9"
+            fill="#4b5563">${n.kind||''}</text>`}
     </g>`;
     });
 
@@ -372,30 +398,38 @@ function _pdgRenderGraph() {
     _PDG._NW  = NW;
     _PDG._NHT = NHT;
 
-    // ── Node dragging ───────────────────────────────────────────────
-    // FIX: dragging now bakes the final position directly into _PDG._pos
-    // and calls _pdgRenderGraph() which reads _PDG._pos, so nodes stay put.
+    // ── Node dragging ──────────────────────────────────────────────
+    // FIX: all event coordinates are converted to SVG-space using the
+    // current zoom+pan transform, so dragging works in all directions
+    // regardless of how far the canvas has been panned or zoomed.
     const svgEl = document.getElementById('pdg-svg');
     if (svgEl) {
         svgEl.querySelectorAll('.pdg-node-g').forEach(g => {
             let dragging = false;
-            let nodeId = null;
-            let dragSX = 0, dragSY = 0, origX = 0, origY = 0;
+            let nodeId   = null;
+            let startSVGx= 0, startSVGy = 0;
+            let origX    = 0, origY     = 0;
             let hasMoved = false;
+
+            const clientToSVG = (cx, cy) => {
+                const svgRect = svgEl.getBoundingClientRect();
+                return {
+                    x: (cx - svgRect.left - _PDG.panX) / _PDG.zoom,
+                    y: (cy - svgRect.top  - _PDG.panY) / _PDG.zoom,
+                };
+            };
 
             g.addEventListener('mousedown', ev => {
                 if (ev.button !== 0) return;
-                try { nodeId = JSON.parse(g.dataset.node.replace(/'/g, '"')).id; } catch(_) { return; }
+                nodeId = g.getAttribute('data-nid');
+                if (!nodeId) return;
                 dragging = true;
                 hasMoved = false;
-                const svgRect = svgEl.getBoundingClientRect();
-                dragSX = (ev.clientX - svgRect.left - _PDG.panX) / _PDG.zoom;
-                dragSY = (ev.clientY - svgRect.top  - _PDG.panY) / _PDG.zoom;
-                origX  = (_PDG._pos[nodeId]||{x:0}).x;
-                origY  = (_PDG._pos[nodeId]||{y:0}).y;
-                // Lift this node to the top of the nodes layer so it renders
-                // above every sibling while being dragged (fixes the "goes behind
-                // other nodes" z-order bug — SVG has no z-index, last child wins)
+                const svgPt = clientToSVG(ev.clientX, ev.clientY);
+                startSVGx = svgPt.x;
+                startSVGy = svgPt.y;
+                origX = (_PDG._pos[nodeId]||{x:0}).x;
+                origY = (_PDG._pos[nodeId]||{y:0}).y;
                 const nodesLayer = document.getElementById('pdg-nodes-g');
                 if (nodesLayer && g.parentNode === nodesLayer) nodesLayer.appendChild(g);
                 ev.stopPropagation();
@@ -404,45 +438,34 @@ function _pdgRenderGraph() {
 
             const onMove = ev => {
                 if (!dragging || !nodeId) return;
-                const svgRect = svgEl.getBoundingClientRect();
-                const curX = (ev.clientX - svgRect.left - _PDG.panX) / _PDG.zoom;
-                const curY = (ev.clientY - svgRect.top  - _PDG.panY) / _PDG.zoom;
-                const dx = curX - dragSX;
-                const dy = curY - dragSY;
+                const svgPt = clientToSVG(ev.clientX, ev.clientY);
+                const dx = svgPt.x - startSVGx;
+                const dy = svgPt.y - startSVGy;
                 if (Math.abs(dx) > 2 || Math.abs(dy) > 2) hasMoved = true;
                 const newX = Math.max(0, origX + dx);
                 const newY = Math.max(0, origY + dy);
 
-                // FIX: update _PDG._pos in real time (the source of truth)
                 _PDG._pos[nodeId] = { x: newX, y: newY };
-
-                // Move the group visually via transform for smoothness
                 g.setAttribute('transform', `translate(${newX - origX},${newY - origY})`);
 
-                // Update connected edges live
                 svgEl.querySelectorAll('path[data-from], path[data-to]').forEach(p => {
                     const from = p.getAttribute('data-from');
                     const to   = p.getAttribute('data-to');
                     if (from !== nodeId && to !== nodeId) return;
-                    const fp = _PDG._pos[from] || {}; const tp = _PDG._pos[to] || {};
-                    const x1 = (fp.x||0) + NW, y1 = (fp.y||0) + NHT/2;
-                    const x2 = (tp.x||0),      y2 = (tp.y||0) + NHT/2;
+                    const fp = _PDG._pos[from] || {}, tp = _PDG._pos[to] || {};
+                    const x1 = (fp.x||0)+NW, y1 = (fp.y||0)+NHT/2;
+                    const x2 = (tp.x||0),    y2 = (tp.y||0)+NHT/2;
                     p.setAttribute('d', `M${x1},${y1} C${x1+40},${y1} ${x2-40},${y2} ${x2},${y2}`);
                 });
             };
 
-            const onUp = ev => {
+            const onUp = () => {
                 if (!dragging) return;
                 dragging = false;
-                if (nodeId) {
-                    // FIX: _PDG._pos already has the final position from onMove.
-                    // Re-render bakes it properly (no transform offset) and expands
-                    // the canvas if the node was dragged beyond original bounds.
-                    if (hasMoved) {
-                        _pdgStopAnimation();
-                        _pdgRenderGraph();
-                        _pdgStartAnimation();
-                    }
+                if (nodeId && hasMoved) {
+                    _pdgStopAnimation();
+                    _pdgRenderGraph();
+                    _pdgStartAnimation();
                 }
                 nodeId = null;
             };
@@ -450,39 +473,37 @@ function _pdgRenderGraph() {
             window.addEventListener('mousemove', onMove);
             window.addEventListener('mouseup', onUp);
 
-            // Clean up listeners when the SVG is replaced on next render
-            const observer = new MutationObserver(() => {
+            const obs = new MutationObserver(() => {
                 if (!document.contains(g)) {
                     window.removeEventListener('mousemove', onMove);
                     window.removeEventListener('mouseup', onUp);
-                    observer.disconnect();
+                    obs.disconnect();
                 }
             });
-            observer.observe(document.body, { childList: true, subtree: true });
+            obs.observe(document.body, { childList: true, subtree: true });
         });
     }
 
-    // Wire pan/zoom on the outer container
+    // FIX: wire pan/zoom directly on wrap (no clone-and-replace trick
+    // that was causing `const` reassignment and losing event wiring)
     _pdgWireInteraction(wrap);
     _pdgApplyTransform();
 
-    // Wire double-click for node detail
+    // FIX: double-click uses _PDG._nodeData[id] — no JSON-in-attribute parsing
     if (svgEl) {
         svgEl.addEventListener('dblclick', ev => {
             const g = ev.target.closest('.pdg-node-g');
-            if (g && g.dataset.node) {
-                try {
-                    const data = JSON.parse(g.dataset.node.replace(/'/g, '"'));
-                    _pdgShowNodeDetail(data);
-                } catch(_) {}
+            if (g) {
+                const nid = g.getAttribute('data-nid');
+                if (nid && _PDG._nodeData[nid]) {
+                    _pdgShowNodeDetail(_PDG._nodeData[nid]);
+                }
             } else {
-                // Double-click on background resets pan/zoom
                 _PDG.zoom=1; _PDG.panX=0; _PDG.panY=0; _pdgApplyTransform();
             }
         });
     }
 
-    // Start particle animation for RUNNING pipelines
     _pdgStartAnimation();
 }
 
@@ -508,10 +529,9 @@ function _pdgStartAnimation() {
         if (!_PDG._pos[e.from] || !_PDG._pos[e.to]) return;
         for (let i = 0; i < 2; i++) {
             _pdgParticles.push({
-                edgeFrom : e.from,
-                edgeTo   : e.to,
-                t        : Math.random(),
-                spd      : 0.007 + Math.random() * 0.006,
+                edgeFrom: e.from, edgeTo: e.to,
+                t: Math.random(),
+                spd: 0.007 + Math.random() * 0.006,
             });
         }
     });
@@ -525,8 +545,6 @@ function _pdgStartAnimation() {
         if (!pg) {
             pg = document.createElementNS('http://www.w3.org/2000/svg', 'g');
             pg.id = 'pdg-anim-g';
-            // Insert at the start of the nodes layer — particles stay above
-            // edges but below dragged nodes (which get appended last)
             const nodesLayer = svgEl.querySelector('#pdg-nodes-g') || svgEl;
             nodesLayer.insertBefore(pg, nodesLayer.firstChild);
         }
@@ -535,20 +553,14 @@ function _pdgStartAnimation() {
         _pdgParticles.forEach(p => {
             p.t += p.spd;
             if (p.t > 1) p.t -= 1;
-
-            const fp = _PDG._pos[p.edgeFrom];
-            const tp = _PDG._pos[p.edgeTo];
+            const fp = _PDG._pos[p.edgeFrom], tp = _PDG._pos[p.edgeTo];
             if (!fp || !tp) return;
-
-            const x1 = fp.x + NW,  y1 = fp.y + NHT / 2;
-            const x2 = tp.x,       y2 = tp.y + NHT / 2;
-            const cx1 = x1 + 40,   cy1 = y1;
-            const cx2 = x2 - 40,   cy2 = y2;
-
-            const t = p.t, mt = 1 - t;
-            const px = mt*mt*mt*x1 + 3*mt*mt*t*cx1 + 3*mt*t*t*cx2 + t*t*t*x2;
-            const py = mt*mt*mt*y1 + 3*mt*mt*t*cy1 + 3*mt*t*t*cy2 + t*t*t*y2;
-            const alpha = (Math.sin(p.t * Math.PI) * 0.85).toFixed(2);
+            const x1=fp.x+NW, y1=fp.y+NHT/2, x2=tp.x, y2=tp.y+NHT/2;
+            const cx1=x1+40, cy1=y1, cx2=x2-40, cy2=y2;
+            const t=p.t, mt=1-t;
+            const px=mt*mt*mt*x1+3*mt*mt*t*cx1+3*mt*t*t*cx2+t*t*t*x2;
+            const py=mt*mt*mt*y1+3*mt*mt*t*cy1+3*mt*t*t*cy2+t*t*t*y2;
+            const alpha=(Math.sin(p.t*Math.PI)*0.85).toFixed(2);
             html += `<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="3.5" fill="#00d4aa" opacity="${alpha}"/>`;
         });
         pg.innerHTML = html;
@@ -587,26 +599,27 @@ function _pdgRenderJobList() {
     if (!el) return;
 
     el.innerHTML = _PDG.jobs.map(j => {
-        const sc = { RUNNING:'var(--green)', FINISHED:'var(--text3)', RESTARTING:'var(--yellow)', FAILED:'var(--red)' }[j.state] || 'var(--text3)';
+        const sc = _pdgPipelineColor(j.jid);
+        const stateLabel = { RUNNING:'var(--green)', FINISHED:'var(--text3)', RESTARTING:'var(--yellow)', FAILED:'var(--red)' }[j.state] || 'var(--text3)';
         const srcNames = j.sources.map(s=>s.label).join(', ') || '—';
         const snkNames = j.sinks.map(s=>s.label).join(', ')   || '—';
         return `<div class="pdg-job-item" data-jid="${_escPdg(j.jid)}"
       style="padding:8px 10px;border-bottom:1px solid var(--border);font-size:10px;
-      cursor:pointer;transition:background 0.15s;"
+      cursor:pointer;transition:background 0.15s;border-left:3px solid ${sc};"
       onmouseenter="this.style.background='rgba(0,212,170,0.06)'"
       onmouseleave="this.style.background=this.classList.contains('pdg-job-active')?'rgba(0,212,170,0.08)':''"
       onclick="_pdgOnJobClick(this,'${_escPdg(j.jid)}')">
       <div style="display:flex;align-items:center;gap:6px;">
-        <span style="font-size:9px;color:${sc};">●</span>
+        <span style="font-size:9px;color:${stateLabel};">●</span>
         <div style="font-weight:700;color:var(--text0);font-family:var(--mono);
           white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;">${_escPdg(j.name.slice(0,34))}</div>
       </div>
-      <div style="color:${sc};font-size:9px;margin-top:2px;padding-left:15px;">${j.state}</div>
+      <div style="color:${stateLabel};font-size:9px;margin-top:2px;padding-left:15px;">${j.state}</div>
       <div style="color:var(--text3);margin-top:4px;padding-left:15px;">
-        ↪ <span style="color:var(--accent);">${_escPdg(srcNames.slice(0,40))}</span>
+        ↪ <span style="color:${sc};">${_escPdg(srcNames.slice(0,40))}</span>
       </div>
       <div style="color:var(--text3);padding-left:15px;">
-        ↩ <span style="color:var(--accent3,#7ee8d0);">${_escPdg(snkNames.slice(0,40))}</span>
+        ↩ <span style="color:${sc};">${_escPdg(snkNames.slice(0,40))}</span>
       </div>
     </div>`;
     }).join('') || '<div style="font-size:11px;color:var(--text3);padding:10px;">No jobs loaded.</div>';
@@ -615,30 +628,18 @@ function _pdgRenderJobList() {
 function _pdgOnJobClick(el, jobId) {
     const container = document.getElementById('pdg-job-list');
     if (!container) return;
-
     const alreadyActive = el.classList.contains('pdg-job-active');
-
     container.querySelectorAll('.pdg-job-item').forEach(item => {
         item.classList.remove('pdg-job-active');
         item.style.background = '';
-        item.style.borderLeft = '';
     });
-
-    if (alreadyActive) {
-        _pdgHighlightPipeline(null);
-        return;
-    }
-
+    if (alreadyActive) { _pdgHighlightPipeline(null); return; }
     el.classList.add('pdg-job-active');
     el.style.background = 'rgba(0,212,170,0.08)';
-    el.style.borderLeft = '3px solid var(--accent,#00d4aa)';
-
     const gNodes = (_PDG.graph || {}).nodes || [];
     const gNode  = gNodes.find(n => n.jid === jobId || n.id === jobId);
     const highlightId = gNode ? gNode.id : jobId;
-
     _pdgHighlightPipeline(highlightId);
-
     const pos = (_PDG._pos || {})[highlightId];
     if (pos) {
         const wrap = document.getElementById('pdg-svg-wrap');
@@ -652,15 +653,11 @@ function _pdgOnJobClick(el, jobId) {
 }
 
 // ── Pan / zoom ─────────────────────────────────────────────────────
+// FIX: no longer clones the wrap element (which broke `const` reassignment
+// and discarded child nodes). Instead uses a flag to prevent double-wiring.
 function _pdgWireInteraction(wrap) {
-    // FIX: remove old listeners by replacing the element's event bindings.
-    // Clone and re-insert to clear any stale listeners from previous renders.
-    const fresh = wrap.cloneNode(false);
-    while (wrap.firstChild) fresh.appendChild(wrap.firstChild);
-    wrap.parentNode.replaceChild(fresh, wrap);
-    wrap = fresh;
-
-    // Don't reset zoom/pan here — preserve them across re-renders (maximize/restore)
+    if (wrap._pdgWired) return;
+    wrap._pdgWired = true;
 
     wrap.addEventListener('wheel', e => {
         e.preventDefault();
@@ -676,7 +673,6 @@ function _pdgWireInteraction(wrap) {
     let panning = false, panSX = 0, panSY = 0, panOX = 0, panOY = 0;
 
     wrap.addEventListener('mousedown', e => {
-        // Only start panning if not clicking a node
         if (e.target.closest('.pdg-node-g')) return;
         panning = true;
         panSX = e.clientX; panSY = e.clientY;
@@ -699,7 +695,6 @@ function _pdgWireInteraction(wrap) {
     window.addEventListener('mousemove', onPanMove);
     window.addEventListener('mouseup', onPanUp);
 
-    // Cleanup pan listeners when SVG is replaced
     const obs = new MutationObserver(() => {
         if (!document.contains(wrap)) {
             window.removeEventListener('mousemove', onPanMove);
@@ -710,47 +705,33 @@ function _pdgWireInteraction(wrap) {
     obs.observe(document.body, { childList: true, subtree: true });
 }
 
-// ── Node detail modal ──────────────────────────────────────────────
-// FIX: topic nodes now correctly show which pipelines write to / read from them
-// by querying the live graph edges rather than relying on node.sources/sinks
-// (which only exist on pipeline nodes).
+// ── Node detail panel ──────────────────────────────────────────────
+// FIX: reads from _PDG._nodeData[id] — no JSON-in-attribute tricks needed
 function _pdgShowNodeDetail(node) {
     const existing = document.getElementById('pdg-node-detail');
     if (existing) existing.remove();
 
     const isPipeline = node.type === 'pipeline';
-    const stateColor = { RUNNING:'var(--green)', FINISHED:'var(--text3)', RESTARTING:'var(--yellow)', FAILED:'var(--red)' };
-    const kindColor  = { kafka:'var(--blue)', jdbc:'var(--green)', elastic:'var(--orange)', filesystem:'var(--purple)', datagen:'var(--pink,#f472b6)', print:'var(--text3)' };
-    const sc = isPipeline ? (stateColor[node.state] || 'var(--text2)') : (kindColor[node.kind] || 'var(--blue)');
+    const sc = node.pipelineColor || (isPipeline ? '#00d4aa' : '#4fa3e0');
 
-    // For topic nodes, derive written-by / read-by from the graph edges
     let writtenByHtml = '', readByHtml = '';
     if (!isPipeline && _PDG.graph) {
         const { nodes: gNodes, edges: gEdges } = _PDG.graph;
-
-        const writers = gEdges
-            .filter(e => e.to === node.id)
-            .map(e => gNodes.find(n => n.id === e.from))
-            .filter(Boolean);
-        const readers = gEdges
-            .filter(e => e.from === node.id)
-            .map(e => gNodes.find(n => n.id === e.to))
-            .filter(Boolean);
-
+        const writers = gEdges.filter(e=>e.to===node.id).map(e=>gNodes.find(n=>n.id===e.from)).filter(Boolean);
+        const readers = gEdges.filter(e=>e.from===node.id).map(e=>gNodes.find(n=>n.id===e.to)).filter(Boolean);
         writtenByHtml = writers.length
-            ? writers.map(p => `<div style="padding:3px 0;color:var(--accent,#00d4aa);font-size:11px;">⚡ ${_escPdg(p.label||p.id)}</div>`).join('')
+            ? writers.map(p=>`<div style="padding:3px 0;color:${_pdgPipelineColor(p.jid)};font-size:11px;">⚡ ${_escPdg(p.label||p.id)}</div>`).join('')
             : '<div style="color:var(--text3);font-size:11px;">—</div>';
         readByHtml = readers.length
-            ? readers.map(p => `<div style="padding:3px 0;color:#4fa3e0;font-size:11px;">⚡ ${_escPdg(p.label||p.id)}</div>`).join('')
+            ? readers.map(p=>`<div style="padding:3px 0;color:${_pdgPipelineColor(p.jid)};font-size:11px;">⚡ ${_escPdg(p.label||p.id)}</div>`).join('')
             : '<div style="color:var(--text3);font-size:11px;">— (dead-end)</div>';
     }
 
     const sourcesHtml = node.sources && node.sources.length
-        ? node.sources.map(s => `<div style="padding:3px 0;color:var(--blue,#4fa3e0);font-size:11px;">↪ ${_escPdg(s)}</div>`).join('')
+        ? node.sources.map(s=>`<div style="padding:3px 0;color:var(--blue,#4fa3e0);font-size:11px;">↪ ${_escPdg(s)}</div>`).join('')
         : '<div style="color:var(--text3);font-size:11px;">—</div>';
-
     const sinksHtml = node.sinks && node.sinks.length
-        ? node.sinks.map(s => `<div style="padding:3px 0;color:var(--accent,#00d4aa);font-size:11px;">↩ ${_escPdg(s)}</div>`).join('')
+        ? node.sinks.map(s=>`<div style="padding:3px 0;color:${sc};font-size:11px;">↩ ${_escPdg(s)}</div>`).join('')
         : '<div style="color:var(--text3);font-size:11px;">—</div>';
 
     const opsHtml = node.operators && node.operators.length
@@ -764,8 +745,7 @@ function _pdgShowNodeDetail(node) {
               <span style="color:var(--text3);flex-shrink:0;margin-left:8px;">p${op.parallelism||'?'}</span>
             </div>`).join('')}
         </div>
-      </div>`
-        : '';
+      </div>` : '';
 
     const icon = isPipeline ? '⚡' :
         { kafka:'⬡', jdbc:'◈', elastic:'◎', filesystem:'▤', datagen:'⊛', print:'⊘' }[node.kind] || '◦';
@@ -789,15 +769,12 @@ function _pdgShowNodeDetail(node) {
       <div style="flex:1;min-width:0;">
         <div style="font-size:13px;font-weight:700;color:var(--text0);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_escPdg(node.label||'')}</div>
         ${isPipeline
-        ? `<div style="font-size:10px;color:${sc};margin-top:2px;">${_escPdg(node.state)} ${node.jid ? '· <span style="color:var(--text3);">'+node.jid.slice(0,8)+'…</span>' : ''}</div>`
-        : `<div style="font-size:10px;color:${sc};margin-top:2px;text-transform:uppercase;letter-spacing:0.5px;">${node.kind||'topic/table'}</div>`
-    }
+        ? `<div style="font-size:10px;color:${sc};margin-top:2px;">${_escPdg(node.state)} ${node.jid ? `· <span style="color:var(--text3);">${node.jid.slice(0,8)}…</span>` : ''}</div>`
+        : `<div style="font-size:10px;color:${sc};margin-top:2px;text-transform:uppercase;letter-spacing:0.5px;">${node.kind||'topic/table'}</div>`}
       </div>
       <button onclick="document.getElementById('pdg-node-detail').remove()"
-        style="background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer;
-        padding:0 4px;line-height:1;flex-shrink:0;">×</button>
+        style="background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer;padding:0 4px;line-height:1;flex-shrink:0;">×</button>
     </div>
-
     <div style="padding:14px 16px;">
       ${isPipeline ? `
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
@@ -832,7 +809,6 @@ function _pdgShowNodeDetail(node) {
           </div>
         </div>
       `}
-
       <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.05);
         font-size:9px;color:var(--text3);text-align:right;">
         Double-click background to reset view · Double-click any node to inspect
@@ -850,8 +826,8 @@ function _pdgShowNodeDetail(node) {
 }
 
 // ── Maximize / restore ─────────────────────────────────────────────
-// FIX: after restoring, we re-render using the SAME _PDG._pos so the graph
-// doesn't jump back to its original layout. We only reset zoom/pan.
+// FIX: saves the original inline style string and restores it verbatim
+// so the modal always returns to exactly its original dimensions.
 function _pdgToggleMaximize() {
     const modalEl = document.querySelector('#pdg-modal .modal');
     const btn = document.getElementById('pdg-maximize-btn');
@@ -859,22 +835,32 @@ function _pdgToggleMaximize() {
     const isMax = modalEl.getAttribute('data-pdg-max') === '1';
     if (isMax) {
         modalEl.removeAttribute('data-pdg-max');
-        modalEl.style.width = '';
-        modalEl.style.maxHeight = '';
-        modalEl.style.height = '';
-        modalEl.style.borderRadius = '';
+        // Restore from saved style
+        if (_PDG._origModalStyle !== null) {
+            modalEl.style.cssText = _PDG._origModalStyle;
+            _PDG._origModalStyle = null;
+        } else {
+            // Fallback defaults matching what _pdgBuildModal sets
+            modalEl.style.width = 'min(1100px,97vw)';
+            modalEl.style.maxHeight = '93vh';
+            modalEl.style.height = '';
+            modalEl.style.borderRadius = '';
+        }
         if (btn) btn.textContent = '⊞';
     } else {
+        // Save current style before overwriting
+        _PDG._origModalStyle = modalEl.style.cssText;
         modalEl.setAttribute('data-pdg-max', '1');
         modalEl.style.width = '100vw';
+        modalEl.style.maxWidth = '100vw';
         modalEl.style.maxHeight = '100vh';
         modalEl.style.height = '100vh';
         modalEl.style.borderRadius = '0';
+        modalEl.style.top = '0';
+        modalEl.style.left = '0';
+        modalEl.style.margin = '0';
         if (btn) btn.textContent = '⊟';
     }
-    // Re-render after the DOM has resized.
-    // _PDG._pos is preserved so node positions stay put.
-    // We reset zoom/pan so the full graph is visible in the new size.
     setTimeout(() => {
         if (_PDG.graph && _PDG.graph.nodes.length) {
             _PDG.zoom = 1; _PDG.panX = 0; _PDG.panY = 0;
@@ -885,17 +871,17 @@ function _pdgToggleMaximize() {
     }, 80);
 }
 
-// ── Highlight a pipeline and its connected nodes ────────────────────
+// ── Highlight a pipeline and its connected nodes ───────────────────
 function _pdgHighlightPipeline(jobId) {
     const svgEl = document.getElementById('pdg-svg');
     if (!svgEl) return;
 
     svgEl.querySelectorAll('.pdg-node-g').forEach(g => {
         const rect = g.querySelector('rect');
-        if (rect) { rect.style.filter = ''; rect.style.opacity = '1'; }
+        if (rect) { rect.style.filter=''; rect.style.opacity='1'; }
     });
     svgEl.querySelectorAll('path[data-from]').forEach(p => {
-        p.style.stroke = ''; p.style.strokeWidth = ''; p.style.opacity = '0.5';
+        p.style.stroke=''; p.style.strokeWidth=''; p.style.opacity='0.5';
     });
 
     if (!jobId) return;
@@ -908,13 +894,10 @@ function _pdgHighlightPipeline(jobId) {
     });
 
     svgEl.querySelectorAll('.pdg-node-g').forEach(g => {
-        let nodeId = null;
-        if (g.dataset.node) {
-            try { nodeId = JSON.parse(g.dataset.node.replace(/'/g, '"')).id; } catch(_) {}
-        }
+        const nid = g.getAttribute('data-nid');
         const rect = g.querySelector('rect');
-        if (!rect) return;
-        if (nodeId && relatedIds.has(nodeId)) {
+        if (!rect || !nid) return;
+        if (relatedIds.has(nid)) {
             rect.style.filter = 'drop-shadow(0 0 6px var(--accent,#00d4aa))';
             rect.style.opacity = '1';
         } else {
@@ -924,14 +907,11 @@ function _pdgHighlightPipeline(jobId) {
     });
 
     svgEl.querySelectorAll('path').forEach(p => {
-        const from = p.getAttribute('data-from');
-        const to   = p.getAttribute('data-to');
-        if (from && to && (from === jobId || to === jobId)) {
-            p.style.stroke = 'var(--accent,#00d4aa)';
-            p.style.strokeWidth = '2.5';
-            p.style.opacity = '1';
+        const from = p.getAttribute('data-from'), to = p.getAttribute('data-to');
+        if (from && to && (from===jobId||to===jobId)) {
+            p.style.stroke='var(--accent,#00d4aa)'; p.style.strokeWidth='2.5'; p.style.opacity='1';
         } else if (from && to) {
-            p.style.opacity = '0.15';
+            p.style.opacity='0.15';
         }
     });
 }
@@ -953,20 +933,24 @@ function _pdgSetStatus(msg, spin) {
         margin-right:6px;vertical-align:middle;"></span>${_escPdg(msg)}`
         : _escPdg(msg);
 }
+
 function _pdgShowPane(pane) {
     ['loading','graph','empty','error'].forEach(p => {
         const el = document.getElementById('pdg-pane-'+p);
-        if (el) el.style.display = p === pane ? (p==='graph'?'flex':'block') : 'none';
+        if (el) el.style.display = p===pane ? (p==='graph'?'flex':'block') : 'none';
     });
 }
-function _escPdg(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function _escPdg(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 // ── Modal builder ──────────────────────────────────────────────────
 function _pdgBuildModal() {
     const s = document.createElement('style');
-    s.textContent = `@keyframes pdg-spin{to{transform:rotate(360deg);}}
-    #pdg-svg-wrap { overflow:hidden; position:relative; cursor:default; }
-    #pdg-svg { transform-origin:0 0; will-change:transform; }`;
+    s.textContent = `
+    @keyframes pdg-spin{to{transform:rotate(360deg);}}
+    #pdg-svg-wrap{overflow:hidden;position:relative;cursor:default;background:var(--bg0);}
+    #pdg-svg{transform-origin:0 0;will-change:transform;display:block;}
+    `;
     document.head.appendChild(s);
 
     const modal = document.createElement('div');
@@ -987,87 +971,57 @@ function _pdgBuildModal() {
     </span>
     <button class="modal-close" onclick="_pdgStopAnimation();closeModal('pdg-modal')">×</button>
   </div>
-
   <div class="modal-body" style="flex:1;overflow:hidden;display:flex;flex-direction:column;gap:0;padding:0;">
-
-    <!-- Toolbar -->
-    <div style="display:flex;align-items:center;gap:8px;padding:10px 16px;
-      border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;">
+    <div style="display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;">
       <button onclick="_pdgLoad()" class="btn btn-primary" style="font-size:11px;padding:5px 14px;">⟳ Refresh</button>
-      <button onclick="_PDG.zoom-=0.15;_pdgApplyTransform()"
-        style="font-size:14px;padding:2px 8px;border-radius:3px;border:1px solid var(--border);
-        background:var(--bg3);color:var(--text2);cursor:pointer;line-height:1;">−</button>
+      <button onclick="_PDG.zoom=Math.max(0.2,_PDG.zoom-0.15);_pdgApplyTransform()"
+        style="font-size:14px;padding:2px 8px;border-radius:3px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;line-height:1;">−</button>
       <span id="pdg-zoom-label" style="font-size:10px;color:var(--text3);font-family:var(--mono);min-width:34px;text-align:center;">100%</span>
-      <button onclick="_PDG.zoom+=0.15;_pdgApplyTransform()"
-        style="font-size:14px;padding:2px 8px;border-radius:3px;border:1px solid var(--border);
-        background:var(--bg3);color:var(--text2);cursor:pointer;line-height:1;">+</button>
+      <button onclick="_PDG.zoom=Math.min(3,_PDG.zoom+0.15);_pdgApplyTransform()"
+        style="font-size:14px;padding:2px 8px;border-radius:3px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;line-height:1;">+</button>
       <button onclick="_PDG.zoom=1;_PDG.panX=0;_PDG.panY=0;_pdgApplyTransform()"
-        style="font-size:10px;padding:3px 8px;border-radius:3px;border:1px solid var(--border);
-        background:var(--bg3);color:var(--text3);cursor:pointer;">⊙ Reset</button>
-      <button id="pdg-maximize-btn" onclick="_pdgToggleMaximize()"
-        title="Maximize / restore"
-        style="font-size:13px;padding:2px 8px;border-radius:3px;border:1px solid var(--border);
-        background:var(--bg3);color:var(--text3);cursor:pointer;line-height:1;">⊞</button>
+        style="font-size:10px;padding:3px 8px;border-radius:3px;border:1px solid var(--border);background:var(--bg3);color:var(--text3);cursor:pointer;">⊙ Reset</button>
+      <button id="pdg-maximize-btn" onclick="_pdgToggleMaximize()" title="Maximize / restore"
+        style="font-size:13px;padding:2px 8px;border-radius:3px;border:1px solid var(--border);background:var(--bg3);color:var(--text3);cursor:pointer;line-height:1;">⊞</button>
       <span style="font-size:10px;color:var(--text3);margin-left:4px;">scroll · drag · dblclick node for details</span>
       <span id="pdg-status" style="margin-left:auto;font-size:10px;color:var(--text3);font-family:var(--mono);"></span>
     </div>
-
-    <!-- Main area: graph + sidebar -->
     <div style="flex:1;overflow:hidden;display:flex;min-height:0;">
-
-      <!-- Graph canvas -->
       <div style="flex:1;overflow:hidden;display:flex;flex-direction:column;min-width:0;">
-
         <div id="pdg-pane-loading" style="display:none;flex:1;align-items:center;justify-content:center;flex-direction:column;gap:10px;color:var(--text3);">
-          <div style="width:28px;height:28px;border:3px solid var(--border2);border-top-color:var(--accent);
-            border-radius:50%;animation:pdg-spin 0.8s linear infinite;"></div>
+          <div style="width:28px;height:28px;border:3px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:pdg-spin 0.8s linear infinite;"></div>
           <div style="font-size:12px;">Building dependency graph…</div>
         </div>
         <div id="pdg-pane-empty" style="display:none;padding:40px;text-align:center;color:var(--text3);font-size:12px;">
           No jobs found on the cluster. Start some Flink pipelines and refresh.
         </div>
         <div id="pdg-pane-error" style="display:none;padding:20px;">
-          <div style="background:rgba(255,77,109,0.08);border:1px solid rgba(255,77,109,0.3);
-            border-radius:5px;padding:14px;font-size:12px;color:var(--red);" id="pdg-error-msg"></div>
+          <div style="background:rgba(255,77,109,0.08);border:1px solid rgba(255,77,109,0.3);border-radius:5px;padding:14px;font-size:12px;color:var(--red);" id="pdg-error-msg"></div>
         </div>
-
         <div id="pdg-pane-graph" style="display:none;flex:1;flex-direction:column;min-height:0;">
-          <div id="pdg-svg-wrap"
-            style="flex:1;overflow:hidden;background:var(--bg0);border-bottom:1px solid var(--border);"></div>
-
-          <!-- Legend -->
-          <div style="display:flex;gap:16px;padding:6px 14px;font-size:9px;
-            color:var(--text3);font-family:var(--mono);flex-shrink:0;flex-wrap:wrap;">
+          <div id="pdg-svg-wrap" style="flex:1;overflow:hidden;border-bottom:1px solid var(--border);"></div>
+          <div style="display:flex;gap:16px;padding:6px 14px;font-size:9px;color:var(--text3);font-family:var(--mono);flex-shrink:0;flex-wrap:wrap;">
             <span>⬡ <span style="color:#4fa3e0;">Kafka</span></span>
             <span>◈ <span style="color:#34d399;">JDBC</span></span>
             <span>◎ <span style="color:#fb923c;">Elasticsearch</span></span>
-            <span>▤ <span style="color:#a78bfa;">Filesystem/S3</span></span>
-            <span>⚡ <span style="color:var(--accent);">Pipeline</span></span>
+            <span>▤ <span style="color:#a78bfa;">Filesystem/S3/MinIO</span></span>
+            <span>⊛ <span style="color:#f472b6;">Datagen</span></span>
+            <span>⚡ Pipeline (unique color per job)</span>
             <span>→ data flow direction</span>
           </div>
-
-          <!-- Issues -->
           <div style="padding:8px 14px;flex-shrink:0;border-top:1px solid var(--border);">
-            <div style="font-size:9px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;
-              color:var(--text3);font-family:var(--mono);margin-bottom:6px;">Topology issues</div>
+            <div style="font-size:9px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--text3);font-family:var(--mono);margin-bottom:6px;">Topology issues</div>
             <div id="pdg-issues" style="display:flex;flex-direction:column;gap:4px;max-height:100px;overflow-y:auto;"></div>
           </div>
         </div>
       </div>
-
-      <!-- Sidebar: job list -->
-      <div style="width:240px;flex-shrink:0;border-left:1px solid var(--border);
-        overflow-y:auto;background:var(--bg1);">
-        <div style="padding:8px 10px;border-bottom:1px solid var(--border);
-          font-size:9px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;
-          color:var(--text3);font-family:var(--mono);">Pipelines</div>
+      <div style="width:240px;flex-shrink:0;border-left:1px solid var(--border);overflow-y:auto;background:var(--bg1);">
+        <div style="padding:8px 10px;border-bottom:1px solid var(--border);font-size:9px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--text3);font-family:var(--mono);">Pipelines</div>
         <div id="pdg-job-list"></div>
       </div>
     </div>
-
   </div>
-  <div style="padding:8px 16px;border-top:1px solid var(--border);background:var(--bg2);
-    display:flex;gap:8px;flex-shrink:0;">
+  <div style="padding:8px 16px;border-top:1px solid var(--border);background:var(--bg2);display:flex;gap:8px;flex-shrink:0;">
     <button class="btn btn-secondary" style="font-size:11px;" onclick="closeModal('pdg-modal')">Close</button>
   </div>
 </div>`;
