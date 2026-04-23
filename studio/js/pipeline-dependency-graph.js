@@ -318,8 +318,11 @@ function _pdgRenderGraph() {
     const idToJid = {};
     nodes.filter(n => n.type==='pipeline').forEach(n => { idToJid[n.id] = n.jid; });
 
+    const wrap2 = document.getElementById('pdg-svg-wrap');
+    if (wrap2) wrap2.style.minWidth = maxX + 'px';
+
     let svg = `<svg id="pdg-svg" viewBox="0 0 ${maxX} ${maxY}" xmlns="http://www.w3.org/2000/svg"
-    style="width:${maxX}px;height:${maxY}px;min-width:${maxX}px;display:block;">
+    width="${maxX}" height="${maxY}" style="display:block;">
     <defs>
       <marker id="pdg-arr" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto">
         <path d="M0,0 L0,6 L7,3 z" fill="#4b5563"/>
@@ -398,18 +401,25 @@ function _pdgRenderGraph() {
     _PDG._NW  = NW;
     _PDG._NHT = NHT;
 
-    // ── Node dragging ──────────────────────────────────────────────
-    // FIX: all event coordinates are converted to SVG-space using the
-    // current zoom+pan transform, so dragging works in all directions
-    // regardless of how far the canvas has been panned or zoomed.
+    // ── Node dragging + double-click ───────────────────────────────
+    //
+    // KEY FIX for dblclick: we attach the dblclick listener DIRECTLY
+    // on each <g> node element.  Previously it was on the parent <svg>,
+    // but mousedown inside each node calls ev.stopPropagation() which
+    // breaks the browser's synthetic dblclick event bubbling, so it
+    // never reached the svg listener.  Putting it on the node itself
+    // fires before stopPropagation can intercept it.
+    //
+    // We also track `hasMoved` — if the user dragged we suppress the
+    // detail panel so a slow double-click after a drag doesn't fire it.
     const svgEl = document.getElementById('pdg-svg');
     if (svgEl) {
         svgEl.querySelectorAll('.pdg-node-g').forEach(g => {
-            let dragging = false;
-            let nodeId   = null;
-            let startSVGx= 0, startSVGy = 0;
-            let origX    = 0, origY     = 0;
-            let hasMoved = false;
+            let dragging  = false;
+            let nodeId    = null;
+            let startSVGx = 0, startSVGy = 0;
+            let origX     = 0, origY     = 0;
+            let hasMoved  = false;
 
             const clientToSVG = (cx, cy) => {
                 const svgRect = svgEl.getBoundingClientRect();
@@ -419,6 +429,18 @@ function _pdgRenderGraph() {
                 };
             };
 
+            // ── dblclick: attach directly on each node <g> ──────────
+            // Must be registered BEFORE mousedown so it isn't blocked.
+            g.addEventListener('dblclick', ev => {
+                ev.stopPropagation();       // don't bubble to SVG background
+                if (hasMoved) return;       // ignore dblclick after a drag
+                const nid = g.getAttribute('data-nid');
+                if (nid && _PDG._nodeData[nid]) {
+                    _pdgShowNodeDetail(_PDG._nodeData[nid]);
+                }
+            });
+
+            // ── mousedown: start drag ────────────────────────────────
             g.addEventListener('mousedown', ev => {
                 if (ev.button !== 0) return;
                 nodeId = g.getAttribute('data-nid');
@@ -432,7 +454,7 @@ function _pdgRenderGraph() {
                 origY = (_PDG._pos[nodeId]||{y:0}).y;
                 const nodesLayer = document.getElementById('pdg-nodes-g');
                 if (nodesLayer && g.parentNode === nodesLayer) nodesLayer.appendChild(g);
-                ev.stopPropagation();
+                ev.stopPropagation();   // prevent pan from starting
                 ev.preventDefault();
             });
 
@@ -441,13 +463,12 @@ function _pdgRenderGraph() {
                 const svgPt = clientToSVG(ev.clientX, ev.clientY);
                 const dx = svgPt.x - startSVGx;
                 const dy = svgPt.y - startSVGy;
-                if (Math.abs(dx) > 2 || Math.abs(dy) > 2) hasMoved = true;
+                if (Math.abs(dx) > 3 || Math.abs(dy) > 3) hasMoved = true;
                 const newX = Math.max(0, origX + dx);
                 const newY = Math.max(0, origY + dy);
-
                 _PDG._pos[nodeId] = { x: newX, y: newY };
                 g.setAttribute('transform', `translate(${newX - origX},${newY - origY})`);
-
+                // Update connected edges live
                 svgEl.querySelectorAll('path[data-from], path[data-to]').forEach(p => {
                     const from = p.getAttribute('data-from');
                     const to   = p.getAttribute('data-to');
@@ -482,28 +503,17 @@ function _pdgRenderGraph() {
             });
             obs.observe(document.body, { childList: true, subtree: true });
         });
-    }
 
-    // FIX: wire pan/zoom directly on wrap (no clone-and-replace trick
-    // that was causing `const` reassignment and losing event wiring)
-    _pdgWireInteraction(wrap);
-    _pdgApplyTransform();
-
-    // FIX: double-click uses _PDG._nodeData[id] — no JSON-in-attribute parsing
-    if (svgEl) {
+        // SVG background dblclick → reset pan/zoom
         svgEl.addEventListener('dblclick', ev => {
-            const g = ev.target.closest('.pdg-node-g');
-            if (g) {
-                const nid = g.getAttribute('data-nid');
-                if (nid && _PDG._nodeData[nid]) {
-                    _pdgShowNodeDetail(_PDG._nodeData[nid]);
-                }
-            } else {
+            if (!ev.target.closest('.pdg-node-g')) {
                 _PDG.zoom=1; _PDG.panX=0; _PDG.panY=0; _pdgApplyTransform();
             }
         });
     }
 
+    _pdgWireInteraction(wrap);
+    _pdgApplyTransform();
     _pdgStartAnimation();
 }
 
