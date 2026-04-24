@@ -635,19 +635,19 @@ SELECT
         WHEN 14 THEN 'Nico Hulkenberg'  WHEN 15 THEN 'Kevin Magnussen'
         WHEN 16 THEN 'Yuki Tsunoda'     WHEN 17 THEN 'Daniel Ricciardo'
         WHEN 18 THEN 'Logan Sargeant'   ELSE    'Alexander Albon'
-    END                                        AS driver_name,
+        END                                        AS driver_name,
     CASE team_raw
         WHEN 0 THEN 'Red Bull Racing'   WHEN 1 THEN 'Mercedes'
         WHEN 2 THEN 'Ferrari'           WHEN 3 THEN 'McLaren'
         WHEN 4 THEN 'Aston Martin'      WHEN 5 THEN 'Alpine'
         WHEN 6 THEN 'Alfa Romeo'        WHEN 7 THEN 'Haas'
         WHEN 8 THEN 'AlphaTauri'        ELSE   'Williams'
-    END                                        AS team,
+        END                                        AS team,
     CASE circuit_raw
         WHEN 0 THEN 'Monza'         WHEN 1 THEN 'Silverstone'
         WHEN 2 THEN 'Monaco'        WHEN 3 THEN 'Spa-Francorchamps'
         WHEN 4 THEN 'Suzuka'        ELSE   'Interlagos'
-    END                                        AS circuit,
+        END                                        AS circuit,
     lap_number,
     CASE sector_raw WHEN 0 THEN 'S1' WHEN 1 THEN 'S2' ELSE 'S3' END AS sector,
     ROUND(speed_kph, 1)                        AS speed_kph,
@@ -656,17 +656,17 @@ SELECT
     CASE tyre_compound_raw
         WHEN 0 THEN 'SOFT' WHEN 1 THEN 'MEDIUM' WHEN 2 THEN 'HARD'
         WHEN 3 THEN 'INTER' ELSE 'WET'
-    END                                        AS tyre_compound,
+        END                                        AS tyre_compound,
     ROUND((tyre_temp_fl_c + tyre_temp_fr_c + tyre_temp_rl_c + tyre_temp_rr_c) / 4.0, 1)
-                                               AS tyre_temp_avg_c,
+        AS tyre_temp_avg_c,
     ROUND(tyre_wear_pct, 1)                    AS tyre_wear_pct,
     CASE
         WHEN engine_temp_c > 130 THEN 'CRITICAL'
         WHEN engine_temp_c > 120 THEN 'WARNING'
         ELSE 'NORMAL'
-    END                                        AS engine_status
+        END                                        AS engine_status
 FROM f1_car_telemetry
-LIMIT 20;
+         LIMIT 20;
 
 SHOW TABLES;
 
@@ -691,7 +691,7 @@ SELECT
         WHEN 14 THEN 'Nico Hulkenberg'  WHEN 15 THEN 'Kevin Magnussen'
         WHEN 16 THEN 'Yuki Tsunoda'     WHEN 17 THEN 'Daniel Ricciardo'
         WHEN 18 THEN 'Logan Sargeant'   ELSE    'Alexander Albon'
-    END                                                AS driver_name,
+        END                                                AS driver_name,
     -- map driver_raw → official car number (1-indexed real car numbers)
     CASE car_number_raw
         WHEN 0 THEN 1  WHEN 1 THEN 11 WHEN 2 THEN 44 WHEN 3 THEN 63
@@ -699,22 +699,22 @@ SELECT
         WHEN 8 THEN 14 WHEN 9 THEN 18 WHEN 10 THEN 31 WHEN 11 THEN 10
         WHEN 12 THEN 77 WHEN 13 THEN 24 WHEN 14 THEN 27 WHEN 15 THEN 20
         WHEN 16 THEN 22 WHEN 17 THEN 3  WHEN 18 THEN 2  ELSE 23
-    END                                                AS car_number,
+        END                                                AS car_number,
     CASE team_raw
         WHEN 0 THEN 'Red Bull Racing'   WHEN 1 THEN 'Mercedes'
         WHEN 2 THEN 'Ferrari'           WHEN 3 THEN 'McLaren'
         WHEN 4 THEN 'Aston Martin'      WHEN 5 THEN 'Alpine'
         WHEN 6 THEN 'Alfa Romeo'        WHEN 7 THEN 'Haas'
         WHEN 8 THEN 'AlphaTauri'        ELSE   'Williams'
-    END                                                AS team_name,
+        END                                                AS team_name,
     CASE circuit_raw
         WHEN 0 THEN 'Monza'         WHEN 1 THEN 'Silverstone'
         WHEN 2 THEN 'Monaco'        WHEN 3 THEN 'Spa-Francorchamps'
         WHEN 4 THEN 'Suzuka'        ELSE   'Interlagos'
-    END                                                AS circuit_name,
+        END                                                AS circuit_name,
     lap_number,
     CASE sector_raw WHEN 0 THEN 'S1' WHEN 1 THEN 'S2' ELSE 'S3' END
-                                                       AS sector,
+                                                           AS sector,
     ROUND(distance_on_lap_m, 1)                        AS distance_on_lap_m,
     ROUND(speed_kph, 2)                                AS speed_kph,
     ROUND(throttle_pct, 1)                             AS throttle_pct,
@@ -730,33 +730,33 @@ SELECT
     CASE tyre_compound_raw
         WHEN 0 THEN 'SOFT' WHEN 1 THEN 'MEDIUM' WHEN 2 THEN 'HARD'
         WHEN 3 THEN 'INTER' ELSE 'WET'
-    END                                                AS tyre_compound,
+        END                                                AS tyre_compound,
     tyre_age_laps,
     ROUND(tyre_temp_fl_c, 1)                           AS tyre_temp_fl_c,
     ROUND(tyre_temp_fr_c, 1)                           AS tyre_temp_fr_c,
     ROUND(tyre_temp_rl_c, 1)                           AS tyre_temp_rl_c,
     ROUND(tyre_temp_rr_c, 1)                           AS tyre_temp_rr_c,
     ROUND((tyre_temp_fl_c+tyre_temp_fr_c+tyre_temp_rl_c+tyre_temp_rr_c)/4.0, 1)
-                                                       AS tyre_temp_avg_c,
+                                                           AS tyre_temp_avg_c,
     ROUND(tyre_press_fl_bar, 3)                        AS tyre_press_fl_bar,
     ROUND(tyre_press_fr_bar, 3)                        AS tyre_press_fr_bar,
     ROUND(tyre_wear_pct, 1)                            AS tyre_wear_pct,
     ROUND(brake_temp_fl_c, 1)                          AS brake_temp_fl_c,
     ROUND(brake_temp_fr_c, 1)                          AS brake_temp_fr_c,
     ROUND(GREATEST(brake_temp_fl_c, brake_temp_fr_c, brake_temp_rl_c, brake_temp_rr_c), 1)
-                                                       AS brake_temp_max_c,
+                                                           AS brake_temp_max_c,
     ROUND(g_lat, 3)                                    AS g_lat,
     ROUND(g_lon, 3)                                    AS g_lon,
     CASE pit_in_raw
         WHEN 0 THEN 'ON_TRACK'
         WHEN 1 THEN 'PIT_ENTRY'
         ELSE        'IN_PIT_BOX'
-    END                                                AS pit_status,
+        END                                                AS pit_status,
     CASE safety_car_raw
         WHEN 0 THEN 'RACING'
         WHEN 1 THEN 'VSC'
         ELSE        'SAFETY_CAR'
-    END                                                AS safety_car_status,
+        END                                                AS safety_car_status,
     -- Tyre condition composite
     CASE
         WHEN (tyre_temp_fl_c+tyre_temp_fr_c+tyre_temp_rl_c+tyre_temp_rr_c)/4.0 > 115
@@ -764,9 +764,9 @@ SELECT
         WHEN (tyre_temp_fl_c+tyre_temp_fr_c+tyre_temp_rl_c+tyre_temp_rr_c)/4.0 > 105
             OR tyre_wear_pct > 60  THEN 'DEGRADED'
         WHEN (tyre_temp_fl_c+tyre_temp_fr_c+tyre_temp_rl_c+tyre_temp_rr_c)/4.0 < 75
-                                   THEN 'COLD'
+            THEN 'COLD'
         ELSE                            'OPTIMAL'
-    END                                                AS tyre_condition,
+        END                                                AS tyre_condition,
     -- Engine risk flag
     CASE
         WHEN engine_temp_c > 135 OR rpm > 14500 OR oil_pressure_bar < 2.5
@@ -774,7 +774,7 @@ SELECT
         WHEN engine_temp_c > 125 OR rpm > 14000 OR oil_pressure_bar < 3.0
             THEN 'WARNING'
         ELSE 'NORMAL'
-    END                                                AS engine_risk_flag,
+        END                                                AS engine_risk_flag,
     event_ts
 FROM f1_car_telemetry;
 
@@ -806,10 +806,10 @@ SELECT
     CASE
         WHEN AVG(speed_kph) > 250 AND MAX(speed_kph) > 320   THEN 'FLYING_LAP'
         WHEN COUNT(CASE WHEN pit_status <> 'ON_TRACK' THEN 1 END) > 0
-                                                              THEN 'PIT_LAP'
+            THEN 'PIT_LAP'
         WHEN MIN(speed_kph) < 60                              THEN 'SLOW_LAP'
         ELSE                                                       'NORMAL_LAP'
-    END                                                       AS lap_classification
+        END                                                       AS lap_classification
 FROM enriched_telemetry_source
 GROUP BY
     TUMBLE(event_ts, INTERVAL '90' SECOND),
@@ -841,7 +841,7 @@ SELECT
         WHEN AVG(tyre_temp_avg_c) < 75                               THEN 'COLD'
         WHEN AVG(tyre_wear_pct) > 60                                 THEN 'HIGH_WEAR'
         ELSE                                                               'NOMINAL'
-    END                                                              AS thermal_state,
+        END                                                              AS thermal_state,
     COUNT(CASE WHEN tyre_temp_avg_c > 115 THEN 1 END)                AS overheating_count
 FROM enriched_telemetry_source
 GROUP BY
@@ -885,14 +885,14 @@ SELECT
         WHEN MAX(engine_temp_c) > 115
             OR COUNT(CASE WHEN rpm > 13500 THEN 1 END) > 20    THEN 'MEDIUM'
         ELSE                                                        'LOW'
-    END                                                        AS risk_level,
+        END                                                        AS risk_level,
     CAST(
-        CASE
-            WHEN MAX(engine_temp_c) > 135 OR MIN(oil_pressure_bar) < 2.5 THEN 100
-            WHEN MAX(engine_temp_c) > 125 OR MIN(oil_pressure_bar) < 3.0 THEN 75
-            WHEN MAX(engine_temp_c) > 115                                 THEN 50
-            ELSE 25
-        END AS INT
+            CASE
+                WHEN MAX(engine_temp_c) > 135 OR MIN(oil_pressure_bar) < 2.5 THEN 100
+                WHEN MAX(engine_temp_c) > 125 OR MIN(oil_pressure_bar) < 3.0 THEN 75
+                WHEN MAX(engine_temp_c) > 115                                 THEN 50
+                ELSE 25
+                END AS INT
     )                                                          AS risk_score
 FROM enriched_telemetry_source
 GROUP BY
@@ -917,21 +917,23 @@ SELECT
     ROUND(AVG(speed_kph), 2)                                 AS avg_speed_kph,
     ROUND(AVG(fuel_load_kg), 2)                              AS avg_fuel_kg,
     ROUND(AVG(tyre_wear_pct), 2)                             AS avg_tyre_wear_pct,
-    -- Pick the most common tyre compound seen in this window
-    FIRST_VALUE(tyre_compound)                               AS tyre_compound,
-    FIRST_VALUE(pit_status)                                  AS pit_status,
-    FIRST_VALUE(safety_car_status)                           AS safety_car_status,
-    FIRST_VALUE(engine_risk_flag)                            AS engine_risk_flag,
-    FIRST_VALUE(tyre_condition)                              AS tyre_condition,
+    -- MAX() on string picks the alphabetically greatest value seen in the window;
+    -- for compound: SOFT > MEDIUM > INTER > HARD (good enough for a window snapshot)
+    -- FIRST_VALUE is not supported in window agg (no merge() implementation in Flink)
+    MAX(tyre_compound)                                       AS tyre_compound,
+    MAX(pit_status)                                          AS pit_status,
+    MAX(safety_car_status)                                   AS safety_car_status,
+    MAX(engine_risk_flag)                                    AS engine_risk_flag,
+    MAX(tyre_condition)                                      AS tyre_condition,
     COUNT(*)                                                 AS events_count,
     CASE
         WHEN AVG(speed_kph) > 280                            THEN 'PUSHING'
         WHEN AVG(speed_kph) > 200                            THEN 'RACING'
         WHEN MAX(CASE WHEN pit_status <> 'ON_TRACK' THEN 1 ELSE 0 END) = 1
-                                                             THEN 'PIT'
+            THEN 'PIT'
         WHEN AVG(speed_kph) < 100                            THEN 'SLOW_ZONE'
         ELSE                                                      'CRUISING'
-    END                                                      AS position_class
+        END                                                      AS position_class
 FROM enriched_telemetry_source
 GROUP BY
     TUMBLE(event_ts, INTERVAL '15' SECOND),
@@ -961,17 +963,17 @@ SELECT
         WHEN ABS(g_lat) > 5.0 AND speed_kph > 100            THEN 'SPIN'
         WHEN g_lon < -5.0 AND speed_kph > 150                THEN 'HEAVY_BRAKING_EVENT'
         WHEN brake_pct > 80 AND ABS(g_lat) > 3.0
-             AND speed_kph > 80                               THEN 'LOCK-UP'
+            AND speed_kph > 80                               THEN 'LOCK-UP'
         WHEN g_lon < -4.0 AND brake_pct < 20                 THEN 'POSSIBLE_CONTACT'
         WHEN brake_temp_max_c > 1050                          THEN 'BRAKE_OVERTEMP'
         ELSE                                                       'ANOMALY'
-    END                                                       AS incident_type,
+        END                                                       AS incident_type,
     CASE
         WHEN ABS(g_lat) > 5.5 OR g_lon < -5.5                THEN 'CRITICAL'
         WHEN ABS(g_lat) > 4.5 OR g_lon < -4.5                THEN 'HIGH'
         WHEN ABS(g_lat) > 3.5 OR g_lon < -3.5                THEN 'MEDIUM'
         ELSE                                                       'LOW'
-    END                                                       AS severity,
+        END                                                       AS severity,
     ROUND(speed_kph, 1)                                       AS speed_at_event_kph,
     ROUND(g_lat, 3)                                           AS g_lat_peak,
     ROUND(g_lon, 3)                                           AS g_lon_peak,
@@ -983,8 +985,8 @@ SELECT
 FROM enriched_telemetry_source
 WHERE
     ABS(g_lat) > 3.5          -- significant lateral g
-    OR g_lon < -4.0           -- heavy longitudinal deceleration
-    OR brake_temp_max_c > 1000;  -- brake overheat
+   OR g_lon < -4.0           -- heavy longitudinal deceleration
+   OR brake_temp_max_c > 1000;  -- brake overheat
 
 
 -- ── Job G: SESSION window — pit-stop strategy signals ────────────────────
@@ -1003,14 +1005,15 @@ SELECT
     ROUND(AVG(tyre_temp_avg_c), 2)                           AS avg_tyre_temp_c,
     ROUND(AVG(fuel_load_kg), 2)                              AS avg_fuel_kg,
     COUNT(CASE WHEN pit_status = 'IN_PIT_BOX' THEN 1 END)   AS pit_events,
-    FIRST_VALUE(tyre_compound)                               AS tyre_compound,
+    -- MAX() on string is safe inside SESSION windows; FIRST_VALUE has no merge()
+    MAX(tyre_compound)                                       AS tyre_compound,
     CASE
         WHEN AVG(tyre_wear_pct) > 75                         THEN 'STOP_NOW'
         WHEN AVG(tyre_wear_pct) > 55                         THEN 'PREPARE_STOP'
         WHEN AVG(tyre_temp_avg_c) > 110                      THEN 'THERMAL_DEGRADATION'
         WHEN AVG(fuel_load_kg) < 15                          THEN 'FUEL_CRITICAL'
         ELSE                                                      'CONTINUE'
-    END                                                      AS stop_recommendation
+        END                                                      AS stop_recommendation
 FROM enriched_telemetry_source
 GROUP BY
     SESSION(event_ts, INTERVAL '30' SECOND),
@@ -1090,5 +1093,8 @@ SELECT
     ROUND(g_lon, 2)                                           AS g_lon,
     ROUND(brake_temp_max_c, 0)                                AS brake_temp_max_c,
     event_ts
-FROM enriched_telemetry_source
-ORDER BY event_ts DESC;
+-- NOTE: ORDER BY is intentionally omitted.
+-- Flink streaming only supports ORDER BY on the ascending rowtime watermark
+-- attribute — DESC or non-time-field sorts are not supported at runtime.
+-- Use the Studio UI "↓ Newest first" toggle to reverse display order.
+FROM enriched_telemetry_source;

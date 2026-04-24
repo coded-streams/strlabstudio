@@ -303,13 +303,19 @@ function _pdgRenderGraph() {
         _PDG._pos[n.id] = { x: PAD, y: PAD + (topicSrc.length+i)*(NHT+VGAP) };
     });
 
-    const allX = nodes.map(n => (_PDG._pos[n.id]||{x:0}).x + NW);
-    const allY = nodes.map(n => {
+    const allX = nodes.map(n => (_PDG._pos[n.id]||{x:0}).x);
+    const allY = nodes.map(n => (_PDG._pos[n.id]||{y:0}).y);
+    const allX2 = nodes.map(n => (_PDG._pos[n.id]||{x:0}).x + NW);
+    const allY2 = nodes.map(n => {
         const p = _PDG._pos[n.id]||{y:0};
         return p.y + (n.type === 'pipeline' ? NHP : NHT);
     });
-    const maxX = Math.max(...allX) + PAD;
-    const maxY = Math.max(...allY) + PAD;
+    const minX = Math.min(...allX) - PAD;
+    const minY = Math.min(...allY) - PAD;
+    const maxX = Math.max(...allX2) + PAD;
+    const maxY = Math.max(...allY2) + PAD;
+    const vbW  = maxX - minX;
+    const vbH  = maxY - minY;
 
     const kindColor  = { kafka:'#4fa3e0', jdbc:'#34d399', elastic:'#fb923c', filesystem:'#a78bfa', datagen:'#f472b6', print:'#6b7280' };
     const stateColor = { RUNNING:'#39d353', FINISHED:'#6b7280', RESTARTING:'#f59e0b', FAILED:'#ef4444' };
@@ -319,10 +325,10 @@ function _pdgRenderGraph() {
     nodes.filter(n => n.type==='pipeline').forEach(n => { idToJid[n.id] = n.jid; });
 
     const wrap2 = document.getElementById('pdg-svg-wrap');
-    if (wrap2) wrap2.style.minWidth = maxX + 'px';
+    if (wrap2) wrap2.style.minWidth = vbW + 'px';
 
-    let svg = `<svg id="pdg-svg" viewBox="0 0 ${maxX} ${maxY}" xmlns="http://www.w3.org/2000/svg"
-    width="${maxX}" height="${maxY}" style="display:block;">
+    let svg = `<svg id="pdg-svg" viewBox="${minX} ${minY} ${vbW} ${vbH}" xmlns="http://www.w3.org/2000/svg"
+    width="${vbW}" height="${vbH}" style="display:block;">
     <defs>
       <marker id="pdg-arr" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto">
         <path d="M0,0 L0,6 L7,3 z" fill="#4b5563"/>
@@ -403,59 +409,76 @@ function _pdgRenderGraph() {
 
     // ── Node dragging + double-click ───────────────────────────────
     //
-    // KEY FIX for dblclick: we attach the dblclick listener DIRECTLY
-    // on each <g> node element.  Previously it was on the parent <svg>,
-    // but mousedown inside each node calls ev.stopPropagation() which
-    // breaks the browser's synthetic dblclick event bubbling, so it
-    // never reached the svg listener.  Putting it on the node itself
-    // fires before stopPropagation can intercept it.
+    // DBLCLICK FIX: We detect double-click ourselves by counting rapid
+    // successive clicks (≤300ms apart) with no drag in between.
+    // We do NOT rely on the browser's synthetic 'dblclick' event at all,
+    // because mousedown's stopPropagation() can swallow it in some browsers
+    // and hasMoved state from a previous drag pollutes it.
     //
-    // We also track `hasMoved` — if the user dragged we suppress the
-    // detail panel so a slow double-click after a drag doesn't fire it.
+    // DRAG FIX: clientToSVG uses the WRAP element's bounding rect (the
+    // fixed container), not the SVG element's rect (which moves with
+    // pan/zoom transforms). This gives correct coordinates at any zoom/pan.
+    //
+    // FREE MOVEMENT FIX: Removed Math.max(0, ...) clamp on both X and Y.
+    // Nodes can now be dragged to negative SVG coordinates freely — the
+    // canvas expands on re-render and panning covers any position.
+
     const svgEl = document.getElementById('pdg-svg');
     if (svgEl) {
-        svgEl.querySelectorAll('.pdg-node-g').forEach(g => {
-            let dragging  = false;
-            let nodeId    = null;
-            let startSVGx = 0, startSVGy = 0;
-            let origX     = 0, origY     = 0;
-            let hasMoved  = false;
-
-            const clientToSVG = (cx, cy) => {
-                const svgRect = svgEl.getBoundingClientRect();
-                return {
-                    x: (cx - svgRect.left - _PDG.panX) / _PDG.zoom,
-                    y: (cy - svgRect.top  - _PDG.panY) / _PDG.zoom,
-                };
+        // clientToSVG: converts page coords → SVG coordinate space.
+        // Uses wrap.getBoundingClientRect() (the unmoving container),
+        // then subtracts the current pan offset and divides by zoom.
+        const clientToSVG = (cx, cy) => {
+            const wrapEl = document.getElementById('pdg-svg-wrap');
+            const r = wrapEl ? wrapEl.getBoundingClientRect() : { left:0, top:0 };
+            return {
+                x: (cx - r.left - _PDG.panX) / _PDG.zoom,
+                y: (cy - r.top  - _PDG.panY) / _PDG.zoom,
             };
+        };
 
-            // ── dblclick: attach directly on each node <g> ──────────
-            // Must be registered BEFORE mousedown so it isn't blocked.
-            g.addEventListener('dblclick', ev => {
-                ev.stopPropagation();       // don't bubble to SVG background
-                if (hasMoved) return;       // ignore dblclick after a drag
-                const nid = g.getAttribute('data-nid');
-                if (nid && _PDG._nodeData[nid]) {
-                    _pdgShowNodeDetail(_PDG._nodeData[nid]);
-                }
-            });
+        svgEl.querySelectorAll('.pdg-node-g').forEach(g => {
+            let dragging   = false;
+            let nodeId     = null;
+            let startSVGx  = 0, startSVGy = 0;
+            let origX      = 0, origY     = 0;
+            let dragMoved  = false;   // true if mouse moved ≥4px during THIS press
+            let lastClickT = 0;       // timestamp of previous mousedown on this node
 
-            // ── mousedown: start drag ────────────────────────────────
             g.addEventListener('mousedown', ev => {
                 if (ev.button !== 0) return;
-                nodeId = g.getAttribute('data-nid');
+                ev.stopPropagation();  // prevent canvas pan from starting
+                ev.preventDefault();
+
+                nodeId    = g.getAttribute('data-nid');
                 if (!nodeId) return;
-                dragging = true;
-                hasMoved = false;
+
+                const now = Date.now();
+                const isDouble = (now - lastClickT) < 300;
+                lastClickT = now;
+
+                dragging  = true;
+                dragMoved = false;
+
                 const svgPt = clientToSVG(ev.clientX, ev.clientY);
                 startSVGx = svgPt.x;
                 startSVGy = svgPt.y;
                 origX = (_PDG._pos[nodeId]||{x:0}).x;
                 origY = (_PDG._pos[nodeId]||{y:0}).y;
+
+                // Lift node to top of SVG stacking order while dragging
                 const nodesLayer = document.getElementById('pdg-nodes-g');
                 if (nodesLayer && g.parentNode === nodesLayer) nodesLayer.appendChild(g);
-                ev.stopPropagation();   // prevent pan from starting
-                ev.preventDefault();
+
+                // Double-click: open detail immediately on second mousedown
+                // (before any drag can begin), then bail out of drag mode
+                if (isDouble) {
+                    dragging = false;
+                    nodeId   = null;
+                    if (_PDG._nodeData[g.getAttribute('data-nid')]) {
+                        _pdgShowNodeDetail(_PDG._nodeData[g.getAttribute('data-nid')]);
+                    }
+                }
             });
 
             const onMove = ev => {
@@ -463,12 +486,18 @@ function _pdgRenderGraph() {
                 const svgPt = clientToSVG(ev.clientX, ev.clientY);
                 const dx = svgPt.x - startSVGx;
                 const dy = svgPt.y - startSVGy;
-                if (Math.abs(dx) > 3 || Math.abs(dy) > 3) hasMoved = true;
-                const newX = Math.max(0, origX + dx);
-                const newY = Math.max(0, origY + dy);
+                if (Math.abs(dx) > 4 || Math.abs(dy) > 4) dragMoved = true;
+
+                // No clamping — nodes can move freely in all directions.
+                // Negative coords are fine; the SVG viewBox expands on re-render.
+                const newX = origX + dx;
+                const newY = origY + dy;
                 _PDG._pos[nodeId] = { x: newX, y: newY };
-                g.setAttribute('transform', `translate(${newX - origX},${newY - origY})`);
-                // Update connected edges live
+
+                // Move the group visually via transform for smooth real-time feedback
+                g.setAttribute('transform', `translate(${dx},${dy})`);
+
+                // Update connected edges live so they follow the dragged node
                 svgEl.querySelectorAll('path[data-from], path[data-to]').forEach(p => {
                     const from = p.getAttribute('data-from');
                     const to   = p.getAttribute('data-to');
@@ -483,7 +512,9 @@ function _pdgRenderGraph() {
             const onUp = () => {
                 if (!dragging) return;
                 dragging = false;
-                if (nodeId && hasMoved) {
+                if (nodeId && dragMoved) {
+                    // Re-render bakes final position into the SVG and
+                    // recomputes the viewBox to fit all node positions
                     _pdgStopAnimation();
                     _pdgRenderGraph();
                     _pdgStartAnimation();
@@ -492,19 +523,21 @@ function _pdgRenderGraph() {
             };
 
             window.addEventListener('mousemove', onMove);
-            window.addEventListener('mouseup', onUp);
+            window.addEventListener('mouseup',   onUp);
 
+            // Clean up global listeners when the node element is removed
+            // (happens on every re-render when wrap.innerHTML is replaced)
             const obs = new MutationObserver(() => {
                 if (!document.contains(g)) {
                     window.removeEventListener('mousemove', onMove);
-                    window.removeEventListener('mouseup', onUp);
+                    window.removeEventListener('mouseup',   onUp);
                     obs.disconnect();
                 }
             });
             obs.observe(document.body, { childList: true, subtree: true });
         });
 
-        // SVG background dblclick → reset pan/zoom
+        // Background double-click → reset pan/zoom to 100%
         svgEl.addEventListener('dblclick', ev => {
             if (!ev.target.closest('.pdg-node-g')) {
                 _PDG.zoom=1; _PDG.panX=0; _PDG.panY=0; _pdgApplyTransform();
@@ -534,14 +567,25 @@ function _pdgStartAnimation() {
     );
     if (!runningIds.size) return;
 
+    // Build a map: pipeline node id → jid, so we can look up the pipeline color
+    const pipelineNodeToJid = {};
+    nodes.filter(n => n.type === 'pipeline').forEach(n => { pipelineNodeToJid[n.id] = n.jid; });
+
     edges.forEach(e => {
         if (!runningIds.has(e.from) && !runningIds.has(e.to)) return;
         if (!_PDG._pos[e.from] || !_PDG._pos[e.to]) return;
-        for (let i = 0; i < 2; i++) {
+
+        // Determine which end is the pipeline node to get its color
+        const pipelineId = runningIds.has(e.from) ? e.from : e.to;
+        const jid = pipelineNodeToJid[pipelineId];
+        const color = jid ? _pdgPipelineColor(jid) : '#00d4aa';
+
+        for (let i = 0; i < 3; i++) {
             _pdgParticles.push({
                 edgeFrom: e.from, edgeTo: e.to,
                 t: Math.random(),
                 spd: 0.007 + Math.random() * 0.006,
+                color,                  // ← pipeline-specific color
             });
         }
     });
@@ -570,8 +614,8 @@ function _pdgStartAnimation() {
             const t=p.t, mt=1-t;
             const px=mt*mt*mt*x1+3*mt*mt*t*cx1+3*mt*t*t*cx2+t*t*t*x2;
             const py=mt*mt*mt*y1+3*mt*mt*t*cy1+3*mt*t*t*cy2+t*t*t*y2;
-            const alpha=(Math.sin(p.t*Math.PI)*0.85).toFixed(2);
-            html += `<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="3.5" fill="#00d4aa" opacity="${alpha}"/>`;
+            const alpha=(Math.sin(p.t*Math.PI)*0.9).toFixed(2);
+            html += `<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="3.5" fill="${p.color}" opacity="${alpha}"/>`;
         });
         pg.innerHTML = html;
         _pdgAnimTimer = requestAnimationFrame(frame);
