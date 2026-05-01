@@ -1,7 +1,7 @@
 /**
- * sql-profiler.js  —  Str:::lab Studio v0.0.22
+ * sql-profiler  —  Str:::lab Studio v0.0.22
  * ─────────────────────────────────────────────────────────────────
- * Feature 8: SQL Profiler — Execution Replay
+ * Feature : SQL Profiler — Execution Replay
  *
  * A flight recorder for running Flink jobs. Records time-windowed
  * snapshots of per-operator metrics while a job runs, then lets

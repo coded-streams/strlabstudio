@@ -1,24 +1,7 @@
-/* udf-manager-upload-fix.js — v2.1.0
- * ─────────────────────────────────────────────────────────────────────────
- * Correct architecture for the pre-built Studio image setup:
- *
- *   Browser PUT /udf-jars/x.jar
- *     → Studio nginx (same origin, port 3030)
- *     → saved to /var/www/udf-jars/x.jar  (flink-cluster_udf-jars volume)
- *
- *   SQL Gateway: ADD JAR '/var/www/udf-jars/x.jar'
- *     → reads directly from /var/www/udf-jars/  (same shared volume)
- *     → works because flink-sql-gateway now mounts udf-jars:/var/www/udf-jars
- *
- * PREREQUISITES (already in place except #2):
- *   1. studio.conf         — has /udf-jars/ WebDAV location ✓
- *   2. cluster compose     — flink-sql-gateway needs: udf-jars:/var/www/udf-jars ← THE FIX
- *   3. studio compose      — mounts flink-cluster_udf-jars:/var/www/udf-jars ✓
- *   4. entrypoint.sh       — chowns /var/www/udf-jars to nginx ✓
- * ─────────────────────────────────────────────────────────────────────────
+/* udf-manager-upload-fix — v2.1.0
  */
 
-// ── Path helpers ──────────────────────────────────────────────────────────────
+// ── Path helpers
 
 /** Browser PUT URL — always same-origin since Studio nginx handles /udf-jars/ */
 function _jBrowserPutUrl(jarName) {
@@ -42,7 +25,7 @@ function _jUpdatePreviews() {
     if (pathEl) pathEl.textContent = _jGatewayFsPath(name);
 }
 
-// ── Drag & Drop ───────────────────────────────────────────────────────────────
+// ── Drag & Drop
 let _selJar = null;
 
 function _jDragOver(e) {

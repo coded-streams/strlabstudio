@@ -1,16 +1,19 @@
-/* Str:::lab Studio — Systems Manager v1.4.0
+/* Str:::lab Studio — Systems Manager v1.5.0
  * ═══════════════════════════════════════════════════════════════════════
- * v1.4.0 changes:
- *  - Added Flink CDC connector to CONNECTOR_DEFS (messaging category).
- *    Now appears in: Connectors tab card grid, Upload tab quick download
- *    links, Guide tab common-errors section, and Integrations tab system
- *    cards with full MySQL-CDC / PostgreSQL-CDC connection form.
- *  - Added CDC integration to SYSTEM_DEFS — appears in Integrations tab
- *    with hostname, port, database, table, credentials, and generated SQL.
- *  - Guide tab: added CDC prerequisites section (MySQL REPLICATION grants,
- *    PostgreSQL wal_level=logical, slot creation).
- *  - Saved tab: unchanged — saves/loads CDC integrations automatically.
- *  - All v1.3.0 fixes retained.
+ * v1.5.0 changes:
+ *  - Added Apache Fluss (Incubating) connector to CONNECTOR_DEFS
+ *    (lakehouse category). Appears in: Connectors tab card grid, Upload
+ *    tab quick download links, Guide tab Fluss prerequisites section,
+ *    and Integrations tab with full connection form + SQL generation.
+ *  - Added Fluss integration to SYSTEM_DEFS with bootstrap server,
+ *    bucket config, TTL, datalake tiering toggle, and catalog DDL.
+ *    Generates both Log Table and PrimaryKey Table DDL variants.
+ *    Includes FlussCatalog USE CATALOG snippet.
+ *  - Guide tab: added Fluss prerequisites section (JAR install,
+ *    catalog setup, Delta Join note, Lakehouse tiering).
+ *  - Connectors tab: Fluss badge annotated as "JAR REQ" with
+ *    auto-detect on fluss-connector-flink jar fragment.
+ *  - All v1.4.0 fixes retained.
  * ═══════════════════════════════════════════════════════════════════════
  */
 
@@ -194,6 +197,64 @@ WITH (
     },
     // ── LAKEHOUSE ─────────────────────────────────────────────────────────
     {
+        id: 'fluss',
+        label: 'Apache Fluss',
+        icon: `<svg width="20" height="20" viewBox="0 0 32 32" fill="none">
+          <path d="M4 26 Q8 14 16 10 Q24 6 28 10" stroke="#4bcffa" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+          <path d="M4 22 Q9 16 16 14 Q23 12 28 16" stroke="#4bcffa" stroke-width="1.2" fill="none" stroke-linecap="round" opacity="0.7"/>
+          <path d="M4 18 Q10 17 16 18 Q22 19 28 22" stroke="#4bcffa" stroke-width="0.9" fill="none" stroke-linecap="round" opacity="0.4"/>
+          <circle cx="16" cy="10" r="2.5" fill="#4bcffa" opacity="0.9"/>
+        </svg>`,
+        color: '#4bcffa', category: 'lakehouse',
+        jarNames: ['fluss-connector-flink', 'fluss-flink-connector'],
+        versionNote: 'e.g. fluss-connector-flink-0.8-flink-1.20.jar — match Fluss and Flink versions',
+        downloadUrl: 'https://github.com/apache/fluss/releases',
+        docUrl: 'https://fluss.apache.org/docs/engine-flink/',
+        desc: 'Apache Fluss streaming storage — columnar, sub-second latency, PrimaryKey upserts, Delta Joins, and automatic Lakehouse tiering to Iceberg/Paimon.',
+        warning: '⚠ Fluss requires its own server cluster (CoordinatorServer + TabletServer). The connector JAR must be in /opt/flink/lib/. Register the FlussCatalog before creating tables.',
+        sqlExample: `-- Step 1: Register the Fluss catalog
+CREATE CATALOG fluss_catalog WITH (
+  'type'           = 'fluss',
+  'bootstrap.servers' = 'fluss-server:9123'
+);
+USE CATALOG fluss_catalog;
+
+-- Step 2a: Log Table (append-only, no primary key)
+CREATE TABLE log_events (
+  event_id   BIGINT,
+  user_id    BIGINT,
+  payload    STRING,
+  event_ts   TIMESTAMP(3),
+  WATERMARK FOR event_ts AS event_ts - INTERVAL '5' SECOND
+) WITH (
+  'bucket.num'      = '8',
+  'table.log.ttl'   = '7d'
+);
+
+-- Step 2b: PrimaryKey Table (upsert, Delta Join ready)
+CREATE TABLE user_profiles (
+  user_id     BIGINT,
+  name        STRING,
+  risk_score  DOUBLE,
+  updated_at  TIMESTAMP(3),
+  PRIMARY KEY (user_id) NOT ENFORCED
+) WITH (
+  'bucket.num'             = '4',
+  'table.datalake.enable'  = 'true'   -- auto-tier cold data to Iceberg/Paimon
+);
+
+-- Step 3: Stream into Fluss from Kafka
+INSERT INTO log_events
+SELECT event_id, user_id, payload, event_ts FROM kafka_source;
+
+-- Step 4: Delta Join (Flink 2.1+ — zero state, up to 80% less CPU)
+SELECT k.event_id, k.payload, u.name, u.risk_score
+FROM kafka_source AS k
+JOIN user_profiles FOR SYSTEM_TIME AS OF k.event_ts AS u
+  ON k.user_id = u.user_id;`,
+        noJarNeeded: false,
+    },
+    {
         id: 'iceberg',
         label: 'Apache Iceberg',
         icon: `<svg width="20" height="20" viewBox="0 0 32 32" fill="none"><polygon points="16,4 28,26 4,26" stroke="#4bcffa" stroke-width="1.5" fill="none"/><polygon points="16,11 23,24 9,24" fill="rgba(75,207,250,0.15)" stroke="#4bcffa" stroke-width="1"/></svg>`,
@@ -309,7 +370,7 @@ const SYSTEM_DEFS = [
             return `-- ⚠ Ensure topic '${topic}' exists first\nCREATE TEMPORARY TABLE IF NOT EXISTS ${tbl}_source (\n  id      BIGINT,\n  payload STRING,\n  ts      TIMESTAMP(3),\n  WATERMARK FOR ts AS ts - INTERVAL '5' SECOND\n) WITH (\n  'connector'                    = 'kafka',\n  'topic'                        = '${topic}',\n  'properties.bootstrap.servers' = '${bs}',\n  'properties.group.id'          = '${f.group_id||'flink-group-1'}',\n  'scan.startup.mode'            = 'latest-offset',\n  'format'                       = '${fmt}'${authProps.length?',\n'+authProps.join(',\n'):''}\n);`;
         },
     },
-    // ── NEW: CDC Integration ───────────────────────────────────────────────
+    // ── CDC Integration ───────────────────────────────────────────────────
     {
         id: 'flink_cdc',
         label: 'Flink CDC',
@@ -325,14 +386,14 @@ const SYSTEM_DEFS = [
             return _catProbeViaFlink(host, port, cdcType === 'mysql-cdc' ? 'MySQL' : 'PostgreSQL');
         },
         fields: [
-            { id: 'cdc_type',      label: 'CDC Connector',   required: true,  isSelect: true, options: ['mysql-cdc','postgres-cdc','sqlserver-cdc','oracle-cdc'] },
-            { id: 'hostname',      label: 'Hostname',         placeholder: 'mysql-host or pg-host', required: true },
-            { id: 'port',          label: 'Port',             placeholder: '3306 (MySQL) or 5432 (PG)', required: false },
-            { id: 'database_name', label: 'Database Name',   placeholder: 'mydb', required: true },
-            { id: 'table_name_pattern', label: 'Table Name / Pattern', placeholder: 'orders or mydb\\..*', required: true, hint: 'Regex supported for mysql-cdc, e.g. mydb\\..*' },
-            { id: 'server_id',     label: 'Server ID (MySQL)', placeholder: '5401-5404', required: false, hint: 'MySQL only. Range recommended for parallel reading.' },
-            { id: 'slot_name',     label: 'Slot Name (PG)',  placeholder: 'flink_slot', required: false, hint: 'PostgreSQL only. Must be unique per connection.' },
-            { id: 'plugin_name',   label: 'Plugin (PG)',     required: false, isSelect: true, options: ['pgoutput','decoderbufs','wal2json'], hint: 'PostgreSQL decoding plugin. pgoutput is built-in (PG 10+).' },
+            { id: 'cdc_type',           label: 'CDC Connector',          required: true,  isSelect: true, options: ['mysql-cdc','postgres-cdc','sqlserver-cdc','oracle-cdc'] },
+            { id: 'hostname',           label: 'Hostname',               placeholder: 'mysql-host or pg-host', required: true },
+            { id: 'port',               label: 'Port',                   placeholder: '3306 (MySQL) or 5432 (PG)', required: false },
+            { id: 'database_name',      label: 'Database Name',          placeholder: 'mydb', required: true },
+            { id: 'table_name_pattern', label: 'Table Name / Pattern',   placeholder: 'orders or mydb\\..*', required: true, hint: 'Regex supported for mysql-cdc, e.g. mydb\\..*' },
+            { id: 'server_id',          label: 'Server ID (MySQL)',       placeholder: '5401-5404', required: false, hint: 'MySQL only. Range recommended for parallel reading.' },
+            { id: 'slot_name',          label: 'Slot Name (PG)',         placeholder: 'flink_slot', required: false, hint: 'PostgreSQL only. Must be unique per connection.' },
+            { id: 'plugin_name',        label: 'Plugin (PG)',            required: false, isSelect: true, options: ['pgoutput','decoderbufs','wal2json'], hint: 'PostgreSQL decoding plugin. pgoutput is built-in (PG 10+).' },
         ],
         generateSql: (f, auth) => {
             const cdcType = f.cdc_type || 'mysql-cdc';
@@ -344,6 +405,64 @@ const SYSTEM_DEFS = [
             const schemaProp   = isPg ? `\n  'schema-name'   = 'public',` : '';
             const port = f.port || (isPg ? '5432' : '3306');
             return `-- Prerequisites:\n${isPg ? '-- ALTER SYSTEM SET wal_level = logical; SELECT pg_reload_conf();\n-- SELECT pg_create_logical_replication_slot(\'flink_slot\', \'pgoutput\');' : '-- GRANT REPLICATION SLAVE, REPLICATION CLIENT ON *.* TO \'flink\'@\'%\';'}\nCREATE TEMPORARY TABLE IF NOT EXISTS ${tbl} (\n  -- define columns matching your DB table schema:\n  id         BIGINT,\n  name       STRING,\n  updated_at TIMESTAMP(3),\n  WATERMARK FOR updated_at AS updated_at - INTERVAL '5' SECOND\n) WITH (\n  'connector'     = '${cdcType}',\n  'hostname'      = '${f.hostname || 'localhost'}',\n  'port'          = '${port}',\n  'username'      = '${f.username || 'flink_user'}',\n  'password'      = '${f.password || ''}',\n  'database-name' = '${f.database_name || 'mydb'}',${schemaProp}${serverIdProp}${slotProp}${pluginProp}\n  'table-name'    = '${f.table_name_pattern || 'orders'}'\n);`;
+        },
+    },
+    // ── NEW: Apache Fluss Integration ─────────────────────────────────────
+    {
+        id: 'fluss',
+        label: 'Apache Fluss',
+        icon: `<svg width="22" height="22" viewBox="0 0 32 32" fill="none">
+          <path d="M4 26 Q8 14 16 10 Q24 6 28 10" stroke="#4bcffa" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+          <path d="M4 22 Q9 16 16 14 Q23 12 28 16" stroke="#4bcffa" stroke-width="1.2" fill="none" stroke-linecap="round" opacity="0.7"/>
+          <path d="M4 18 Q10 17 16 18 Q22 19 28 22" stroke="#4bcffa" stroke-width="0.9" fill="none" stroke-linecap="round" opacity="0.4"/>
+          <circle cx="16" cy="10" r="2.5" fill="#4bcffa" opacity="0.9"/>
+        </svg>`,
+        color: '#4bcffa', category: 'lakehouse',
+        requiresConnectorJar: true, connectorJarId: 'fluss',
+        authModes: ['none', 'userpass'],
+        testFn: async (fields) => {
+            const host = (fields.bootstrap_servers || '').trim().split(':')[0];
+            const port = (fields.bootstrap_servers || '').includes(':')
+                ? (fields.bootstrap_servers || '').split(':')[1]
+                : '9123';
+            if (!host) return { ok: false, msg: 'Bootstrap Servers not set.' };
+            return _catProbeViaFlink(host, port, 'Fluss server');
+        },
+        fields: [
+            { id: 'bootstrap_servers', label: 'Bootstrap Servers',    placeholder: 'fluss-server:9123', required: true,  hint: 'Fluss CoordinatorServer address. Default port: 9123.' },
+            { id: 'table_type',        label: 'Table Type',           required: true,  isSelect: true, options: ['primarykey', 'log'], hint: 'PrimaryKey: upsert + Delta Join. Log: append-only stream.' },
+            { id: 'bucket_num',        label: 'Bucket Count',         placeholder: '4', required: false, hint: 'Number of buckets. Determines parallelism. Power of 2 recommended.' },
+            { id: 'log_ttl',           label: 'Log TTL',              placeholder: '7d', required: false, hint: 'How long streaming data is retained before tiering. e.g. 1d, 7d, 30d.' },
+            { id: 'datalake_enable',   label: 'Lakehouse Tiering',    required: false, isSelect: true, options: ['false', 'true'], hint: 'Auto-compact cold data to Iceberg/Paimon. Requires Lakehouse configured on the Fluss server.' },
+            { id: 'catalog_name',      label: 'Catalog Alias',        placeholder: 'fluss_catalog', required: false, hint: 'Name for the FlussCatalog in Flink. Used in USE CATALOG statement.' },
+        ],
+        generateSql: (f, auth) => {
+            const bs          = f.bootstrap_servers  || 'fluss-server:9123';
+            const tableType   = f.table_type         || 'primarykey';
+            const isPk        = tableType === 'primarykey';
+            const bucketNum   = f.bucket_num         || '4';
+            const logTtl      = f.log_ttl            || '7d';
+            const datalake    = f.datalake_enable    || 'false';
+            const catalogName = f.catalog_name       || 'fluss_catalog';
+            const tblName     = (f.table_name        || (isPk ? 'pk_table' : 'log_table')).toLowerCase().replace(/\s+/g,'_');
+
+            const authProps = (auth === 'userpass' && f.username)
+                ? `,\n  'client.security.protocol' = 'SASL_PLAINTEXT',\n  'client.sasl.username'     = '${f.username}',\n  'client.sasl.password'     = '${f.password || ''}'`
+                : '';
+
+            const pkBlock = isPk
+                ? `  user_id     BIGINT,\n  name        STRING,\n  score       DOUBLE,\n  updated_at  TIMESTAMP(3),\n  PRIMARY KEY (user_id) NOT ENFORCED`
+                : `  event_id    BIGINT,\n  user_id     BIGINT,\n  payload     STRING,\n  event_ts    TIMESTAMP(3),\n  WATERMARK FOR event_ts AS event_ts - INTERVAL '5' SECOND`;
+
+            const datalakeProp = datalake === 'true'
+                ? `,\n  'table.datalake.enable' = 'true'   -- auto-tier cold data to Iceberg/Paimon`
+                : '';
+
+            const deltaJoinComment = isPk
+                ? `\n\n-- Delta Join (Flink 2.1+ — zero state, up to 80% less CPU vs stream-stream join):\n-- SELECT k.event_id, k.payload, t.name, t.score\n-- FROM kafka_source AS k\n-- JOIN ${tblName} FOR SYSTEM_TIME AS OF k.event_ts AS t\n--   ON k.user_id = t.user_id;`
+                : '';
+
+            return `-- Step 1: Register FlussCatalog\nCREATE CATALOG ${catalogName} WITH (\n  'type'               = 'fluss',\n  'bootstrap.servers'  = '${bs}'${authProps}\n);\nUSE CATALOG ${catalogName};\n\n-- Step 2: Create ${isPk ? 'PrimaryKey' : 'Log'} Table\nCREATE TABLE IF NOT EXISTS ${tblName} (\n${pkBlock}\n) WITH (\n  'bucket.num'      = '${bucketNum}',\n  'table.log.ttl'   = '${logTtl}'${datalakeProp}\n);${deltaJoinComment}`;
         },
     },
     {
@@ -574,7 +693,7 @@ function _sysBuildModal() {
   <div class="modal-header" style="background:linear-gradient(135deg,rgba(79,163,224,0.08),rgba(0,0,0,0));border-bottom:1px solid rgba(79,163,224,0.2);flex-shrink:0;padding:14px 20px;">
     <div>
       <div style="font-size:14px;font-weight:700;color:var(--text0);"><span style="color:var(--blue,#4fa3e0);">⊙</span> Systems Manager</div>
-      <div style="font-size:10px;color:var(--blue,#4fa3e0);letter-spacing:1px;text-transform:uppercase;margin-top:2px;">Connector JARs &amp; External System Integrations · v1.4.0</div>
+      <div style="font-size:10px;color:var(--blue,#4fa3e0);letter-spacing:1px;text-transform:uppercase;margin-top:2px;">Connector JARs &amp; External System Integrations · v1.5.0</div>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       <span id="sys-avail-status" style="font-size:10px;color:var(--text3);font-family:var(--mono);"></span>
@@ -593,14 +712,15 @@ function _sysBuildModal() {
 
   <div style="flex:1;overflow-y:auto;min-height:0;">
 
-    <!-- ══ CONNECTORS TAB ══ includes CDC card in Messaging section ════ -->
+    <!-- ══ CONNECTORS TAB ══ includes Fluss card in Lakehouse section ════ -->
     <div id="sys-pane-connectors" style="padding:16px;display:none;">
       <div style="font-size:11px;color:var(--text2);line-height:1.7;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:10px 13px;margin-bottom:14px;">
         <span class="sys-badge-jar-req">JAR REQ</span> = JAR needed in <code>/opt/flink/lib/</code> + Gateway restart. &nbsp;
         <span class="sys-badge-detected">● DETECTED</span> = JAR found on disk. &nbsp;
         <span class="sys-badge-builtin">✓ BUILT-IN</span> = no JAR needed.
         <strong style="color:var(--yellow);">⚠ Kafka:</strong> Topics must exist before pipeline submit. &nbsp;
-        <strong style="color:#e84393;">⟳ CDC:</strong> Requires DB replication privileges — see Guide tab.
+        <strong style="color:#e84393;">⟳ CDC:</strong> Requires DB replication privileges — see Guide tab. &nbsp;
+        <strong style="color:#4bcffa;">🌊 Fluss:</strong> Requires Fluss server cluster + FlussCatalog — see Guide tab.
       </div>
       ${categories.map(cat => `
         <div style="margin-bottom:16px;">
@@ -614,7 +734,7 @@ function _sysBuildModal() {
       </div>
     </div>
 
-    <!-- ══ UPLOAD JAR TAB ══ Quick download links include CDC JAR ═══════ -->
+    <!-- ══ UPLOAD JAR TAB ══ Quick download links include Fluss JAR ══════ -->
     <div id="sys-pane-upload" style="padding:20px;display:none;">
       <div style="background:rgba(79,163,224,0.05);border:1px solid rgba(79,163,224,0.2);border-radius:var(--radius);padding:11px 14px;margin-bottom:14px;font-size:11px;color:var(--text1);line-height:1.8;">
         <strong style="color:var(--blue,#4fa3e0);">Connector JARs must be in /opt/flink/lib/</strong> on all TaskManagers and the SQL Gateway <em>at startup</em>.<br>
@@ -681,7 +801,7 @@ function _sysBuildModal() {
       </div>
     </div>
 
-    <!-- ══ INTEGRATIONS TAB ══ includes CDC form card ═══════════════════ -->
+    <!-- ══ INTEGRATIONS TAB ══ includes Fluss form card ════════════════════ -->
     <div id="sys-pane-integrations" style="padding:16px;display:none;">
       <div style="margin-bottom:14px;">
         <div style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;">Select System</div>
@@ -706,12 +826,12 @@ function _sysBuildModal() {
       </div>
     </div>
 
-    <!-- ══ SAVED TAB ══ auto-includes CDC saved integrations ════════════ -->
+    <!-- ══ SAVED TAB ══ auto-includes Fluss saved integrations ══════════ -->
     <div id="sys-pane-saved" style="padding:16px;display:none;">
       <div id="sys-saved-list"></div>
     </div>
 
-    <!-- ══ GUIDE TAB ══ includes CDC prerequisites section ══════════════ -->
+    <!-- ══ GUIDE TAB ══ includes Fluss prerequisites section ════════════ -->
     <div id="sys-pane-guide" style="padding:20px;display:none;">
       <div style="display:flex;flex-direction:column;gap:14px;">
 
@@ -748,6 +868,73 @@ ALTER ROLE flink_user WITH REPLICATION;</pre>
           </div>
         </div>
 
+        <!-- ── NEW: Fluss Prerequisites ───────────────────────────────── -->
+        <div style="background:rgba(75,207,250,0.06);border:1px solid rgba(75,207,250,0.25);border-radius:var(--radius);padding:13px 15px;">
+          <div style="font-size:12px;font-weight:700;color:#4bcffa;margin-bottom:8px;">🌊 Apache Fluss — Setup &amp; Prerequisites</div>
+          <div style="font-size:11px;color:var(--text1);line-height:1.8;">
+            <strong style="color:var(--text0);">1. Start the Fluss server cluster (Docker Compose)</strong>
+            <pre style="background:var(--bg0);border:1px solid var(--border);border-left:3px solid #4bcffa;border-radius:var(--radius);padding:7px 10px;font-size:11px;font-family:var(--mono);color:var(--text1);white-space:pre-wrap;margin:5px 0 10px;">services:
+  fluss-coordinator:
+    image: fluss/fluss:latest
+    command: coordinatorServer
+    ports: ["9123:9123"]
+    environment:
+      FLUSS_PROPERTIES: |
+        zookeeper.address: zookeeper:2181
+        coordinator.host: fluss-coordinator
+  fluss-tablet:
+    image: fluss/fluss:latest
+    command: tabletServer
+    environment:
+      FLUSS_PROPERTIES: |
+        zookeeper.address: zookeeper:2181
+        coordinator.address: fluss-coordinator:9123</pre>
+            <strong style="color:var(--text0);">2. Place the Fluss connector JAR in /opt/flink/lib/</strong>
+            <pre style="background:var(--bg0);border:1px solid var(--border);border-left:3px solid #4bcffa;border-radius:var(--radius);padding:7px 10px;font-size:11px;font-family:var(--mono);color:var(--text1);white-space:pre-wrap;margin:5px 0 10px;"># Download from https://github.com/apache/fluss/releases
+# Example: fluss-connector-flink-0.8-flink-1.20.jar
+docker cp fluss-connector-flink-0.8-flink-1.20.jar flink-jobmanager:/opt/flink/lib/
+docker cp fluss-connector-flink-0.8-flink-1.20.jar flink-taskmanager:/opt/flink/lib/
+docker restart flink-jobmanager flink-taskmanager flink-sql-gateway</pre>
+            <strong style="color:var(--text0);">3. Register FlussCatalog and create tables</strong>
+            <pre style="background:var(--bg0);border:1px solid var(--border);border-left:3px solid #4bcffa;border-radius:var(--radius);padding:7px 10px;font-size:11px;font-family:var(--mono);color:var(--text1);white-space:pre-wrap;margin:5px 0 10px;">-- Register the catalog (run once per session):
+CREATE CATALOG fluss_catalog WITH (
+  'type'              = 'fluss',
+  'bootstrap.servers' = 'fluss-coordinator:9123'
+);
+USE CATALOG fluss_catalog;
+
+-- PrimaryKey table (supports upsert + Delta Join):
+CREATE TABLE orders (
+  order_id BIGINT,
+  status   STRING,
+  amount   DOUBLE,
+  PRIMARY KEY (order_id) NOT ENFORCED
+) WITH ('bucket.num' = '4');
+
+-- Log table (append-only, high-throughput):
+CREATE TABLE events (
+  event_id BIGINT,
+  payload  STRING,
+  event_ts TIMESTAMP(3),
+  WATERMARK FOR event_ts AS event_ts - INTERVAL '5' SECOND
+) WITH ('bucket.num' = '8', 'table.log.ttl' = '7d');</pre>
+            <strong style="color:var(--text0);">4. Enable Lakehouse tiering to Iceberg/Paimon (optional)</strong>
+            <pre style="background:var(--bg0);border:1px solid var(--border);border-left:3px solid #4bcffa;border-radius:var(--radius);padding:7px 10px;font-size:11px;font-family:var(--mono);color:var(--text1);white-space:pre-wrap;margin:5px 0 10px;">-- Add to your CREATE TABLE WITH clause:
+'table.datalake.enable' = 'true'
+-- Or alter an existing table:
+ALTER TABLE orders SET ('table.datalake.enable' = 'true');</pre>
+            <strong style="color:var(--text0);">5. Delta Join — zero-state lookup (Flink 2.1+)</strong>
+            <pre style="background:var(--bg0);border:1px solid var(--border);border-left:3px solid #4bcffa;border-radius:var(--radius);padding:7px 10px;font-size:11px;font-family:var(--mono);color:var(--text1);white-space:pre-wrap;margin:5px 0;">-- Joins a Kafka stream against a Fluss PrimaryKey table.
+-- Flink externalises state into Fluss — up to 80% less CPU/memory.
+SELECT k.event_id, k.payload, o.status, o.amount
+FROM kafka_events AS k
+JOIN orders FOR SYSTEM_TIME AS OF k.event_ts AS o
+  ON k.order_id = o.order_id;
+-- Note: requires Flink 2.1+ and the Fluss connector JAR on the classpath.</pre>
+          </div>
+        </div>
+        <!-- ── END Fluss Prerequisites ─────────────────────────────────── -->
+
         <div style="background:rgba(79,163,224,0.06);border:1px solid rgba(79,163,224,0.2);border-radius:var(--radius);padding:13px 15px;">
           <div style="font-size:12px;font-weight:700;color:var(--blue,#4fa3e0);margin-bottom:8px;">📦 Connector JAR vs ADD JAR</div>
           <div style="font-size:11px;color:var(--text1);line-height:1.8;">
@@ -762,6 +949,7 @@ ALTER ROLE flink_user WITH REPLICATION;</pre>
           <pre style="background:var(--bg0);border:1px solid var(--border);border-left:3px solid var(--blue,#4fa3e0);border-radius:var(--radius);padding:10px 14px;font-size:11px;font-family:var(--mono);color:var(--text1);line-height:1.7;overflow-x:auto;white-space:pre;"># 1. Upload JAR to Studio (Upload JAR tab above)
 # 2. Copy from Studio to Flink containers:
 docker cp flink-studio:/var/www/udf-jars/flink-sql-connector-kafka-3.3.0-1.19.jar flink-jobmanager:/opt/flink/lib/
+docker cp flink-studio:/var/www/udf-jars/fluss-connector-flink-0.8-flink-1.20.jar flink-jobmanager:/opt/flink/lib/
 docker cp flink-studio:/var/www/udf-jars/mysql-cdc-3.1.1.jar flink-jobmanager:/opt/flink/lib/
 # 3. Restart Flink to pick up new JARs:
 docker restart flink-jobmanager flink-taskmanager flink-sql-gateway
@@ -777,6 +965,7 @@ docker restart flink-jobmanager flink-taskmanager flink-sql-gateway
     <div style="font-size:10px;color:var(--text3);display:flex;gap:12px;">
       <a href="https://nightlies.apache.org/flink/flink-docs-stable/docs/connectors/table/overview/" target="_blank" style="color:var(--blue,#4fa3e0);text-decoration:none;">📖 Connector Docs ↗</a>
       <a href="https://nightlies.apache.org/flink/flink-cdc-docs-stable/" target="_blank" style="color:#e84393;text-decoration:none;">📖 Flink CDC Docs ↗</a>
+      <a href="https://fluss.apache.org/docs/engine-flink/" target="_blank" style="color:#4bcffa;text-decoration:none;">📖 Fluss Docs ↗</a>
     </div>
     <button class="btn btn-primary" onclick="closeModal('modal-systems-manager')">Close</button>
   </div>
@@ -880,7 +1069,6 @@ function _sysSelectConnector(id) {
     const allUploaded = [..._sysGetUploadedJarNames(), ...(window._sysMgrState.liveJarNames||[]).map(n => n.toLowerCase())];
     const found = def.noJarNeeded || (def.jarNames||[]).some(frag => allUploaded.some(name => name.includes(frag.toLowerCase())));
     const warningHtml = def.warning ? `<div style="background:rgba(245,166,35,0.08);border:1px solid rgba(245,166,35,0.3);border-radius:4px;padding:8px 12px;font-size:11px;color:var(--yellow);margin-bottom:10px;line-height:1.7;">${def.warning}</div>` : '';
-    // Check if this connector has a matching integration in SYSTEM_DEFS
     const hasIntegration = SYSTEM_DEFS.some(s => s.id === id || s.connectorJarId === id);
     body.innerHTML = `
     <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:12px;">

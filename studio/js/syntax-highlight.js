@@ -1,6 +1,5 @@
 /**
  * Str:::lab Studio — SQL Syntax Highlighting v3
- * js/syntax-highlight.js  — replace existing file entirely
  *
  * Load order in index.html: AFTER editor.js, BEFORE execution.js
  */

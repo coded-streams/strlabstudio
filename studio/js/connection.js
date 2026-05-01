@@ -1,7 +1,6 @@
 // CONNECTION
-// ──────────────────────────────────────────────
 
-// ── Admin session config ──────────────────────────────────────────────────────
+// ── Admin session config
 // Passcode stored in localStorage — changeable from within the admin session
 // via the 🛡 Settings badge after connecting.
 const ADMIN_DEFAULT_PASSCODE = 'admin1234';

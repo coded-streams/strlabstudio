@@ -1,5 +1,4 @@
 // TABS
-// ──────────────────────────────────────────────
 let tabCounter = 0;
 function _nextTabNumber() {
   // Find the lowest positive integer NOT already used as a Query N name or tab-N id.
@@ -149,5 +148,3 @@ function closeTab(id, e) {
   }
   renderTabs();
 }
-
-// ──────────────────────────────────────────────

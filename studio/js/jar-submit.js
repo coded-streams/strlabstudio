@@ -16,7 +16,7 @@
  * state.gateway.baseUrl which already points at the proxy root.
  */
 
-// ── Storage ───────────────────────────────────────────────────────────────────
+// ── Storage
 const JAR_STORAGE_KEY = 'strlabstudio_jar_history';
 const JAR_MAX_HISTORY = 20;
 
@@ -32,7 +32,7 @@ function _jarAddHistory(entry) {
     _jarSaveHistory(h);
 }
 
-// ── Environment guard ─────────────────────────────────────────────────────────
+// ── Environment guard
 function _jarCheckEnvironment() {
     if (window.location.protocol === 'file:') {
         return {
@@ -46,7 +46,7 @@ function _jarCheckEnvironment() {
     return { ok: true };
 }
 
-// ── Derive the raw XHR upload URL from the same proxy the Studio uses ─────────
+// ── Derive the raw XHR upload URL from the same proxy the Studio uses
 // jmApi() calls e.g. GET http://localhost:3030/jobmanager-api/jobs/overview
 // Upload must go to:      POST http://localhost:3030/jobmanager-api/jars/upload
 //
@@ -59,7 +59,7 @@ function _jarXhrBase() {
     return '/jobmanager-api';
 }
 
-// ── API helpers ───────────────────────────────────────────────────────────────
+// ── API helpers
 // _jarApiRead  — uses jmApi() (the real proxy helper from connection.js).
 //                Used for GET /jars and DELETE /jars/:id because jmApi() already
 //                knows the correct proxy routing (same as jobgraph.js calls).
@@ -108,7 +108,7 @@ async function _jarApiRun(path, opts) {
     return json ?? {};
 }
 
-// ── Inject JAR tab when Project Manager opens ─────────────────────────────────
+// ── Inject JAR tab when Project Manager opens
 const _jarOrigOpenPM = window.openProjectManager;
 window.openProjectManager = function () {
     if (_jarOrigOpenPM) _jarOrigOpenPM();
@@ -142,7 +142,7 @@ function _jarInjectTab() {
     _jarBindEvents();
 }
 
-// ── Patch switchPmTab ─────────────────────────────────────────────────────────
+// ── Patch switchPmTab
 const _jarOrigSwitch = window.switchPmTab;
 window.switchPmTab = function (tab) {
     _jarOrigSwitch(tab);
@@ -167,7 +167,7 @@ window.switchPmTab = function (tab) {
     }
 };
 
-// ── Pane HTML ─────────────────────────────────────────────────────────────────
+// ── Pane HTML
 function _jarPaneHTML() {
     return `
 <div style="display:flex;flex-direction:column;height:100%;overflow:hidden;min-height:0;">
@@ -329,7 +329,7 @@ function _jarPaneHTML() {
 </div>`;
 }
 
-// ── Bind events ───────────────────────────────────────────────────────────────
+// ── Bind events
 function _jarBindEvents() {
     _jarRenderHistory();
     _jarCheckAndShowBanner();
@@ -348,7 +348,7 @@ function _jarCheckAndShowBanner() {
     if (!env.ok) banner.textContent = '⚠  ' + env.msg;
 }
 
-// ── Drag & Drop ───────────────────────────────────────────────────────────────
+// ── Drag & Drop
 function _jarDragOver(e) {
     e.preventDefault();
     const dz = document.getElementById('jar-dropzone');
@@ -400,7 +400,7 @@ function _jarReset() {
     _jarSetStatus('', '');
 }
 
-// ── UI helpers ────────────────────────────────────────────────────────────────
+// ── UI helpers
 function _jarSetStatus(msg, type) {
     const el = document.getElementById('jar-status-msg'); if (!el) return;
     el.style.color = { ok: 'var(--green)', err: 'var(--red)', info: 'var(--accent)', warn: 'var(--yellow,#f5a623)', '': 'var(--text2)' }[type] || 'var(--text2)';
@@ -424,7 +424,7 @@ function _jarSetSubmitBusy(busy, label) {
     if (btn) { btn.disabled = busy; btn.style.opacity = busy ? '0.65' : '1'; btn.style.cursor = busy ? 'not-allowed' : 'pointer'; }
 }
 
-// ── MAIN SUBMIT PIPELINE ──────────────────────────────────────────────────────
+// ── MAIN SUBMIT PIPELINE
 async function _jarSubmit() {
     const env = _jarCheckEnvironment();
     if (!env.ok) { _jarSetStatus('✗ ' + env.msg.split('\n')[0], 'err'); _jarCheckAndShowBanner(); return; }
@@ -502,7 +502,7 @@ async function _jarSubmit() {
         _jarSetStatus('JAR uploaded — submitting job…', 'info');
         _jarSetSubmitBusy(true, 'Submitting…');
 
-        // ── STEP 2: Run the JAR via the same proxy ─────────────────────────
+        // ── STEP 2: Run the JAR via the same proxy
         // POST /jars/:jarId/run
         // The jarId returned by Flink is typically the full path like:
         //   /opt/flink/web-upload/uuid_filename.jar
@@ -556,7 +556,7 @@ async function _jarSubmit() {
     }
 }
 
-// ── Navigate to Job Graph and select the new job ──────────────────────────────
+// ── Navigate to Job Graph and select the new job
 function _jarGoToJobGraph(jobId) {
     if (typeof closeModal === 'function') closeModal('modal-project-manager');
 
@@ -590,7 +590,7 @@ function _jarGoToJobGraph(jobId) {
     }
 }
 
-// ── Cluster JAR list (right panel) ───────────────────────────────────────────
+// ── Cluster JAR list (right panel)
 async function _jarRefreshClusterList() {
     const el = document.getElementById('jar-cluster-list'); if (!el) return;
     const env = _jarCheckEnvironment();
@@ -702,7 +702,7 @@ async function _jarDeleteJar(encodedId, displayName) {
     }
 }
 
-// ── Submission history ────────────────────────────────────────────────────────
+// ── Submission history
 function _jarRenderHistory() {
     const el = document.getElementById('jar-history-list'); if (!el) return;
     const hist = _jarLoadHistory();
@@ -745,8 +745,8 @@ function _jarViewJob(jobId) {
     }, 500);
 }
 
-// ── Utility ───────────────────────────────────────────────────────────────────
-// ── Show Flink error in the Studio's existing error modal ────────────────────
+// ── Utility
+// ── Show Flink error in the Studio's existing error modal
 // Reuses #modal-error, #error-summary, #error-stacktrace, #error-type-badge
 // from index.html — the same modal that SQL execution errors use.
 function _jarShowError(err) {
@@ -804,7 +804,7 @@ function _jarFmtBytes(b) {
     return b + ' B';
 }
 
-// ── CSS ───────────────────────────────────────────────────────────────────────
+// ── CSS
 (function () {
     const s = document.createElement('style');
     s.textContent = `

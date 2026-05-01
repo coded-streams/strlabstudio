@@ -1,5 +1,5 @@
 /**
- * sql-visual-panel-hooks.js  —  Str:::lab Studio v0.0.22
+ * sql-visual-panel-hooks  —  Str:::lab Studio v0.0.22
  * ─────────────────────────────────────────────────────────────────
  * Hooks the SQL Visual Panel into the studio execution lifecycle.
  * Non-destructive monkey-patches — no existing files need editing.

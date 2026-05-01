@@ -1,20 +1,10 @@
-# ─────────────────────────────────────────────────────────────────────────────
-# .github/workflows/publish.yml
 # Three jobs:
 #   1. build-and-push  — builds multi-arch Docker image, pushes to Docker Hub
 #   2. build-docs      — prepares and uploads the Pages artifact
 #   3. deploy-docs     — deploys the artifact to GitHub Pages
 #
 # Splitting upload and deploy into separate jobs prevents the "duplicate
-# artifact" error when re-running only failed jobs.
-#
-# Required GitHub secrets:
-#   DOCKERHUB_USERNAME  = codedstreams
-#   DOCKERHUB_TOKEN     = dckr_pat_xxxx...
-#
-# Required GitHub Pages config (one-time):
-#   Settings → Pages → Source → GitHub Actions
-# ─────────────────────────────────────────────────────────────────────────────
+
 name: Build, Publish & Deploy Docs
 
 on:
@@ -28,7 +18,7 @@ env:
 
 jobs:
 
-  # ── JOB 1: Build Docker image and push to Docker Hub ──────────────────────
+  # ── JOB 1: Build Docker image and push to Docker Hub
   build-and-push:
     name: Build & push Docker image
     runs-on: ubuntu-latest
@@ -82,7 +72,7 @@ jobs:
           repository: ${{ env.IMAGE_NAME }}
           readme-filepath: ./README.md
 
-  # ── JOB 2: Build and upload the Pages artifact ────────────────────────────
+  # ── JOB 2: Build and upload the Pages artifact
   build-docs:
     name: Build docs site
     runs-on: ubuntu-latest
@@ -110,7 +100,7 @@ jobs:
         with:
           path: _site
 
-  # ── JOB 3: Deploy the uploaded artifact to GitHub Pages ───────────────────
+  # ── JOB 3: Deploy the uploaded artifact to GitHub Pages
   deploy-docs:
     name: Deploy to GitHub Pages
     runs-on: ubuntu-latest

@@ -1,4 +1,4 @@
-// ── CONNECTION MODE ───────────────────────────────────────────────────────────
+// ── CONNECTION MODE
 // Modes: 'proxy' | 'direct' | 'confluent' | 'remote'
 let connMode = 'proxy';
 let authMode = 'bearer';
@@ -37,7 +37,7 @@ function setAuthMode(mode) {
     if (basicF)  basicF.style.display  = mode === 'basic'  ? 'block' : 'none';
 }
 
-// ── URL + AUTH HELPERS ────────────────────────────────────────────────────────
+// ── URL + AUTH HELPERS
 
 function _getConfluentBaseUrl() {
     const region   = (document.getElementById('inp-cf-region')?.value   || '').trim().toLowerCase();
@@ -89,7 +89,7 @@ function getAuthHeaders() {
     return {};
 }
 
-// ── TEST CONNECTION ────────────────────────────────────────────────────────────
+// ── TEST CONNECTION 
 
 async function testConnection() {
     const baseUrl = getBaseUrl();
@@ -158,7 +158,7 @@ async function testConnection() {
     }
 }
 
-// ── CONFLUENT CLOUD CONNECT ────────────────────────────────────────────────────
+// ── CONFLUENT CLOUD CONNECT 
 
 async function doConfluentConnect() {
     const orgId      = (document.getElementById('inp-cf-org')?.value      || '').trim();
@@ -217,7 +217,7 @@ async function doConfluentConnect() {
     }
 }
 
-// ── MAIN doConnect — routes to Confluent or standard ─────────────────────────
+// ── MAIN doConnect — routes to Confluent or standard
 
 async function doConnect() {
     if (connMode === 'confluent') {
@@ -225,7 +225,7 @@ async function doConnect() {
         return;
     }
 
-    // ── Original doConnect logic below (unchanged) ────────────────────────────
+    // ── Original doConnect logic below (unchanged)
     const baseUrl   = getBaseUrl();
     const host      = connMode === 'proxy' ? window.location.hostname : (document.getElementById('inp-host')?.value.trim() || 'localhost');
     const port      = connMode === 'proxy' ? (window.location.port || '80') : (document.getElementById('inp-port')?.value.trim() || '8084');

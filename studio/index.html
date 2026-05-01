@@ -429,9 +429,7 @@
 </head>
 <body>
 
-<!-- ═══════════════════════════════════════════════════════════════ -->
 <!--  CONNECTION SCREEN                                              -->
-<!-- ═══════════════════════════════════════════════════════════════ -->
 <div id="connect-screen">
   <div class="cs-layout">
 
@@ -1246,8 +1244,10 @@
             <option value="schema-registry">⊕ Schema Registry</option>
             <option value="bp-analyser">⚠ BP Analyser</option>
             <option value="watermarks">⏱ Watermarks</option>
-            <option value="dep-graph">⬡ Dependency Graph</option>
+            <option value="dep-graph">⬡ Pipeline Mesh</option>
             <option value="profiler">⏺ SQL Profiler</option>
+            <option value="feature-engineering">⬡ Feature Engineering</option>
+            <option value="inference-manager">⚙ Inference Manager</option>
           </select>
           <span style="font-size: 8px; color: var(--text3); pointer-events: none;">▼</span>
         </div>
@@ -1331,8 +1331,8 @@
                   title="Watermark Health Monitor"
                   style="color:var(--blue,#4fa3e0);">⏱ Watermarks</button>
           <button class="toolbar-btn" onclick="openPipelineDependencyGraph()"
-                  title="Multi-Pipeline Dependency Graph"
-                  style="color:var(--accent3,#7ee8d0);">⬡ Dep Graph</button>
+                  title="Multi-Pipeline Mesh"
+                  style="color:var(--accent3,#7ee8d0);">⬡ Pipeline Mesh</button>
           <button class="toolbar-btn" onclick="openSqlProfiler()"
                   title="SQL Profiler — Execution Replay"
                   style="color:var(--accent3,#818cf8);">⏺ Profiler</button>
@@ -1683,7 +1683,7 @@ SHOW CATALOGS;"></textarea>
           <div>
             <div style="font-size:18px;font-weight:700;color:var(--text0);">Str:::lab Studio</div>
             <div style="font-size:11px;color:var(--text2);margin-top:3px;">SQL Studio for Flink pipelines</div>
-            <div style="font-size:10px;color:var(--text3);margin-top:2px;font-family:var(--mono);">v0.0.23 · MIT License</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:2px;font-family:var(--mono);">v0.0.25 · MIT License</div>
           </div>
         </div>
         <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;">
@@ -1788,6 +1788,8 @@ SHOW CATALOGS;"></textarea>
 <script src="js/watermark-monitor.js"></script>
 <script src="js/pipeline-dependency-graph.js"></script>
 <script src="js/sql-profiler.js"></script>
+<script src="js/feature-engineering-manager.js"></script>
+<script src="js/inference-manager.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 
 
@@ -1857,6 +1859,12 @@ SHOW CATALOGS;"></textarea>
           break;
         case 'profiler':
           if (typeof openSqlProfiler === 'function') openSqlProfiler();
+          break;
+        case 'feature-engineering':
+          if (typeof openFeatureEngineeringManager === 'function') openFeatureEngineeringManager();
+          break;
+        case 'inference-manager':
+          if (typeof openInferenceManager === 'function') openInferenceManager();
           break;
       }
     }

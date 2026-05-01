@@ -1,22 +1,7 @@
 /* Str:::lab Studio — UDF Manager v1.4.0
- * ═══════════════════════════════════════════════════════════════════════
- * FIXES in v1.4.0:
- *
- * 1. FOOTER FIX: modal-footer now has display:flex inline so it renders
- *    correctly inside the modal box instead of floating behind it.
- *
- * 2. UDF REGISTRY KEY FIX: _saveUdfReg now writes to the same key
- *    ('strlabstudio_udfs') that the Pipeline Manager reads via
- *    _plmGetUdfs(). Previously the UDF Manager wrote to
- *    'strlabstudio_udf_registry' but the Pipeline Manager read from
- *    'strlabstudio_udfs' — so newly registered UDFs never appeared
- *    in the pipeline UDF node dropdown.
- *
- * 3. All prior fixes retained.
- * ═══════════════════════════════════════════════════════════════════════
  */
 
-// ── Flink SQL type options for parameters ──────────────────────────────────
+// ── Flink SQL type options for parameters
 const FLINK_TYPES = [
     'STRING','VARCHAR','CHAR','BOOLEAN',
     'TINYINT','SMALLINT','INT','BIGINT',
@@ -25,7 +10,7 @@ const FLINK_TYPES = [
     'ARRAY<STRING>','MAP<STRING,STRING>','ROW<>'
 ];
 
-// ── Template library ──────────────────────────────────────────────────────────
+// ── Template library
 const UDF_TEMPLATES = [
     {
         group: 'Java / Scala — Scalar Functions',

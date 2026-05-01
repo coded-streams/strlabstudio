@@ -1,8 +1,7 @@
-// ════════════════════════════════════════════════════════════════════════════
-// VERTEX TIMELINE + JOB COMPARISON + CLUSTER RESOURCES + SESSION REPORT
-// ════════════════════════════════════════════════════════════════════════════
 
-// ── Status colours ───────────────────────────────────────────────────────────
+// VERTEX TIMELINE + JOB COMPARISON + CLUSTER RESOURCES + SESSION REPORT
+
+// ── Status colours
 const VERTEX_COLORS = {
   CREATED:      '#3d5166',
   SCHEDULED:    '#1a5fcc',
@@ -16,7 +15,7 @@ const VERTEX_COLORS = {
 };
 const STATUS_ORDER = ['CREATED','SCHEDULED','DEPLOYING','INITIALIZING','RUNNING','FINISHED','FAILED','CANCELING','CANCELED'];
 
-// ── Job graph view state ─────────────────────────────────────────────────────
+// ── Job graph view state
 let _jgView = 'dag';          // 'dag' | 'timeline'
 let _jgCurrentJid = null;
 

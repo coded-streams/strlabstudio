@@ -1,4 +1,4 @@
-/* Str:::lab Studio — sql-highlight.js
+/* Str:::lab Studio
  * ═══════════════════════════════════════════════════════════════════
  * Mirror-div syntax highlighter for the Flink SQL editor.
  *

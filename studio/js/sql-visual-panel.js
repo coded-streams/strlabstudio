@@ -1,5 +1,5 @@
 /**
- * sql-visual-panel.js  —  Str:::lab Studio v0.0.22
+ * sql-visual-panel  —  Str:::lab Studio v0.0.22
  * ─────────────────────────────────────────────────────────────────
  * Live SQL Pipeline Visualiser embedded in the SQL editor.
  *
@@ -2102,7 +2102,7 @@
         if (badge) badge.style.display = 'none';
     }
 
-    // ── Public API ─────────────────────────────────────────────────────
+    // ── Public API
     root._svp = {
         startAnimation,
         stopAnimation,

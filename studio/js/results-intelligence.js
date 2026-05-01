@@ -1,23 +1,7 @@
 /* Str:::lab Studio — results-intelligence.js v5
- * ─────────────────────────────────────────────────────────────────────────────
- * FIXES in this build:
- *  1. COLOUR DESCRIBE — core fix: renderResults hook now re-applies highlighting
- *     AFTER innerHTML is set (was being wiped). Also injects styles directly
- *     into the generated HTML during row building via a post-process pass,
- *     so styles survive any subsequent re-renders.
- *  2. COLOUR DESCRIBE — _cdReapplyExistingFromDOM robustified: runs after a
- *     short delay to ensure DOM is settled, uses !important via setAttribute
- *     style string (not removeProperty/setProperty which can race).
- *  3. COLOUR DESCRIBE — case-insensitive column matching kept from v4.
- *  4. COLOUR DESCRIBE — added a MutationObserver on result-table-wrap so that
- *     any time the table is replaced (streaming ticks), highlighting is
- *     re-applied automatically without relying solely on the renderResults patch.
- *  5. CHART REPORT — modal widened to 1200px, chart panel resizable/zoomable
- *     with pinch/wheel zoom and zoom in/out buttons.
- *  6. SHOW VIEWS / DDL routing kept from v4.
  */
 
-// ── Brand name patch ──────────────────────────────────────────────────────────
+// ── Brand name patch
 (function() {
     const _origOpen = window.open.bind(window);
     window.open = function(url, name, features) {

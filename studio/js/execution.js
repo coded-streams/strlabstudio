@@ -1,22 +1,5 @@
 /* FlinkSQL Studio — SQL Execution Engine
  * Handles: runSQL, submitStatement, pollOperation, cancelOperation
- *
- * FIXES IN THIS VERSION:
- *  1. isStatusOk false-positive: SHOW FUNCTIONS / SHOW USER FUNCTIONS / SHOW VIEWS
- *     were being swallowed by the DDL status check because they return a single-column
- *     result with string values. Fixed by requiring the statement to be a genuine DDL
- *     keyword (CREATE/DROP/ALTER/USE/SET/RESET/INSERT/EXECUTE) — not SHOW/SELECT/DESCRIBE.
- *
- *  2. splitSQL comment stripper: fixed off-by-one that ate first char after comment line.
- *
- *  3. splitSQL: added block comment (/* ... *\/) support (was completely missing).
- *
- *  4. splitSQL: added $$ delimiter tracking so semicolons inside $$ bodies are ignored.
- *
- *  5. Session validation hardened: gateway null check before any api() call.
- *  6. Duplicate submission guard for INSERT / pipeline statements.
- *  7. Job tagging: pipeline.name SET injected before each INSERT.
- *  8. Job ID registration: calls registerJobForSession() after detecting Job ID result.
  */
 
 function splitSQL(raw) {
@@ -59,8 +42,6 @@ function splitSQL(raw) {
     }
 
     // Line comment: -- …
-    // FIX: original code stopped at '\n' then outer i++ skipped it — correct.
-    // Bug was end-of-string without trailing newline → potential infinite loop.
     if (ch === '-' && raw[i + 1] === '-') {
       i += 2;
       while (i < raw.length && raw[i] !== '\n') i++;
@@ -406,26 +387,8 @@ async function pollOperation(opHandle, sql, sessionHandle) {
         break;
       }
 
-      // ── DDL / status-only result ─────────────────────────────────────────────
-      // FIX: The critical bug that caused SHOW FUNCTIONS to return 0 rows.
-      //
-      // ORIGINAL BUG: isStatusOk checked resultColumns.length <= 1 and whether
-      // all values were "OK"/"TRUE"/"". SHOW FUNCTIONS returns a single column
-      // named "function name" — matching the <= 1 check. Then it returned rows
-      // where values like "abs", "array_contains" etc. don't match "OK"/"TRUE"/""
-      // so they didn't trigger the break... BUT if any page of SHOW result had
-      // only a single function whose name happened to be short, OR if Flink
-      // returned an empty-string row, this would silently drop results.
-      //
-      // The REAL fix: only treat a result as "DDL status-ok" if the original SQL
-      // was actually a DDL/DML statement — NOT a SHOW, SELECT, DESCRIBE, EXPLAIN.
-      // SHOW, SELECT etc. always produce genuine data rows that must be displayed.
-      //
-      // Statements that produce "OK"/"TRUE" status rows (not data):
-      //   CREATE, DROP, ALTER, USE, SET, RESET, INSERT, EXECUTE
-      // Statements that produce DATA rows (must always render):
-      //   SHOW, SELECT, DESCRIBE, EXPLAIN, WITH
-      //
+      // ── DDL / status-only result
+
       const sqlTrimmed = sql.trim().toUpperCase();
       const isGenuineDDL = /^(CREATE|DROP|ALTER|USE|SET|RESET|INSERT|EXECUTE)\b/.test(sqlTrimmed);
       const isDataQuery  = /^(SHOW|SELECT|DESCRIBE|DESC|EXPLAIN|WITH)\b/.test(sqlTrimmed);

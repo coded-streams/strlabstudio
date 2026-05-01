@@ -1021,7 +1021,7 @@ function _pdgBuildModal() {
         <line x1="19" y1="7" x2="19" y2="10"/><line x1="19" y1="14" x2="19" y2="17"/>
         <line x1="6" y1="10.5" x2="11" y2="13.5"/><line x1="6" y1="13.5" x2="11" y2="10.5"/>
       </svg>
-      Multi-Pipeline Dependency Graph
+      Pipeline Mesh 
     </span>
     <button class="modal-close" onclick="_pdgStopAnimation();closeModal('pdg-modal')">×</button>
   </div>

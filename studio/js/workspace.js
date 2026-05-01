@@ -1,5 +1,5 @@
 // WORKSPACE PERSISTENCE (localStorage)
-// ──────────────────────────────────────────────
+
 function persistWorkspace() {
   try {
     const ws = {
@@ -110,7 +110,3 @@ function importWorkspace(event) {
   reader.readAsText(file);
   event.target.value = '';
 }
-
-// ──────────────────────────────────────────────
-// ERROR MODAL
-// ──────────────────────────────────────────────

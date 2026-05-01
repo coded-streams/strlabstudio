@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-green)](https://github.com/coded-streams/strlabstudio/blob/main/LICENSE)
 [![Flink](https://img.shields.io/badge/Flink%20SQL%20Gateway-1.16--2.x-orange)](https://nightlies.apache.org/flink/flink-docs-stable/)
 [![Docker](https://img.shields.io/badge/docker-ready-blue)](https://hub.docker.com/r/codedstreams/strlabstudio)
-[![Version](https://img.shields.io/badge/version-v0.0.11-teal)](https://github.com/coded-streams/strlabstudio/releases)
+[![Version](https://img.shields.io/badge/version-v0.0.24-teal)](https://github.com/coded-streams/strlabstudio/releases)
 [![Docker Pulls](https://img.shields.io/docker/pulls/codedstreams/strlabstudio)](https://hub.docker.com/r/codedstreams/strlabstudio)
 [![GitHub stars](https://img.shields.io/github/stars/coded-streams/strlabstudio)](https://github.com/coded-streams/strlabstudio)
 
@@ -666,13 +666,12 @@ SET 'table.optimizer.agg-phase-strategy'  = 'TWO_PHASE';
 
 ## Contributing
 
-We welcome contributions! The project is built with plain HTML/CSS/JS to keep it dependency-free.
+We welcome contributions!
 
 1. Fork the repo and create a feature branch.
 2. Each JS module has a single clear responsibility — keep it that way.
-3. No build step, no bundler, no dependencies — plain HTML/CSS/JS only.
-4. Test against Flink SQL Gateway 1.17+.
-5. Open a PR with a clear description of what changed and why.
+3Test against Flink SQL Gateway 1.17+.
+4Open a PR with a clear description of what changed and why.
 
 ---
 

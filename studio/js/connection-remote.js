@@ -8,7 +8,7 @@ let _vvpModel    = 'selfmanaged';
 let _awsMode     = 'studio';
 let _awsAuthType = 'profile';
 
-// ── Ververica: deployment model toggle ────────────────────────────────────────
+// ── Ververica: deployment model toggle
 function setVvpModel(model) {
     _vvpModel = model;
     ['selfmanaged','cloud','byoc'].forEach(m => {
@@ -124,9 +124,7 @@ function _updateConfluentPreview() {
 })();
 
 
-// ═══════════════════════════════════════════════════════════════════════════════
 // VERVERICA PLATFORM / CLOUD  — connection helpers
-// ═══════════════════════════════════════════════════════════════════════════════
 
 function _getVvpBaseUrl() {
     return (document.getElementById('inp-vvp-url')?.value || '').trim().replace(/\/$/, '');
@@ -264,9 +262,7 @@ async function doVvpConnect() {
 }
 
 
-// ═══════════════════════════════════════════════════════════════════════════════
 // AWS MANAGED FLINK — connection helpers
-// ═══════════════════════════════════════════════════════════════════════════════
 
 /**
  * AWS Managed Flink has NO Flink SQL Gateway REST API.

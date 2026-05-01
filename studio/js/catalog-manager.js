@@ -1,7 +1,7 @@
 /* Str:::lab Studio — Catalog Manager v1.3.0
  */
 
-// ── JAR availability helpers ───────────────────────────────────────────────
+// ── JAR availability helpers 
 function _catGetUploadedJarNames() {
     try {
         const reg = JSON.parse(localStorage.getItem('strlabstudio_connector_jars') || '[]');
@@ -35,7 +35,7 @@ function _catJarBadgeHtml(typeId, requiresJar) {
     return '<span class="cat-badge-jar-req">JAR REQ</span>';
 }
 
-// ── Catalog type definitions ───────────────────────────────────────────────
+// ── Catalog type definitions 
 const CATALOG_TYPES = [
     {
         id: 'generic_in_memory',
@@ -87,9 +87,8 @@ const CATALOG_TYPES = [
             if (!host) return { ok: false, msg: 'Could not parse host from JDBC URL.', detail: 'Expected: jdbc:postgresql://host:port' };
             return _catProbeViaFlink(host, port, 'PostgreSQL');
         },
-        // ── FIXED: simple trim, no regex stripping ──────────────────────
+
         buildProps: (f) => {
-            // Strip trailing slashes ONLY — never strip the port or path
             const baseUrl = (f.jdbc_url || '').trim().replace(/\/+$/, '');
             return {
                 'type':             'jdbc',

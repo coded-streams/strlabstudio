@@ -1,7 +1,7 @@
 /**
- * watermark-monitor.js  —  Str:::lab Studio v0.0.22
+ * watermark-monitor  —  Str:::lab Studio v0.0.22
  * ─────────────────────────────────────────────────────────────────
- * Feature 6: Watermark Health Monitor
+ * Feature : Watermark Health Monitor
  *
  * Real-time panel showing:
  *   • Watermark progress per source vertex (current output watermark)

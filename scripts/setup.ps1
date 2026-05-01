@@ -56,7 +56,7 @@ docker run -d `
 if ($LASTEXITCODE -ne 0) { Write-Host "[✗] Failed to start" -ForegroundColor Red; exit 1 }
 
 Write-Host ""
-Write-Host "✅  Str:::Lab Studio is running!" -ForegroundColor Green
+Write-Host "  Str:::Lab Studio is running!" -ForegroundColor Green
 Write-Host "   Open:       http://localhost:$StudioPort" -ForegroundColor Green
 Write-Host "   Gateway:    ${GatewayHost}:${GatewayPort}" -ForegroundColor Gray
 Write-Host "   JobManager: ${JobManagerHost}:${JobManagerPort}" -ForegroundColor Gray

@@ -116,5 +116,3 @@ function insertTableName(cat, db, tbl) {
   ed.focus();
   toast(`Inserted: ${name}`, 'info');
 }
-
-// ──────────────────────────────────────────────

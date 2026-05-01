@@ -1,5 +1,4 @@
 // JOB GRAPH VISUALIZATION
-// ──────────────────────────────────────────────
 async function refreshJobGraphList() {
   if (!state.gateway) return;
   const sel = document.getElementById('jg-job-select');
@@ -385,7 +384,7 @@ function renderJobGraph(plan, jobDetail, vertexMetrics) {
   // Reset pan when a new graph loads (center it)
   panX = 0; panY = 0; applyPan();
 
-  // ── MOUSE WHEEL ZOOM ────────────────────────────────────────────────────
+  // ── MOUSE WHEEL ZOOM
   let scaleVal = 1.0;
   const applyTransform = () => {
     panGroup.setAttribute('transform', `translate(${panX},${panY}) scale(${scaleVal})`);
@@ -434,7 +433,7 @@ function selectJobGraphNode(id) {
   if (g) g.querySelector('.jg-node-rect')?.classList.add('selected');
 }
 
-// ── Node Detail Modal ─────────────────────────────────────────────────────────
+// ── Node Detail Modal
 
 // State kept outside the modal so event stream survives tab switches
 let _ndState = {
@@ -512,7 +511,7 @@ async function showJobGraphNodeDetail(nid, nodes, vertices, vertexMetrics) {
   const par = node.parallelism || vertex.parallelism;
   el('nd-modal-parallelism-label').textContent = par ? 'Parallelism: ' + par : '';
 
-  // ── Show Live Events tab for ALL running nodes ──────────────────────────────
+  // ── Show Live Events tab for ALL running nodes
   // Previously hidden for process nodes — but process nodes DO emit metrics.
   const evTab = el('nd-tab-events');
   if (evTab) evTab.style.display = 'flex';
@@ -695,7 +694,7 @@ async function _fetchAllNodeMetrics(jid, nid, vertex, par) {
   return [...staticRows, ...metricRows];
 }
 
-// ── Mini throughput chart in node modal ────────────────────────────────────────
+// ── Mini throughput chart in node modal
 const _ndChartData = { recIn: [], recOut: [], bytIn: [], bytOut: [] };
 
 function _drawNdChart() {
@@ -1025,7 +1024,7 @@ function _addEventRow({ recInPs, recOutPs, bytInPs, bytOutPs, totalIn, totalOut,
     }
   }
 
-  // ── SINK node: only IN direction matters ─────────────────────────────────
+  // ── SINK node: only IN direction matters
   else if (isSink) {
     if (recInPs > 0) {
       parts.push(
@@ -1055,7 +1054,7 @@ function _addEventRow({ recInPs, recOutPs, bytInPs, bytOutPs, totalIn, totalOut,
     }
   }
 
-  // ── PROCESS node: both directions ────────────────────────────────────────
+  // ── PROCESS node: both directions
   else {
     if (recInPs > 0 || totalIn > 0) {
       parts.push(

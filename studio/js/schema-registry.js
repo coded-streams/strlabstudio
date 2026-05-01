@@ -1,7 +1,7 @@
 /**
- * schema-registry.js  —  Str:::lab Studio v0.0.22
+ * schema-registry  —  Str:::lab Studio v0.0.22
  * ─────────────────────────────────────────────────────────────────
- * Feature 3: Live Schema Registry Browser & Evolution Validator
+ * Feature : Live Schema Registry Browser & Evolution Validator
  *
  * Connects to Confluent Schema Registry or Apicurio REST API.
  * Provides:
@@ -34,7 +34,7 @@ function openSchemaRegistry() {
     _srAutoDetect();
 }
 
-// ── Auto-detect from state ────────────────────────────────────────
+// ── Auto-detect from state
 function _srAutoDetect() {
     // Try to pull Schema Registry URL from existing state/connection info
     if (typeof state !== 'undefined' && state.gateway) {
@@ -45,7 +45,7 @@ function _srAutoDetect() {
     }
 }
 
-// ── API calls ─────────────────────────────────────────────────────
+// ── API calls
 async function _srFetch(path) {
     const url = _SR.baseUrl.replace(/\/$/, '') + path;
     const headers = { 'Accept': 'application/vnd.schemaregistry.v1+json, application/json' };
@@ -55,7 +55,7 @@ async function _srFetch(path) {
     return res.json();
 }
 
-// ── Connect ────────────────────────────────────────────────────────
+// ── Connect
 async function _srConnect() {
     const urlEl  = document.getElementById('sr-url-input');
     const userEl = document.getElementById('sr-user-input');
@@ -130,7 +130,7 @@ async function _srSelectVersion(subject, version) {
     }
 }
 
-// ── Schema diff ────────────────────────────────────────────────────
+// ── Schema diff
 async function _srCompare(subject, v1, v2) {
     const k1 = subject + ':' + v1, k2 = subject + ':' + v2;
     const [s1, s2] = await Promise.all([
@@ -198,7 +198,7 @@ function _srExtractFields(schema) {
     return fields;
 }
 
-// ── Generate CREATE TABLE from schema ─────────────────────────────
+// ── Generate CREATE TABLE from schema
 function _srGenerateCreateTable(schemaObj, subject) {
     let parsed;
     try { parsed = JSON.parse(schemaObj.schema || '{}'); } catch (_) { parsed = {}; }
@@ -245,7 +245,7 @@ function _srGenerateCreateTable(schemaObj, subject) {
     return sql;
 }
 
-// ── Compatibility check against CREATE TABLE SQL ──────────────────
+// ── Compatibility check against CREATE TABLE SQL
 async function _srValidateCreateTable() {
     const ed = document.getElementById('sql-editor');
     if (!ed) return;
@@ -327,7 +327,7 @@ async function _srValidateCreateTable() {
     }
 }
 
-// ── Modal builder ─────────────────────────────────────────────────
+// ── Modal builder
 function _srBuildModal() {
     if (!document.getElementById('sr-css')) {
         const st = document.createElement('style');
@@ -517,7 +517,7 @@ function _srBuildModal() {
     modal.addEventListener('click', e => { if (e.target === modal) closeModal('sr-modal'); });
 }
 
-// ── Renderers ─────────────────────────────────────────────────────
+// ── Renderers
 function _srRenderSubjectList(subjects) {
     const el    = document.getElementById('sr-sidebar-list');
     const count = document.getElementById('sr-subject-count');
@@ -730,7 +730,7 @@ function _srInsertCreateTable(schema, subject) {
     if (typeof toast === 'function') toast('CREATE TABLE inserted from Schema Registry', 'ok');
 }
 
-// ── Helpers ───────────────────────────────────────────────────────
+// ── Helpers
 function _srShowDetail(html) {
     const el = document.getElementById('sr-detail');
     if (el) el.innerHTML = html;

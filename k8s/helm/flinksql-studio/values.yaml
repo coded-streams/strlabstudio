@@ -1,9 +1,3 @@
-# ─────────────────────────────────────────────────────────────────────────────
-# k8s/helm/flinksql-studio/values.yaml
-# Default values for the FlinkSQL Studio Helm chart.
-# Override with: helm install ... --set key=value
-# ─────────────────────────────────────────────────────────────────────────────
-
 # Docker image
 image:
   repository: codedstreams/flinksql-studio
@@ -50,6 +44,3 @@ resources:
 # Pod annotations and labels
 podAnnotations: {}
 podLabels: {}
-
-# Namespace (chart installs into the release namespace by default)
-# Override with: helm install ... --namespace my-ns --create-namespace

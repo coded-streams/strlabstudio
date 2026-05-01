@@ -1,7 +1,6 @@
 // EDITOR
-// ──────────────────────────────────────────────
 
-// ── AUTOCOMPLETE DATA ──────────────────────────
+// ── AUTOCOMPLETE DATA
 const AC_KEYWORDS = [
   'SELECT','DISTINCT','FROM','WHERE','GROUP BY','HAVING','ORDER BY','LIMIT',
   'INSERT INTO','VALUES','UPDATE','SET','DELETE','CREATE TABLE','CREATE VIEW',
@@ -105,12 +104,12 @@ END`, detail: 'Conditional expression' },
            cte_name;`, detail: 'Common table expression' },
 ];
 
-// ── HOVER TOOLTIP DOCS ─────────────────────────
+// ── HOVER TOOLTIP DOCS
 // JavaDoc-style documentation for keywords and functions.
 // Each entry: { signature, category, description, params[], returns, example, pipeline }
 const DOCS = {
 
-  // ── AGGREGATE FUNCTIONS ──────────────────────
+  // ── AGGREGATE FUNCTIONS
   'COUNT': {
     signature: 'COUNT(expr)  /  COUNT(*)',
     category: 'Aggregate',
@@ -862,7 +861,7 @@ const DOCS = {
     pipeline: "Register custom catalogs in flink-conf.yaml or via CREATE CATALOG before using USE CATALOG. The default catalog is 'default_catalog'."
   },
 
-  // ── WINDOW TABLE FUNCTIONS ───────────────────
+  // ── WINDOW TABLE FUNCTIONS
 
   'TUMBLE_START': {
     signature: "TUMBLE_START(time_col, INTERVAL 'n' unit)",
@@ -1310,13 +1309,13 @@ const DOCS = {
 };
 
 
-// ── AUTOCOMPLETE STATE ──────────────────────────
+// ── AUTOCOMPLETE STATE
 let _acItems = [];
 let _acIdx = -1;
 let _acActive = false;
 let _acTimer = null;
 
-// ── THEME DETECTION HELPERS ─────────────────────
+// ── THEME DETECTION HELPERS
 function _isDarkTheme() {
   // Check common dark-mode signals: body/html class, data-theme attribute, prefers-color-scheme
   const root = document.documentElement;
@@ -1577,7 +1576,7 @@ function _refreshStyles() {
   if (tt && tt.style.display !== 'none') _hideTooltip();
 }
 
-// ── TOOLTIP DOM INJECTION ───────────────────────
+// ── TOOLTIP DOM INJECTION
 (function injectTooltip() {
   if (document.getElementById('sql-doc-tooltip')) return;
   const tt = document.createElement('div');
@@ -1661,7 +1660,7 @@ function _escapeHtml(str) {
   return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-// ── WORD UNDER CURSOR DETECTION ─────────────────
+// ── WORD UNDER CURSOR DETECTION
 function _getWordAtPos(text, pos) {
   let start = pos, end = pos;
   while (start > 0 && /[\w]/.test(text[start - 1])) start--;
@@ -1691,7 +1690,7 @@ function _getWordAtPos(text, pos) {
   return single;
 }
 
-// ── HOVER TOOLTIP TRIGGER ───────────────────────
+// ── HOVER TOOLTIP TRIGGER
 let _hoverTimer = null;
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -1887,7 +1886,7 @@ function _applyAC(idx) {
   ed.focus();
 }
 
-// ── SMART NEWLINE (IntelliSense indentation) ────
+// ── SMART NEWLINE (IntelliSense indentation)
 function _smartNewline(el) {
   const pos = el.selectionStart;
   const before = el.value.slice(0, pos);
@@ -1907,7 +1906,7 @@ function _smartNewline(el) {
   updateCursorPos();
 }
 
-// ── EDITOR EVENT LISTENERS ──────────────────────
+// ── EDITOR EVENT LISTENERS
 let _persistTimer = null;
 let _warnTimer = null;
 
@@ -2011,7 +2010,7 @@ document.getElementById('sql-editor').addEventListener('scroll', function () {
   document.getElementById('line-numbers').scrollTop = this.scrollTop;
 });
 
-// ── CURSOR / LINE NUMBER HELPERS ────────────────
+// ── CURSOR / LINE NUMBER HELPERS
 function updateCursorPos() {
   const ed = document.getElementById('sql-editor');
   const txt = ed.value.slice(0, ed.selectionStart);
@@ -2027,7 +2026,7 @@ function updateLineNumbers() {
   ln.scrollTop = ed.scrollTop;
 }
 
-// ── EDITOR ACTIONS ──────────────────────────────
+// ── EDITOR ACTIONS
 function toggleComment(el) {
   const start = el.selectionStart, end = el.selectionEnd;
   const lines = el.value.split('\n');
@@ -2129,6 +2128,3 @@ function formatSQL() {
   updateLineNumbers();
   toast('SQL formatted', 'ok');
 }
-
-// ── SQL EXECUTION
-// ─────────────────────────────────────

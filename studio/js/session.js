@@ -1,5 +1,4 @@
 // SESSION MANAGEMENT
-// ──────────────────────────────────────────────
 
 // ── Audit log: tracks admin actions against user sessions ────────────────────
 // Format: { sessionHandle, action, adminName, timestamp, detail }
@@ -25,7 +24,7 @@ function recordAudit(sessionHandle, action, detail) {
   }
 }
 
-// ── Session creation ─────────────────────────────────────────────────────────
+// ── Session creation
 function openNewSessionModal() {
   document.getElementById('modal-session-name').value  = '';
   document.getElementById('modal-session-props').value = '';
@@ -234,13 +233,13 @@ function _renderSessionsListInner(list) {
   _updateSessionCountBadge();
 }  // end _renderSessionsListInner
 
-// ── Update cluster session count display ──────────────────────────────────────
+// ── Update cluster session count display
 function _updateSessionCountBadge() {
   const el = document.getElementById('cs-sessions-count');
   if (el) el.textContent = state.sessions.length || '—';
 }
 
-// ── Admin: inspect individual session detail modal ────────────────────────────
+// ── Admin: inspect individual session detail modal
 function openAdminSessionDetail(handle) {
   const sess = state.sessions.find(s => s.handle === handle);
   if (!sess) return;
@@ -317,7 +316,7 @@ async function refreshAsdContent(tab) {
   const qCount    = isActiveSession ? (state.history || []).length : (sess.queryCount || history.length);
   const activeTab = tab || 'overview';
 
-  // ── Overview pane ──────────────────────────────────────────────────────────
+  // ── Overview pane
   if (activeTab === 'overview') {
     const runJobs  = sessJobs.filter(j => j.state === 'RUNNING').length;
     const failJobs = sessJobs.filter(j => j.state === 'FAILED').length;
@@ -349,7 +348,7 @@ async function refreshAsdContent(tab) {
       </div>`;
   }
 
-  // ── Queries pane ───────────────────────────────────────────────────────────
+  // ── Queries pane
   if (activeTab === 'queries') {
     document.getElementById('asd-pane-queries').innerHTML = history.length === 0
         ? '<div style="font-size:12px;color:var(--text3);text-align:center;padding:24px;">No query history for this session</div>'
@@ -366,7 +365,7 @@ async function refreshAsdContent(tab) {
           </div>`).join('');
   }
 
-  // ── Jobs pane ──────────────────────────────────────────────────────────────
+  // ── Jobs pane
   if (activeTab === 'jobs') {
     document.getElementById('asd-pane-jobs').innerHTML = sessJobs.length === 0
         ? '<div style="font-size:12px;color:var(--text3);text-align:center;padding:24px;">No jobs attributed to this session</div>'
@@ -389,7 +388,7 @@ async function refreshAsdContent(tab) {
           </div>`).join('');
   }
 
-  // ── Audit log pane ─────────────────────────────────────────────────────────
+  // ── Audit log pane
   if (activeTab === 'audit') {
     // Merge: global audit log entries for this session + session-local trail
     const auditFromGlobal = (window._auditLog || []).filter(a => a.sessionHandle === handle);
@@ -429,7 +428,7 @@ function _asdRow(label, val) {
   </div>`;
 }
 
-// ── View session jobs ─────────────────────────────────────────────────────────
+// ── View session jobs
 function viewSessionJobs(handle) {
   const session = state.sessions.find(s => s.handle === handle);
   if (!session) return;
@@ -441,7 +440,7 @@ function viewSessionJobs(handle) {
   toast(`Showing jobs for session ${shortHandle(handle)}`, 'info');
 }
 
-// ── Switch session ────────────────────────────────────────────────────────────
+// ── Switch session
 function switchSession(handle) {
   if (handle === state.activeSession) return;
   if (state.currentOp) {
@@ -503,7 +502,7 @@ function switchSession(handle) {
   refreshCatalog();
 }
 
-// ── Delete session ────────────────────────────────────────────────────────────
+// ── Delete session
 async function deleteSession(handle) {
   if (!confirm(`Delete session ${shortHandle(handle)}?`)) return;
   // Admin audit trail
@@ -525,7 +524,7 @@ async function deleteSession(handle) {
   }
 }
 
-// ── Job scoping ───────────────────────────────────────────────────────────────
+// ── Job scoping
 function registerJobForSession(jobId) {
   if (!jobId || !state.activeSession) return;
   const session = state.sessions.find(s => s.handle === state.activeSession);
@@ -547,7 +546,7 @@ function filterJobsForCurrentSession(jobs) {
   return jobs.filter(j => sessionJobIds.includes(j.jid));
 }
 
-// ── Query count tracking ──────────────────────────────────────────────────────
+// ── Query count tracking
 function incrementSessionQueryCount() {
   const session = state.sessions.find(s => s.handle === state.activeSession);
   if (session) {
@@ -563,7 +562,7 @@ function _onQuerySubmitted() {
   incrementSessionQueryCount();
 }
 
-// ── Duplicate submission guard ────────────────────────────────────────────────
+// ── Duplicate submission guard
 let _runningStatements = new Set();
 
 function _sqlHash(sql) {
@@ -577,7 +576,7 @@ function checkDuplicateSubmission(sql) { return _runningStatements.has(_sqlHash(
 function markStatementRunning(sql)     { _runningStatements.add(_sqlHash(sql)); }
 function unmarkStatementRunning(sql)   { _runningStatements.delete(_sqlHash(sql)); }
 
-// ── Cancel job with confirmation modal ───────────────────────────────────────
+// ── Cancel job with confirmation modal
 function showCancelJobConfirm(jid, jobName) {
   let modal = document.getElementById('modal-cancel-confirm');
   if (!modal) {
@@ -648,7 +647,7 @@ async function _doCancelJob(jid) {
   }
 }
 
-// ── Catalog / database quick-insert ──────────────────────────────────────────
+// ── Catalog / database quick-insert
 function insertCatalogSnippet(type) {
   const ed = document.getElementById('sql-editor');
   const prefix = ed.value.length > 0 ? '\n\n' : '';
@@ -691,7 +690,7 @@ function insertSnippet(idx) {
   toast(`Snippet inserted: ${snip.title}`, 'ok');
 }
 
-// ── Resizer ───────────────────────────────────────────────────────────────────
+// ── Resizer
 (function setupResizer() {
   const resizer      = document.getElementById('v-resizer');
   const resultsPanel = document.getElementById('results-panel');
@@ -715,7 +714,7 @@ function insertSnippet(idx) {
   }
 })();
 
-// ── Result tabs ───────────────────────────────────────────────────────────────
+// ── Result tabs
 function switchResultTab(tab, el) {
   document.getElementById('result-data-tab').style.display = tab === 'data'     ? 'flex'  : 'none';
   document.getElementById('log-panel').style.display        = tab === 'log'      ? 'block' : 'none';
@@ -746,7 +745,7 @@ function switchResultTab(tab, el) {
   if (tab === 'jobgraph') refreshJobGraphList();
 }
 
-// ── Sidebar tabs ──────────────────────────────────────────────────────────────
+// ── Sidebar tabs
 function switchSidebarTab(idx, btn) {
   document.querySelectorAll('.sidebar-panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.sidebar-tab').forEach(t => t.classList.remove('active'));
@@ -755,7 +754,7 @@ function switchSidebarTab(idx, btn) {
   if (idx === 2) renderSessionsList();
 }
 
-// ── Modal helpers ─────────────────────────────────────────────────────────────
+// ── Modal helpers
 function openModal(id)  { const el = document.getElementById(id); if (el) el.classList.add('open');    }
 function closeModal(id) { const el = document.getElementById(id); if (el) el.classList.remove('open'); }
 
@@ -763,7 +762,7 @@ document.querySelectorAll('.modal-overlay').forEach(m => {
   m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); });
 });
 
-// ── Toast ─────────────────────────────────────────────────────────────────────
+// ── Toast
 let toastTimer;
 function toast(msg, type = 'info') {
   const el    = document.getElementById('toast');

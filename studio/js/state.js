@@ -1,6 +1,5 @@
-// ──────────────────────────────────────────────
+
 // STATE
-// ──────────────────────────────────────────────
 const state = {
   gateway: null,          // { host, port, baseUrl }
   sessions: [],           // list of session handles
@@ -262,4 +261,3 @@ async function api(method, path, body = null) {
   return resp.text();
 }
 
-// ──────────────────────────────────────────────

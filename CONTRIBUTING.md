@@ -1,4 +1,4 @@
-# Contributing to FlinkSQL Studio
+# Contributing to Str:::Lab Studio
 
 Thank you for taking the time to contribute. This document covers everything you need to know to get your change merged cleanly.
 
@@ -6,7 +6,7 @@ Thank you for taking the time to contribute. This document covers everything you
 
 ## Before You Start
 
-- Search [existing issues](https://github.com/coded-streams/flinksql-studio/issues) before opening a new one — your question or bug may already be tracked.
+- Search [existing issues](https://github.com/coded-streams/strlabstudio/issues) before opening a new one — your question or bug may already be tracked.
 - For significant changes (new panels, new connection modes, redesigns), open an issue first to discuss the approach before writing code.
 - All contributions must be compatible with the **Apache 2.0 license**.
 
@@ -14,14 +14,14 @@ Thank you for taking the time to contribute. This document covers everything you
 
 ## Development Setup
 
-FlinkSQL Studio is intentionally a single-file application (`studio/index.html`). This keeps the deployment surface minimal and makes it easy to run without a build step.
+Str:::Lab Studio is intentionally a single-file application (`studio/index.html`). This keeps the deployment surface minimal and makes it easy to run without a build step.
 
 **Prerequisites:** Docker Desktop, any modern browser.
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/coded-streams/flinksql-studio.git
-cd flinksql-studio
+git clone https://github.com/coded-streams/strlabstudio.git
+cd strlabstudio
 
 # 2. Start a local Flink cluster
 docker compose --profile local-flink up -d
@@ -30,7 +30,7 @@ docker compose --profile local-flink up -d
 open studio/index.html
 # — or —
 # Start the full container (rebuilds on each run)
-docker compose up --build flinksql-studio
+docker compose up --build strlabstudio
 ```
 
 Changes to `studio/index.html` are live immediately when opened from disk. You do not need to restart Docker to iterate on the UI.
@@ -87,7 +87,7 @@ The project is intentionally low-dependency. There is no TypeScript, no bundler,
 
 When reporting a bug, please include:
 
-- FlinkSQL Studio version (top bar or Docker image tag)
+- Str:::Lab Studio version (top bar or Docker image tag)
 - Apache Flink version
 - Browser and OS
 - What you expected vs. what happened

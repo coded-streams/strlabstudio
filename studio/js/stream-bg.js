@@ -1,5 +1,5 @@
 /**
- * stream-bg.js  —  Str:::lab Studio
+ * stream-bg  —  Str:::lab Studio
  * ─────────────────────────────────────────────────────────────────
  * Flowing mesh-wave background for the connection screen.
  * Industry labels + icons travel slowly along the wave strands.
