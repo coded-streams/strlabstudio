@@ -617,7 +617,7 @@ SET 'table.optimizer.agg-phase-strategy'  = 'TWO_PHASE';
 
 ## Changelog
 
-### v1.3.2
+### v1.3.2 | 0.0.24
 - **Pipeline Manager v2.0** — Visual Flink SQL pipeline builder. 35+ operators across 9 groups (Sources, Transformations, Windows, Aggregations, Joins, CEP, Sinks, Output, My UDFs). Operators rendered as SVG shapes (rect, diamond, hexagon, circle, stadium, parallelogram). Bézier edges with typed shipping strategies (FORWARD, HASH, BROADCAST, REBALANCE, RESCALE). ✏ edit button on every node for reliable config access. Particle animation along edges on ▶ Run. Kahn's topological sort for auto-layout and SQL generation order. `EXECUTE STATEMENT SET BEGIN...END` for multi-sink pipelines. Print and Blackhole sinks use `LIKE source (EXCLUDING ALL)` to inherit schema automatically.
 - **Systems Manager v1.1** — Connector JAR browser and integration registry. Manages Kafka, JDBC, S3/MinIO, Elasticsearch, Iceberg, Hive, Redis, Datagen, and Blackhole connectors. ⊙ Test Connectivity button on every integration form. HTTP-accessible services probed directly from the browser; TCP services probed via Flink REST with `nc -zv` command provided. Saved integrations prefill JDBC Sink nodes in Pipeline Manager.
 - **Catalog Manager v1.1** — External catalog registration for JDBC (PostgreSQL, MySQL), Hive, Iceberg (Hive/REST/Glue), and Delta Lake. ⊙ Test Connectivity before catalog creation. Generated `CREATE CATALOG` SQL previewed in real time. History of last 20 created catalogs. Live catalog tree in sidebar after creation.
