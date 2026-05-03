@@ -101,7 +101,7 @@ function _pmBuildModal() {
           </div>
           <div style="font-size:10px;color:var(--accent);letter-spacing:1px;text-transform:uppercase;margin-top:2px;">Str:::lab Projects</div>
         </div>
-        <button class="modal-close" onclick="closeModal('modal-project-manager')">×</button>
+        <button onclick="modalMinimize('modal-project-manager','Projects')" style="background:none;border:1px solid var(--border);color:var(--text2);cursor:pointer;font-size:13px;padding:1px 8px;border-radius:3px;margin-right:4px;" title="Minimise to statusbar">⊟</button><button class="modal-close" onclick="closeModal('modal-project-manager')">×</button>
       </div>
 
       <!-- Tab bar -->

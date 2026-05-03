@@ -453,7 +453,7 @@ function _profBuildModal() {
       <span style="font-size:9px;background:rgba(129,140,248,0.12);color:var(--accent3,#818cf8);
         padding:2px 8px;border-radius:10px;">FLIGHT RECORDER</span>
     </span>
-    <button class="modal-close" onclick="_profStopRecording();if(_PROF.playTimer){clearInterval(_PROF.playTimer);}closeModal('prof-modal');">×</button>
+<div style="display:flex;align-items:center;gap:4px;margin-left:auto;"><button onclick="modalMinimize('prof-modal','SQL Profiler')" style="background:none;border:1px solid var(--border);color:var(--text2);cursor:pointer;font-size:13px;padding:1px 8px;border-radius:3px;" title="Minimise to statusbar">⊟</button><button class="modal-close" style="margin-left:0;" onclick="_profStopRecording();if(_PROF.playTimer){clearInterval(_PROF.playTimer);}closeModal('prof-modal');">×</button></div>
   </div>
 
   <div class="modal-body" style="flex:1;overflow-y:auto;padding:14px 18px;display:flex;flex-direction:column;gap:12px;">

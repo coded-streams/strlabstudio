@@ -426,7 +426,7 @@ function _srBuildModal() {
     </span>
     <div style="display:flex;align-items:center;gap:6px;margin-left:auto;">
       <span id="sr-status-text" style="font-size:10px;font-family:var(--mono,monospace);"></span>
-      <button class="modal-close" onclick="closeModal('sr-modal')">×</button>
+      <button onclick="modalMinimize('sr-modal','Schema Registry')" style="background:none;border:1px solid var(--border);color:var(--text2);cursor:pointer;font-size:13px;padding:1px 8px;border-radius:3px;margin-right:4px;" title="Minimise to statusbar">⊟</button><button class="modal-close" onclick="closeModal('sr-modal')">×</button>
     </div>
   </div>
 

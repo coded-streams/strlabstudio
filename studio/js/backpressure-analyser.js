@@ -537,7 +537,7 @@ function _bpaBuildModal() {
       </svg>
       Backpressure Root Cause Analyser
     </span>
-    <button class="modal-close" onclick="closeModal('bpa-modal');if(_BPA.liveTimer){clearInterval(_BPA.liveTimer);_BPA.liveTimer=null;}">×</button>
+<div style="display:flex;align-items:center;gap:4px;"><button onclick="modalMinimize('bpa-modal','BP Analyser')" style="background:none;border:1px solid var(--border);color:var(--text2);cursor:pointer;font-size:13px;padding:1px 8px;border-radius:3px;" title="Minimise to statusbar">⊟</button><button class="modal-close" style="margin-left:0;" onclick="closeModal('bpa-modal');if(_BPA.liveTimer){clearInterval(_BPA.liveTimer);_BPA.liveTimer=null;}">×</button></div>
   </div>
   <div class="modal-body" style="flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:14px;">
 

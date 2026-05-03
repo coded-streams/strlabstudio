@@ -254,7 +254,7 @@ function _femBuildModal() {
         🕓 History <span id="fem-hist-count" style="color:var(--accent);"></span>
       </button>
       <button onclick="_femResetAll()" style="font-size:10px;padding:3px 9px;border-radius:3px;border:1px solid rgba(255,77,109,0.3);background:rgba(255,77,109,0.07);color:var(--red);cursor:pointer;font-family:var(--mono);">↺ Reset</button>
-      <button class="modal-close" onclick="closeModal('fem-modal')">×</button>
+      <button onclick="modalMinimize('fem-modal','Feature Engineering')" style="background:none;border:1px solid var(--border);color:var(--text2);cursor:pointer;font-size:13px;padding:1px 8px;border-radius:3px;margin-right:4px;" title="Minimise to statusbar">⊟</button><button class="modal-close" onclick="closeModal('fem-modal')">×</button>
     </div>
   </div>
   <div id="fem-wizard-wrap">

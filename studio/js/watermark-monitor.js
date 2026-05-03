@@ -339,7 +339,7 @@ function _wmBuildModal() {
       <span style="font-size:9px;background:rgba(79,163,224,0.12);color:var(--blue,#4fa3e0);
         padding:2px 8px;border-radius:10px;">REAL-TIME · 2s REFRESH</span>
     </span>
-    <button class="modal-close" onclick="_wmStopPolling();closeModal('wm-modal');">×</button>
+    <div style="display:flex;align-items:center;gap:4px;"><button onclick="modalMinimize('wm-modal','Watermark Monitor')" style="background:none;border:1px solid var(--border);color:var(--text2);cursor:pointer;font-size:13px;padding:1px 8px;border-radius:3px;" title="Minimise to statusbar">⊟</button><button class="modal-close" style="margin-left:0;" onclick="_wmStopPolling();closeModal('wm-modal');">×</button></div>
   </div>
 
   <div class="modal-body" style="flex:1;overflow-y:auto;padding:14px 18px;display:flex;flex-direction:column;gap:12px;">

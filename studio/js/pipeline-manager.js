@@ -494,7 +494,7 @@ function _plmBuildModal(){
       <button id="plm-expand-btn" class="plm-toolbar-btn" onclick="_plmToggleFullscreen()" title="Expand" style="padding:4px 8px;">
         <svg id="plm-expand-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
       </button>
-      <button class="modal-close" onclick="closeModal('modal-pipeline-manager')" style="margin-left:2px;">×</button>
+     <button onclick="modalMinimize('modal-pipeline-manager','Pipeline Manager')" style="background:none;border:1px solid var(--border);color:var(--text2);cursor:pointer;font-size:13px;padding:1px 8px;border-radius:3px;" title="Minimise to statusbar">⊟</button><button class="modal-close" onclick="closeModal('modal-pipeline-manager')" style="margin-left:2px;">×</button>
     </div>
   </div>
   <!-- Status bar -->

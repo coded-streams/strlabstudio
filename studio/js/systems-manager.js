@@ -698,7 +698,7 @@ function _sysBuildModal() {
     <div style="display:flex;align-items:center;gap:10px;">
       <span id="sys-avail-status" style="font-size:10px;color:var(--text3);font-family:var(--mono);"></span>
       <button onclick="_sysRefreshAvailability()" style="font-size:10px;padding:3px 8px;border-radius:3px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;">⟳ Check JARs</button>
-      <button class="modal-close" onclick="closeModal('modal-systems-manager')">×</button>
+      <button onclick="modalMinimize('modal-systems-manager','Systems Manager')" style="background:none;border:1px solid var(--border);color:var(--text2);cursor:pointer;font-size:13px;padding:1px 8px;border-radius:3px;margin-right:4px;" title="Minimise to statusbar">⊟</button><button class="modal-close" onclick="closeModal('modal-systems-manager')">×</button>
     </div>
   </div>
 

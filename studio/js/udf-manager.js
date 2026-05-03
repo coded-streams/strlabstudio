@@ -233,7 +233,7 @@ function _buildModal() {
       </div>
       <div style="font-size:10px;color:var(--blue,#4fa3e0);letter-spacing:1px;text-transform:uppercase;margin-top:2px;">Flink 1.15 – 2.0+ · v1.4.0</div>
     </div>
-    <button class="modal-close" onclick="closeModal('modal-udf-manager')">×</button>
+    <div style="display:flex;align-items:center;gap:4px;"><button onclick="modalMinimize('modal-udf-manager','UDF Manager')" style="background:none;border:1px solid var(--border);color:var(--text2);cursor:pointer;font-size:13px;padding:1px 8px;border-radius:3px;" title="Minimise to statusbar">⊟</button><button class="modal-close" style="margin-left:0;" onclick="closeModal('modal-udf-manager')">×</button></div>
   </div>
 
   <div style="display:flex;border-bottom:1px solid var(--border);background:var(--bg2);flex-shrink:0;overflow-x:auto;">

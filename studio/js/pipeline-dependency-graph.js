@@ -1023,7 +1023,7 @@ function _pdgBuildModal() {
       </svg>
       Pipeline Mesh 
     </span>
-    <button class="modal-close" onclick="_pdgStopAnimation();closeModal('pdg-modal')">×</button>
+    <div style="display:flex;align-items:center;gap:4px;"><button onclick="modalMinimize('pdg-modal','Pipeline Mesh')" style="background:none;border:1px solid var(--border);color:var(--text2);cursor:pointer;font-size:13px;padding:1px 8px;border-radius:3px;" title="Minimise to statusbar">⊟</button><button class="modal-close" style="margin-left:0;" onclick="_pdgStopAnimation();closeModal('pdg-modal')">×</button></div>
   </div>
   <div class="modal-body" style="flex:1;overflow:hidden;display:flex;flex-direction:column;gap:0;padding:0;">
     <div style="display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;">

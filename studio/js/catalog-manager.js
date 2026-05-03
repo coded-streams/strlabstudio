@@ -385,7 +385,7 @@ function _catBuildModal() {
       <div style="font-size:14px;font-weight:700;color:var(--text0);"><span style="color:var(--accent);">⊕</span> Catalog Manager</div>
       <div style="font-size:10px;color:var(--accent);letter-spacing:1px;text-transform:uppercase;margin-top:2px;">External Catalog Registration · v1.3.0</div>
     </div>
-    <button class="modal-close" onclick="closeModal('modal-catalog-manager')">×</button>
+    <div style="display:flex;align-items:center;gap:4px;"><button onclick="modalMinimize('modal-catalog-manager','Catalog Manager')" style="background:none;border:1px solid var(--border);color:var(--text2);cursor:pointer;font-size:13px;padding:1px 8px;border-radius:3px;" title="Minimise to statusbar">⊟</button><button class="modal-close" style="margin-left:0;" onclick="closeModal('modal-catalog-manager')">×</button></div>
   </div>
 
   <div style="display:flex;border-bottom:1px solid var(--border);background:var(--bg2);flex-shrink:0;overflow-x:auto;">
