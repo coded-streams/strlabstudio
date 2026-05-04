@@ -1,0 +1,333 @@
+/* ══════════════════════════════════════════════════════════════════
+ * Str:::lab Studio — Cross-Browser Compatibility Patch
+ * Add this as the LAST stylesheet:
+ *   <link rel="stylesheet" href="css/browser-compat.css">
+ * ══════════════════════════════════════════════════════════════════ */
+
+/* ── 1. Root font-size lock — prevents Edge/Firefox scaling ────── */
+/* All browsers must agree on 13px as the base. Without this,
+   Firefox defaults to 16px and scales all rem/em-based values up.  */
+:root {
+    font-size: 13px;
+    -webkit-text-size-adjust: 100%;
+    -moz-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+}
+
+/* ── 2. Box model normalisation ─────────────────────────────────── */
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+/* ── 3. Body height — 100dvh covers Edge address-bar behaviour ──── */
+html, body {
+    height: 100%;
+    min-height: 100%;
+    /* dvh falls back to vh in older browsers */
+    height: 100dvh;
+    overflow: hidden;
+    /* Prevent Firefox applying its own font smoothing */
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* ── 4. Firefox scrollbar — matches webkit 6px slim style ───────── */
+/* Without this Firefox uses native wide scrollbars that push layout */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border2) var(--bg1);
+}
+
+/* ── 5. Select element normalisation ────────────────────────────── */
+/* Edge and Firefox render select differently without these resets   */
+select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+}
+
+/* Theme select and managers select specific fix */
+#theme-select,
+#managers-select,
+.jg-job-select,
+#job-compare-metric,
+#inp-cf-provider,
+#inp-vvp-flink-version,
+select.field-input {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-image: none; /* Firefox adds its own dropdown arrow */
+}
+
+/* ── 6. Input / textarea normalisation ──────────────────────────── */
+input, textarea, button {
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
+}
+
+/* Firefox adds inner focus ring on buttons — remove it */
+button::-moz-focus-inner {
+    border: 0;
+    padding: 0;
+}
+
+/* ── 7. Fixed height elements — clamp so they don't blow up ─────── */
+/* Edge on high-DPI displays sometimes rounds px up; clamp prevents
+   topbar/statusbar from growing and pushing content off screen.     */
+#topbar {
+    height: 42px !important;
+    max-height: 42px !important;
+    min-height: 42px !important;
+}
+
+#statusbar {
+    height: 24px !important;
+    max-height: 24px !important;
+    min-height: 24px !important;
+    overflow: hidden !important;
+}
+
+#tabs-bar {
+    height: 36px !important;
+    max-height: 36px !important;
+    min-height: 36px !important;
+}
+
+/* ── 8. Topbar buttons — consistent height across browsers ──────── */
+.topbar-btn,
+.toolbar-btn,
+.jg-refresh-btn,
+.perf-refresh-btn,
+.mini-btn,
+.mode-btn {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    line-height: 1; /* Firefox uses different line-height default */
+}
+
+.topbar-btn {
+    height: 24px !important;
+    padding: 0 8px !important;
+    font-size: 10px !important;
+    /* Prevent Edge from adding extra spacing */
+    vertical-align: middle;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.toolbar-btn {
+    height: 26px !important;
+    padding: 0 10px !important;
+    font-size: 11px !important;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* ── 9. Topbar actions — prevent wrapping in Edge ───────────────── */
+.topbar-actions {
+    overflow: hidden !important; /* clip if too narrow, don't wrap */
+    flex-wrap: nowrap !important;
+    gap: 2px !important;
+}
+
+/* Hide less critical buttons when space is tight */
+@media (max-width: 1280px) {
+    .topbar-btn[onclick*="showTipsModal"],
+    .topbar-btn[onclick*="openModal('modal-about')"],
+    .topbar-btn[onclick*="exportWorkspace"] {
+        display: none;
+    }
+}
+
+@media (max-width: 1024px) {
+    .topbar-btn[onclick*="openSnippets"],
+    .topbar-btn[onclick*="openBackpressureAnalyser"],
+    .topbar-btn[onclick*="openWatermarkMonitor"],
+    .topbar-btn[onclick*="openPipelineDependencyGraph"],
+    .topbar-btn[onclick*="openSqlProfiler"] {
+        display: none;
+    }
+    .toolbar-sep { display: none; }
+}
+
+/* ── 10. Editor toolbar — prevent overflow / wrap in Firefox ────── */
+.editor-toolbar {
+    flex-wrap: nowrap !important;
+    overflow: hidden !important;
+}
+
+.toolbar-info {
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+/* Hide less critical toolbar buttons on narrow viewports */
+@media (max-width: 1100px) {
+    .toolbar-btn[onclick*="openSchemaRegistry"],
+    .toolbar-btn[onclick*="openBackpressureAnalyser"],
+    .toolbar-btn[onclick*="openWatermarkMonitor"],
+    .toolbar-btn[onclick*="openPipelineDependencyGraph"],
+    .toolbar-btn[onclick*="openSqlProfiler"] {
+        display: none;
+    }
+}
+
+/* ── 11. Perf toolbar — Firefox wraps it without this ───────────── */
+.perf-toolbar {
+    flex-wrap: nowrap !important;
+    overflow: hidden !important;
+    gap: 4px !important;
+}
+
+.perf-subtabs {
+    flex-shrink: 1 !important;
+    overflow: hidden !important;
+    min-width: 0 !important;
+}
+
+/* ── 12. Connect panel — consistent width across browsers ────────── */
+.connect-panel {
+    width: 420px !important;
+    max-width: 94vw !important; /* safety on small/narrow viewports */
+    flex-shrink: 0 !important;
+}
+
+/* ── 13. Connect screen layout — responsive two-column ───────────── */
+.cs-layout {
+    gap: 24px !important;
+}
+
+/* On narrow viewports (Edge mobile, small browser windows)
+   collapse the slideshow and just show the connect panel            */
+@media (max-width: 860px) {
+    .cs-showcase {
+        display: none !important;
+    }
+    .cs-layout {
+        justify-content: center !important;
+    }
+}
+
+/* ── 14. Modal sizing — Edge sometimes over-inflates modals ─────── */
+.modal {
+    max-width: 94vw !important;
+    max-height: 92vh !important;
+}
+
+#nd-modal {
+    width: min(780px, 94vw) !important;
+    max-height: 82vh !important;
+}
+
+/* ── 15. Main layout — ensure editor fills remaining space ───────── */
+#main-layout {
+    flex: 1 1 0 !important;  /* explicit 0 basis prevents Firefox bloat */
+    min-height: 0 !important; /* critical: without this Firefox doesn't shrink flex children */
+    overflow: hidden !important;
+}
+
+#editor-area {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;  /* prevents editor from overflowing sidebar */
+    min-height: 0 !important;
+}
+
+#sidebar {
+    flex-shrink: 0 !important;
+    min-height: 0 !important;
+}
+
+/* ── 16. Results panel — min-height 0 for Firefox flex fix ──────── */
+#results-panel {
+    flex-shrink: 0 !important;
+    min-height: 0 !important;
+}
+
+.results-content {
+    min-height: 0 !important;
+    flex: 1 1 0 !important;
+}
+
+/* ── 17. SQL editor — consistent font rendering ─────────────────── */
+.sql-editor {
+    /* Firefox renders tab-size differently */
+    -moz-tab-size: 4;
+    tab-size: 4;
+    /* Prevent Edge from auto-scaling the editor font */
+    font-size: 13px !important;
+    line-height: 1.6 !important;
+}
+
+/* ── 18. Performance KPI grid — 4-col in Edge/Firefox ───────────── */
+.perf-grid {
+    grid-template-columns: repeat(4, 1fr) !important;
+}
+
+@media (max-width: 900px) {
+    .perf-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+}
+
+/* ── 19. Cluster stats row — prevent overflow in Firefox ─────────── */
+.cluster-row {
+    overflow: hidden !important;
+}
+
+.cluster-stat {
+    min-width: 0 !important;
+    flex: 1 1 0 !important;
+}
+
+.cluster-stat-val {
+    font-size: 13px !important; /* shrink from 15px to prevent overflow */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ── 20. Topbar session / conn chip — prevent overflow ───────────── */
+.topbar-session {
+    flex-shrink: 1 !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+}
+
+.conn-chip {
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    max-width: 180px !important;
+    text-overflow: ellipsis !important;
+}
+
+/* ── 21. Firefox: fieldset/legend reset (used in some modals) ────── */
+fieldset {
+    border: 0;
+    padding: 0;
+    margin: 0;
+    min-width: 0;
+}
+
+/* ── 22. SVG rendering — Edge anti-aliasing ─────────────────────── */
+svg {
+    shape-rendering: geometricPrecision;
+}
+
+/* ── 23. Canvas pixel ratio fix for Edge high-DPI ───────────────── */
+canvas {
+    image-rendering: -webkit-optimize-contrast; /* Edge/Chrome */
+    image-rendering: crisp-edges;               /* Firefox */
+}
+
+/* ── 24. Animation — respect user reduced-motion preference ─────── */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
