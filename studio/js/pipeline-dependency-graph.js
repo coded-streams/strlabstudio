@@ -408,20 +408,6 @@ function _pdgRenderGraph() {
     _PDG._NHT = NHT;
 
     // ── Node dragging + double-click ───────────────────────────────
-    //
-    // DBLCLICK FIX: We detect double-click ourselves by counting rapid
-    // successive clicks (≤300ms apart) with no drag in between.
-    // We do NOT rely on the browser's synthetic 'dblclick' event at all,
-    // because mousedown's stopPropagation() can swallow it in some browsers
-    // and hasMoved state from a previous drag pollutes it.
-    //
-    // DRAG FIX: clientToSVG uses the WRAP element's bounding rect (the
-    // fixed container), not the SVG element's rect (which moves with
-    // pan/zoom transforms). This gives correct coordinates at any zoom/pan.
-    //
-    // FREE MOVEMENT FIX: Removed Math.max(0, ...) clamp on both X and Y.
-    // Nodes can now be dragged to negative SVG coordinates freely — the
-    // canvas expands on re-render and panning covers any position.
 
     const svgEl = document.getElementById('pdg-svg');
     if (svgEl) {

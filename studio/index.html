@@ -1876,19 +1876,19 @@ SHOW CATALOGS;"></textarea>
     (function() {
         const _minimised = {}; // modalId → { el, placeholder }
 
-        window.modalMinimize = function(modalId, label) {
-            const overlay = document.getElementById(modalId);
-            if (!overlay) return;
-            const inner = overlay.querySelector('.modal');
-            if (!inner) return;
+      window.modalMinimize = function(modalId, label) {
+        const overlay = document.getElementById(modalId);
+        if (!overlay) return;
+        const inner = overlay.querySelector('.modal');
+        if (!inner) return;
 
-            // Hide overlay (keep in DOM)
-            overlay.style.display = 'none';
+        // Hide overlay (keep in DOM)
+        overlay.style.display = 'none';
 
-            // Create taskbar chip
-            const chip = document.createElement('div');
-            chip.id = 'minimised-chip-' + modalId;
-            chip.style.cssText = `
+        // Create taskbar chip
+        const chip = document.createElement('div');
+        chip.id = 'minimised-chip-' + modalId;
+        chip.style.cssText = `
       display:inline-flex;align-items:center;gap:5px;
       padding:0 10px;height:100%;
       font-size:10px;font-family:var(--mono);
@@ -1897,15 +1897,18 @@ SHOW CATALOGS;"></textarea>
       background:rgba(0,212,170,0.08);
       transition:background 0.1s;white-space:nowrap;flex-shrink:0;
     `;
-            chip.innerHTML = `<span style="font-size:11px;">⬡</span> ${label} <button onclick="event.stopPropagation();modalRestore('${modalId}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px;line-height:1;padding:0 0 0 4px;margin:0;">×</button>`;
-            chip.addEventListener('click', () => modalRestore(modalId));
-            chip.addEventListener('mouseenter', () => chip.style.background = 'rgba(0,212,170,0.15)');
-            chip.addEventListener('mouseleave', () => chip.style.background = 'rgba(0,212,170,0.08)');
+        chip.innerHTML = `<span style="font-size:11px;">⬡</span> ${label} <button onclick="event.stopPropagation();modalRestore('${modalId}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px;line-height:1;padding:0 0 0 4px;margin:0;">×</button>`;
+        chip.addEventListener('click', () => modalRestore(modalId));
+        chip.addEventListener('mouseenter', () => chip.style.background = 'rgba(0,212,170,0.15)');
+        chip.addEventListener('mouseleave', () => chip.style.background = 'rgba(0,212,170,0.08)');
 
-            const sb = document.getElementById('statusbar');
-            if (sb) sb.appendChild(chip);
-            _minimised[modalId] = { chip };
-        };
+
+        _minimised[modalId] = { chip };
+        requestAnimationFrame(() => {
+          const sb = document.getElementById('statusbar');
+          if (sb) sb.appendChild(chip);
+        });
+      };
 
         window.modalRestore = function(modalId) {
             const overlay = document.getElementById(modalId);

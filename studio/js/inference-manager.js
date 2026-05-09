@@ -8,7 +8,27 @@
  * Anthropic, Cohere, and fully bespoke/custom endpoints.
  * Generates production-ready Flink SQL with async UDF patterns.
  * ─────────────────────────────────────────────────────────────────────────────
+ * ICON UPDATE:
+ *  - Brand icons now served from https://cdn.simpleicons.org/<slug>/<hex>
+ *  - Icons without a Simple Icons equivalent keep their original emoji
+ *  - Helper _ifmSimpleIcon(slug, hex, size) builds a consistent <img> tag
+ *  - Used in IFM_SERVERS catalogue (icon field) AND in the canvas SVG
+ * ─────────────────────────────────────────────────────────────────────────────
  */
+
+// ── Simple Icons helper ───────────────────────────────────────────────────────
+// Returns an <img> tag from cdn.simpleicons.org with optional colour override.
+// slug — the Simple Icons slug (e.g. 'mlflow')
+// hex  — colour WITHOUT the # (e.g. 'ffffff')  — omit for brand default colour
+// size — px (default 20)
+function _ifmSimpleIcon(slug, hex, size) {
+    size = size || 20;
+    const src = hex
+        ? `https://cdn.simpleicons.org/${slug}/${hex}`
+        : `https://cdn.simpleicons.org/${slug}`;
+    return `<img src="${src}" width="${size}" height="${size}"
+    style="display:inline-block;vertical-align:middle;flex-shrink:0;" />`;
+}
 
 // ── State ─────────────────────────────────────────────────────────────────────
 const _IFM = {
@@ -35,7 +55,9 @@ const _IFM = {
     outputTable: '',
     sinkType: 'kafka',
     generatedSql: '',
-    history: [],
+     history: [],
+     inferenceMethod: 'async_udf',
+     inferenceMethodConfig: {},
 };
 
 (function () {
@@ -95,7 +117,8 @@ function _ifmInjectCss() {
 .ifm-server-card{padding:10px 12px;border:1px solid var(--border2);border-radius:5px;cursor:pointer;background:var(--bg3);transition:all 0.12s;user-select:none;}
 .ifm-server-card:hover{background:var(--bg1);border-color:rgba(79,163,224,0.4);}
 .ifm-server-card.selected{background:rgba(79,163,224,0.1);border-color:var(--blue,#4fa3e0);box-shadow:0 0 0 1px rgba(79,163,224,0.3);}
-.ifm-server-card .ifm-sc-icon{font-size:20px;margin-bottom:5px;display:block;}
+.ifm-server-card .ifm-sc-icon{font-size:20px;margin-bottom:5px;display:flex;align-items:center;min-height:24px;}
+.ifm-server-card .ifm-sc-icon img{width:22px;height:22px;}
 .ifm-server-card .ifm-sc-name{font-size:11px;font-weight:700;color:var(--text0);font-family:var(--mono);}
 .ifm-server-card .ifm-sc-desc{font-size:9px;color:var(--text3);margin-top:2px;line-height:1.4;}
 .ifm-col-tag{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:3px;font-size:10px;font-family:var(--mono);background:var(--bg3);border:1px solid var(--border);color:var(--text1);cursor:pointer;transition:all 0.1s;user-select:none;margin:2px;}
@@ -114,49 +137,553 @@ function _ifmInjectCss() {
     document.head.appendChild(s);
 }
 
-// ── Server catalogue ───────────────────────────────────────────────────────────
+// ── Server catalogue — icons updated to Simple Icons CDN where available ───────
+// Icon strategy:
+//   ✅ Simple Icons CDN  — mlflow, sagemaker, azureml, vertexai, databricks,
+//                          nvidia (triton), pytorch (torchserve), tensorflow,
+//                          minio, huggingface, openai, anthropic, cohere,
+//                          mistral, amazonaws (bedrock)
+//   ✅ Kept as emoji     — bentoml, ray, seldon, kserve, together, openai_compat,
+//                          custom_http, custom_grpc, custom_udf (no SI equivalent)
+// ─────────────────────────────────────────────────────────────────────────────
 const IFM_SERVERS = [
     // Managed MLOps Platforms
-    { id:'mlflow',       group:'MLOps Platforms',   icon:'🔬', name:'MLflow',            desc:'MLflow Model Registry & Serving',   authTypes:['bearer','basic','none'] },
-    { id:'sagemaker',    group:'MLOps Platforms',   icon:'☁', name:'AWS SageMaker',      desc:'SageMaker Endpoints (IAM/AK)',       authTypes:['aws_sigv4','aws_keys'] },
-    { id:'azureml',      group:'MLOps Platforms',   icon:'🔷', name:'Azure ML',           desc:'Azure ML Online Endpoints',          authTypes:['azure_ad','api_key'] },
-    { id:'vertexai',     group:'MLOps Platforms',   icon:'⬡', name:'Google Vertex AI',   desc:'Vertex AI Endpoints',                authTypes:['google_sa','bearer'] },
-    { id:'databricks',   group:'MLOps Platforms',   icon:'🧱', name:'Databricks',         desc:'Databricks Model Serving',           authTypes:['bearer'] },
+    {
+        id:'mlflow', group:'MLOps Platforms',
+        icon: _ifmSimpleIcon('mlflow', '0194E2', 22),
+        name:'MLflow', desc:'MLflow Model Registry & Serving',
+        authTypes:['bearer','basic','none']
+    },
+    {
+        id:'sagemaker', group:'MLOps Platforms',
+        icon: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="24" height="24" rx="3" fill="#FF9900"/><path d="M12 4L5 8v8l7 4 7-4V8z" fill="none" stroke="white" stroke-width="1.5"/><path d="M12 4v16M5 8l7 4 7-4" stroke="white" stroke-width="1.5"/></svg>`,
+        name:'AWS SageMaker', desc:'SageMaker Endpoints (IAM/AK)',
+        authTypes:['aws_sigv4','aws_keys']
+    },
+    {
+        id:'azureml', group:'MLOps Platforms',
+        icon: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="24" height="24" rx="3" fill="#0078D4"/><path d="M13.5 4H8L4 13h5l-2 7 11-9.5h-6z" fill="white"/></svg>`,
+        name:'Azure ML', desc:'Azure ML Online Endpoints',
+        authTypes:['azure_ad','api_key']
+    },
+    {
+        id:'vertexai', group:'MLOps Platforms',
+        icon: _ifmSimpleIcon('googlecloud', '4285F4', 22),
+        name:'Google Vertex AI', desc:'Vertex AI Endpoints',
+        authTypes:['google_sa','bearer']
+    },
+    {
+        id:'databricks', group:'MLOps Platforms',
+        icon: _ifmSimpleIcon('databricks', 'FF3621', 22),
+        name:'Databricks', desc:'Databricks Model Serving',
+        authTypes:['bearer']
+    },
     // Open-Source Serving
-    { id:'mlflow_serve', group:'Open-Source Serving',icon:'🧪', name:'MLflow pyfunc',     desc:'mlflow models serve REST API',       authTypes:['none','bearer'] },
-    { id:'bentoml',      group:'Open-Source Serving',icon:'🍱', name:'BentoML',           desc:'BentoML Serve REST / gRPC',          authTypes:['api_key','none'] },
-    { id:'triton',       group:'Open-Source Serving',icon:'🔱', name:'Triton Inference',  desc:'NVIDIA Triton (HTTP/gRPC)',           authTypes:['none','bearer'] },
-    { id:'torchserve',   group:'Open-Source Serving',icon:'🔥', name:'TorchServe',        desc:'PyTorch TorchServe Management API',  authTypes:['none','bearer'] },
-    { id:'tfserving',    group:'Open-Source Serving',icon:'🧠', name:'TF Serving',        desc:'TensorFlow Serving REST API',        authTypes:['none','bearer'] },
-    { id:'ray',          group:'Open-Source Serving',icon:'🌞', name:'Ray Serve',         desc:'Ray Serve HTTP endpoints',           authTypes:['none','bearer'] },
-    { id:'seldon',       group:'Open-Source Serving',icon:'🚀', name:'Seldon Core',       desc:'Seldon V2 Protocol (Istio)',         authTypes:['bearer','none'] },
-    { id:'kserve',       group:'Open-Source Serving',icon:'🎯', name:'KServe',            desc:'KServe InferenceService (K8s)',       authTypes:['bearer','none'] },
+    {
+        id:'mlflow_serve', group:'Open-Source Serving',
+        icon: _ifmSimpleIcon('mlflow', '0194E2', 22),
+        name:'MLflow pyfunc', desc:'mlflow models serve REST API',
+        authTypes:['none','bearer']
+    },
+    {
+        id:'bentoml', group:'Open-Source Serving',
+        // No Simple Icons equivalent — keep emoji
+        icon:'<span style="font-size:20px;line-height:1;">🍱</span>',
+        name:'BentoML', desc:'BentoML Serve REST / gRPC',
+        authTypes:['api_key','none']
+    },
+    {
+        id:'triton', group:'Open-Source Serving',
+        icon: _ifmSimpleIcon('nvidia', '76B900', 22),
+        name:'Triton Inference', desc:'NVIDIA Triton (HTTP/gRPC)',
+        authTypes:['none','bearer']
+    },
+    {
+        id:'torchserve', group:'Open-Source Serving',
+        icon: _ifmSimpleIcon('pytorch', 'EE4C2C', 22),
+        name:'TorchServe', desc:'PyTorch TorchServe Management API',
+        authTypes:['none','bearer']
+    },
+    {
+        id:'tfserving', group:'Open-Source Serving',
+        icon: _ifmSimpleIcon('tensorflow', 'FF6F00', 22),
+        name:'TF Serving', desc:'TensorFlow Serving REST API',
+        authTypes:['none','bearer']
+    },
+    {
+        id:'ray', group:'Open-Source Serving',
+        icon:`<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f5a623" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.9" y1="4.9" x2="7.8" y2="7.8"/><line x1="16.2" y1="16.2" x2="19.1" y2="19.1"/><line x1="19.1" y1="4.9" x2="16.2" y2="7.8"/><line x1="7.8" y1="16.2" x2="4.9" y2="19.1"/></svg>`,
+        name:'Ray Serve',
+        authTypes:['none','bearer']
+    },
+    {
+        id:'seldon', group:'Open-Source Serving',
+        icon:`<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4e9de8" stroke-width="1.8"><circle cx="12" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/><line x1="12" y1="7" x2="5" y2="17"/><line x1="12" y1="7" x2="19" y2="17"/><line x1="7" y1="19" x2="17" y2="19"/></svg>`,
+        name:'Seldon Core',
+        authTypes:['bearer','none']
+    },
+    {
+        id:'kserve', group:'Open-Source Serving',
+        icon:`<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#57c764" stroke-width="1.8"><polygon points="12 2 22 12 12 22 2 12"/><polygon points="12 7 17 12 12 17 7 12"/><circle cx="12" cy="12" r="2" fill="#57c764"/></svg>`,
+        name:'KServe',
+        authTypes:['bearer','none']
+    },
     // Model Registries / Artifact Stores
-    { id:'minio',        group:'Artifact Stores',   icon:'🗄', name:'MinIO / S3',         desc:'Load model artifact from object store', authTypes:['minio_keys','aws_keys'] },
-    { id:'huggingface',  group:'Hosted APIs',       icon:'🤗', name:'HuggingFace Hub',    desc:'Inference API / Endpoints',          authTypes:['bearer'] },
-    // Hosted LLM APIs
-    { id:'openai',       group:'Hosted APIs',       icon:'✦', name:'OpenAI',              desc:'GPT-4o, GPT-4, Embeddings',          authTypes:['api_key'] },
-    { id:'anthropic',    group:'Hosted APIs',       icon:'✧', name:'Anthropic Claude',    desc:'Claude 3.5 / Claude 4 series',       authTypes:['api_key','x_api_key'] },
-    { id:'cohere',       group:'Hosted APIs',       icon:'🔵', name:'Cohere',             desc:'Command R+, Embed, Classify',        authTypes:['api_key','bearer'] },
-    { id:'mistral',      group:'Hosted APIs',       icon:'💨', name:'Mistral AI',         desc:'Mistral, Mixtral endpoints',         authTypes:['api_key'] },
-    { id:'together',     group:'Hosted APIs',       icon:'🌐', name:'Together AI',        desc:'Open models via Together API',       authTypes:['api_key'] },
-    { id:'bedrock',      group:'Hosted APIs',       icon:'🪨', name:'AWS Bedrock',        desc:'Claude, Titan, Llama via Bedrock',   authTypes:['aws_sigv4','aws_keys'] },
+    {
+        id:'minio', group:'Artifact Stores',
+        icon: _ifmSimpleIcon('minio', 'C72E49', 22),
+        name:'MinIO / S3', desc:'Load model artifact from object store',
+        authTypes:['minio_keys','aws_keys']
+    },
+    // Hosted APIs
+    {
+        id:'huggingface', group:'Hosted APIs',
+        icon: _ifmSimpleIcon('huggingface', 'FF9D00', 22),
+        name:'HuggingFace Hub', desc:'Inference API / Endpoints',
+        authTypes:['bearer']
+    },
+    {
+        id:'openai', group:'Hosted APIs',
+        icon: `<svg width="22" height="22" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect width="24" height="24" rx="3" fill="#412991"/><path d="M20.9 9.5a5.8 5.8 0 0 0-.4-4.7 6 6 0 0 0-6.4-2.8 5.8 5.8 0 0 0-4.4-2A6 6 0 0 0 4 3.8a5.8 5.8 0 0 0-3.9 2.8 6 6 0 0 0 .7 7 5.8 5.8 0 0 0 .4 4.8 6 6 0 0 0 6.4 2.8 5.8 5.8 0 0 0 4.4 2 6 6 0 0 0 5.7-4.1 5.8 5.8 0 0 0 3.9-2.8 6 6 0 0 0-.7-6.8zM14 20a4.5 4.5 0 0 1-2.8-1l.1-.1 4.6-2.7a.8.8 0 0 0 .4-.7v-6.5l2 1.1v5.3A4.5 4.5 0 0 1 14 20zM3.5 16.6a4.5 4.5 0 0 1-.5-3l.1.1 4.6 2.7a.8.8 0 0 0 .8 0l5.6-3.2v2.2l-4.7 2.7a4.5 4.5 0 0 1-5.9-1.5zM2.6 8a4.5 4.5 0 0 1 2.3-2L5 6v5.5a.8.8 0 0 0 .4.7l5.6 3.2-2 1.1-4.6-2.7A4.5 4.5 0 0 1 2.6 8zM17.6 12l-5.6-3.2L14 7.7l4.6 2.6a4.5 4.5 0 0 1-.7 8.1V13a.8.8 0 0 0-.3-.7v-.3zm2-3-.1-.1-4.6-2.7a.8.8 0 0 0-.8 0L8.5 9.4V7.2l4.7-2.7a4.5 4.5 0 0 1 6.7 4.6v.1zM7.4 13L5.5 12l.1-5.3a4.5 4.5 0 0 1 7.3-3.4l-.1.1-4.6 2.7a.8.8 0 0 0-.4.7L7.4 13zm1 -2.2 2.5-1.4 2.5 1.4v2.8l-2.5 1.5-2.5-1.5V10.8z" fill="white"/></svg>`,
+        name:'OpenAI',
+        authTypes:['api_key']
+    },
+    {
+        id:'anthropic', group:'Hosted APIs',
+        icon: _ifmSimpleIcon('anthropic', 'D4A27F', 22),
+        name:'Anthropic Claude', desc:'Claude 3.5 / Claude 4 series',
+        authTypes:['api_key','x_api_key']
+    },
+    {
+        id:'cohere', group:'Hosted APIs',
+        icon: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="24" height="24" rx="3" fill="#39594D"/><circle cx="12" cy="12" r="7" stroke="white" stroke-width="1.8" fill="none"/><circle cx="12" cy="12" r="3.5" fill="white"/><circle cx="17" cy="7" r="2" fill="#84C9A8"/></svg>`,
+        name:'Cohere', desc:'Command R+, Embed, Classify',
+        authTypes:['api_key','bearer']
+    },
+    {
+        id:'mistral', group:'Hosted APIs',
+        icon: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="24" height="24" rx="4" fill="#FF7000"/><path d="M7 17V7h3v4h4V7h3v10h-3v-4h-4v4z" fill="white"/></svg>`,
+        name:'Mistral AI', desc:'Mistral, Mixtral endpoints',
+        authTypes:['api_key']
+    },
+    {
+        id:'together', group:'Hosted APIs',
+        // No Simple Icons equivalent — keep emoji
+        icon:'<span style="font-size:20px;line-height:1;">🌐</span>',
+        name:'Together AI', desc:'Open models via Together API',
+        authTypes:['api_key']
+    },
+    {
+        id:'bedrock', group:'Hosted APIs',
+        icon: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="24" height="24" rx="3" fill="#FF9900"/><rect x="4" y="14" width="16" height="4" rx="1" fill="white"/><rect x="4" y="9" width="12" height="4" rx="1" fill="white" opacity="0.75"/><rect x="4" y="4" width="8" height="4" rx="1" fill="white" opacity="0.5"/></svg>`,
+        name:'AWS Bedrock',
+        authTypes:['aws_sigv4','aws_keys']
+    },
     // Custom / Bespoke
-    { id:'openai_compat',group:'Custom / Bespoke',  icon:'🔌', name:'OpenAI-compatible',  desc:'vLLM, LocalAI, Ollama, etc.',        authTypes:['api_key','bearer','none'] },
-    { id:'custom_http',  group:'Custom / Bespoke',  icon:'⚙', name:'Custom HTTP REST',   desc:'Any REST endpoint (fully configurable)', authTypes:['bearer','api_key','basic','header','none'] },
-    { id:'custom_grpc',  group:'Custom / Bespoke',  icon:'⚡', name:'Custom gRPC',        desc:'gRPC streaming / unary inference',   authTypes:['bearer','tls_cert','none'] },
-    { id:'custom_udf',   group:'Custom / Bespoke',  icon:'⨍', name:'Flink UDF / JAR',   desc:'Registered Flink scalar/async UDF',  authTypes:['none'] },
+    {
+        id:'openai_compat', group:'Custom / Bespoke',
+        // vLLM/Ollama/LocalAI — no single SI icon; keep emoji
+        icon:'<span style="font-size:20px;line-height:1;">🔌</span>',
+        name:'OpenAI-compatible', desc:'vLLM, LocalAI, Ollama, etc.',
+        authTypes:['api_key','bearer','none']
+    },
+    {
+        id:'custom_http', group:'Custom / Bespoke',
+        icon:'<span style="font-size:20px;line-height:1;">⚙</span>',
+        name:'Custom HTTP REST', desc:'Any REST endpoint (fully configurable)',
+        authTypes:['bearer','api_key','basic','header','none']
+    },
+    {
+        id:'custom_grpc', group:'Custom / Bespoke',
+        icon:'<span style="font-size:20px;line-height:1;">⚡</span>',
+        name:'Custom gRPC', desc:'gRPC streaming / unary inference',
+        authTypes:['bearer','tls_cert','none']
+    },
+    {
+        id:'custom_udf', group:'Custom / Bespoke',
+        icon:'<span style="font-size:20px;line-height:1;">⨍</span>',
+        name:'Flink UDF / JAR', desc:'Registered Flink scalar/async UDF',
+        authTypes:['none']
+    },
 ];
 
 const IFM_STEPS = [
-    { label:'Source Table',  icon:'⬡' },
-    { label:'Model Server',  icon:'🔬' },
-    { label:'Model Config',  icon:'⚙' },
-    { label:'Auth & Creds',  icon:'🔑' },
-    { label:'Inference I/O', icon:'◈' },
-    { label:'Output Sink',   icon:'⤵' },
-    { label:'Review & SQL',  icon:'⟨/⟩' },
+    { label:'Source Table',      icon:'⬡' },
+    { label:'Model Server',      icon:'🔬' },
+    { label:'Model Config',      icon:'⚙' },
+    { label:'Inference Method',  icon:'◈' },
+    { label:'Auth & Creds',      icon:'🔑' },
+    { label:'Inference I/O',     icon:'▶' },
+    { label:'Output Sink',       icon:'⤵' },
+    { label:'Review & SQL',      icon:'⟨/⟩' },
 ];
+
+const IFM_INFERENCE_METHODS = [
+    {
+        id: 'async_udf',
+        label: 'Async Scalar UDF',
+        icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4fa3e0" stroke-width="1.8"><path d="M4 17l6-6-6-6"/><line x1="12" y1="19" x2="20" y2="19"/></svg>`,
+        badge: 'RECOMMENDED',
+        badgeColor: '#4fa3e0',
+        desc: 'Wraps model inference in a Flink RichAsyncFunction JAR. Fully non-blocking, supports retries and timeouts. Most flexible option for any HTTP/gRPC endpoint.',
+        sqlPattern: 'CALL_MODEL_UDF(features) AS prediction',
+        pros: ['Non-blocking I/O', 'Configurable parallelism & timeout', 'Works with any endpoint', 'Retry logic built-in'],
+        cons: ['Requires a JAR deployment', 'Custom Java/Scala/Python implementation needed'],
+        generates: 'CREATE TEMPORARY FUNCTION + INSERT INTO ... SELECT udf(...)',
+    },
+    {
+        id: 'flink_ml',
+        label: 'Flink ML Predict',
+        icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#57c764" stroke-width="1.8"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>`,
+        badge: 'NATIVE',
+        badgeColor: '#57c764',
+        desc: 'Uses Flink ML\'s built-in ML_PREDICT table function (Flink 2.1). Loads ONNX, PMML or custom model files from a path and applies them inline — no external server needed.',
+        sqlPattern: 'SELECT * FROM ML_PREDICT(TABLE source, MODEL model_name)',
+        pros: ['Zero external dependencies', 'Model loaded once at startup', 'Lowest latency (in-process)', 'Official Flink API'],
+        cons: ['Flink 2.1 required', 'Supports ONNX/PMML only (no LLM APIs)', 'Model must be accessible on all TaskManagers'],
+        generates: 'CREATE MODEL + SELECT * FROM ML_PREDICT(...)',
+    },
+    {
+        id: 'otter_streams',
+        label: 'Otter-Streams Connector',
+        icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00d4aa" stroke-width="1.8"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v4c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/><path d="M4 10v4c0 1.7 3.6 3 8 3s8-1.3 8-3v-4"/><path d="M4 14v4c0 1.7 3.6 3 8 3s8-1.3 8-3v-4"/></svg>`,
+        badge: 'CUSTOM',
+        badgeColor: '#00d4aa',
+        desc: 'Uses a registered Otter-Streams ML inference function. Configure your custom connector endpoint and function name — generates a CALL statement using your registered connector function.',
+        sqlPattern: 'CALL_OTTER_ML(features, endpoint, model) AS prediction',
+        pros: ['Integrates with Otter-Streams platform', 'Managed credentials & retries', 'Works with your existing connectors', 'No JAR required if already registered'],
+        cons: ['Requires Otter-Streams runtime', 'Function must be pre-registered'],
+        generates: 'CREATE TEMPORARY FUNCTION (Otter connector) + INSERT INTO ...',
+    },
+    {
+        id: 'udf_view',
+        label: 'UDF View Pattern',
+        icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#b080e0" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>`,
+        badge: 'ADVANCED',
+        badgeColor: '#b080e0',
+        desc: 'Creates a reusable Flink TEMPORARY VIEW that encapsulates the inference logic. Downstream queries just SELECT from the view — clean separation of inference from business logic.',
+        sqlPattern: 'CREATE VIEW scored_view AS SELECT ..., udf(features) AS prediction FROM source',
+        pros: ['Reusable across multiple queries', 'Clean SQL abstraction', 'Easy to test and iterate', 'Composable with other views'],
+        cons: ['Still needs an underlying UDF', 'View must be recreated each session'],
+        generates: 'CREATE TEMPORARY VIEW + underlying UDF + INSERT INTO ...',
+    },
+    {
+        id: 'custom_function',
+        label: 'Custom SQL Function',
+        icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f5a623" stroke-width="1.8"><path d="M4 17l6-6-6-6"/><path d="M12 19h8"/><circle cx="18" cy="19" r="2"/></svg>`,
+        badge: 'MANUAL',
+        badgeColor: '#f5a623',
+        desc: 'You write the full CREATE FUNCTION statement yourself. Use this when you have a pre-registered function, a Flink scalar function, or a platform-specific function not covered above.',
+        sqlPattern: 'YOUR_FUNCTION(features) AS prediction',
+        pros: ['Complete control', 'Works with any registered function', 'No assumptions about runtime'],
+        cons: ['Requires manual SQL authoring', 'No validation of function signature'],
+        generates: 'INSERT INTO ... SELECT your_function(...)',
+    },
+];
+
+// ── Inference Method Step Renderer ────────────────────────────────────────────
+function _ifmRenderStepMethod() {
+    const body = document.getElementById('ifm-body');
+    const current = _IFM.inferenceMethod || 'async_udf';
+    const mc = _IFM.inferenceMethodConfig || {};
+
+    body.innerHTML = `
+<div class="ifm-info-box">
+  Select how Flink will call your model at inference time. Each method generates different SQL patterns.
+  <strong>Async Scalar UDF</strong> is the most flexible; <strong>Flink ML Predict</strong> is the most native for ONNX/PMML models.
+</div>
+ 
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:18px;">
+  ${IFM_INFERENCE_METHODS.map(m => `
+    <div id="ifm-mth-card-${m.id}"
+      onclick="_ifmSelectMethod('${m.id}')"
+      style="padding:12px 14px;border:2px solid ${current===m.id?'var(--blue,#4fa3e0)':'var(--border2)'};
+        border-radius:6px;cursor:pointer;background:${current===m.id?'rgba(79,163,224,0.1)':'var(--bg3)'};
+        transition:all 0.12s;user-select:none;position:relative;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+        <span style="display:flex;align-items:center;flex-shrink:0;">${m.icon}</span>
+        <span style="font-size:11px;font-weight:700;color:var(--text0);font-family:var(--mono);">${m.label}</span>
+      </div>
+      <div style="position:absolute;top:8px;right:8px;font-size:8px;font-weight:700;padding:1px 6px;
+        border-radius:8px;background:${m.badgeColor}22;color:${m.badgeColor};border:1px solid ${m.badgeColor}44;">
+        ${m.badge}
+      </div>
+      <div style="font-size:10px;color:var(--text3);line-height:1.5;margin-top:2px;">${m.desc.slice(0,90)}…</div>
+      <div style="margin-top:8px;font-size:9px;font-family:var(--mono);color:${m.badgeColor};
+        background:${m.badgeColor}11;padding:3px 6px;border-radius:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+        ${m.sqlPattern}
+      </div>
+    </div>`).join('')}
+</div>
+ 
+<!-- Detail panel for selected method -->
+<div id="ifm-mth-detail" style="background:var(--bg2);border:1px solid var(--border);border-radius:6px;overflow:hidden;">
+  <!-- Rendered by _ifmRenderMethodDetail() -->
+</div>`;
+
+    _ifmRenderMethodDetail(current);
+}
+
+function _ifmSelectMethod(id) {
+    _IFM.inferenceMethod = id;
+    document.querySelectorAll('[id^="ifm-mth-card-"]').forEach(el => {
+        const isSelected = el.id === 'ifm-mth-card-' + id;
+        const m = IFM_INFERENCE_METHODS.find(m => 'ifm-mth-card-' + m.id === el.id);
+        if (!m) return;
+        el.style.borderColor = isSelected ? 'var(--blue,#4fa3e0)' : 'var(--border2)';
+        el.style.background  = isSelected ? 'rgba(79,163,224,0.1)' : 'var(--bg3)';
+    });
+    _ifmRenderMethodDetail(id);
+}
+
+function _ifmRenderMethodDetail(id) {
+    const m = IFM_INFERENCE_METHODS.find(x => x.id === id);
+    if (!m) return;
+    const wrap = document.getElementById('ifm-mth-detail');
+    if (!wrap) return;
+    const mc = _IFM.inferenceMethodConfig || {};
+
+    // Configuration fields vary per method
+    const configForms = {
+        async_udf: `
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+  <div>
+    <label class="ifm-field-label">UDF Class Name <span class="ifm-required">*</span></label>
+    <input id="ifm-mth-udf-class" class="field-input" type="text"
+      style="font-size:11px;font-family:var(--mono);"
+      placeholder="com.yourcompany.flink.udf.ModelAsyncUDF"
+      value="${_escIfm(mc['ifm-mth-udf-class']||'')}" />
+  </div>
+  <div>
+    <label class="ifm-field-label">Registered Function Name</label>
+    <input id="ifm-mth-udf-name" class="field-input" type="text"
+      style="font-size:11px;font-family:var(--mono);"
+      placeholder="CALL_MODEL_UDF"
+      value="${_escIfm(mc['ifm-mth-udf-name']||'CALL_MODEL_UDF')}" />
+  </div>
+  <div>
+    <label class="ifm-field-label">JAR Path (for reference)</label>
+    <input id="ifm-mth-udf-jar" class="field-input" type="text"
+      style="font-size:11px;font-family:var(--mono);"
+      placeholder="/opt/flink/lib/model-udf.jar"
+      value="${_escIfm(mc['ifm-mth-udf-jar']||'')}" />
+  </div>
+  <div>
+    <label class="ifm-field-label">Language</label>
+    <select id="ifm-mth-udf-lang" class="field-input" style="font-size:11px;">
+      ${['JAVA','SCALA','PYTHON'].map(l=>`<option value="${l}" ${(mc['ifm-mth-udf-lang']||'JAVA')===l?'selected':''}>${l}</option>`).join('')}
+    </select>
+  </div>
+</div>`,
+
+        flink_ml: `
+<div class="ifm-info-box" style="margin-bottom:10px;">
+  Flink ML <code>ML_PREDICT</code> is available from Flink 1.16+. The model file must be reachable
+  from all TaskManagers (e.g. on a shared filesystem or mounted volume).
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+  <div>
+    <label class="ifm-field-label">Model Name (CREATE MODEL name) <span class="ifm-required">*</span></label>
+    <input id="ifm-mth-flinkml-name" class="field-input" type="text"
+      style="font-size:11px;font-family:var(--mono);"
+      placeholder="fraud_model"
+      value="${_escIfm(mc['ifm-mth-flinkml-name']||'')}" />
+  </div>
+  <div>
+    <label class="ifm-field-label">Model Format</label>
+    <select id="ifm-mth-flinkml-fmt" class="field-input" style="font-size:11px;">
+      ${['ONNX','PMML','TensorFlow SavedModel','XGBoost','LightGBM','Scikit-learn (pickle)'].map(f=>`<option value="${f}" ${(mc['ifm-mth-flinkml-fmt']||'ONNX')===f?'selected':''}>${f}</option>`).join('')}
+    </select>
+  </div>
+  <div>
+    <label class="ifm-field-label">Model File Path <span class="ifm-required">*</span></label>
+    <input id="ifm-mth-flinkml-path" class="field-input" type="text"
+      style="font-size:11px;font-family:var(--mono);"
+      placeholder="/opt/flink/models/fraud_model.onnx"
+      value="${_escIfm(mc['ifm-mth-flinkml-path']||'')}" />
+  </div>
+  <div>
+    <label class="ifm-field-label">Input Tensor / Column Mapping</label>
+    <input id="ifm-mth-flinkml-input" class="field-input" type="text"
+      style="font-size:11px;font-family:var(--mono);"
+      placeholder="price, quantity, timestamp"
+      value="${_escIfm(mc['ifm-mth-flinkml-input']||'')}" />
+  </div>
+  <div>
+    <label class="ifm-field-label">Output Column Name</label>
+    <input id="ifm-mth-flinkml-output" class="field-input" type="text"
+      style="font-size:11px;font-family:var(--mono);"
+      placeholder="prediction"
+      value="${_escIfm(mc['ifm-mth-flinkml-output']||'prediction')}" />
+  </div>
+  <div>
+    <label class="ifm-field-label">Flink Version</label>
+    <select id="ifm-mth-flinkml-ver" class="field-input" style="font-size:11px;">
+      ${['1.16','1.17','1.18','1.19','2.0'].map(v=>`<option value="${v}" ${(mc['ifm-mth-flinkml-ver']||'1.18')===v?'selected':''}>${v}</option>`).join('')}
+    </select>
+  </div>
+</div>`,
+
+        otter_streams: `
+<div class="ifm-info-box" style="margin-bottom:10px;">
+  Otter-Streams ML inference connector. Register your function once and call it by name.
+  Credentials and connection settings are managed by the Otter-Streams runtime.
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+  <div>
+    <label class="ifm-field-label">Otter Function Name <span class="ifm-required">*</span></label>
+    <input id="ifm-mth-otter-fn" class="field-input" type="text"
+      style="font-size:11px;font-family:var(--mono);"
+      placeholder="OTTER_ML_PREDICT"
+      value="${_escIfm(mc['ifm-mth-otter-fn']||'OTTER_ML_PREDICT')}" />
+  </div>
+  <div>
+    <label class="ifm-field-label">Connector Endpoint Override (optional)</label>
+    <input id="ifm-mth-otter-ep" class="field-input" type="text"
+      style="font-size:11px;font-family:var(--mono);"
+      placeholder="http://triton:8000 (leave blank to use model config)"
+      value="${_escIfm(mc['ifm-mth-otter-ep']||'')}" />
+  </div>
+  <div>
+    <label class="ifm-field-label">Model Version Tag</label>
+    <input id="ifm-mth-otter-ver" class="field-input" type="text"
+      style="font-size:11px;font-family:var(--mono);"
+      placeholder="v1 / latest / champion"
+      value="${_escIfm(mc['ifm-mth-otter-ver']||'latest')}" />
+  </div>
+  <div>
+    <label class="ifm-field-label">Registered in Session?</label>
+    <select id="ifm-mth-otter-reg" class="field-input" style="font-size:11px;">
+      <option value="yes" ${(mc['ifm-mth-otter-reg']||'yes')==='yes'?'selected':''}>Yes — already registered</option>
+      <option value="no"  ${mc['ifm-mth-otter-reg']==='no'?'selected':''}>No — include CREATE FUNCTION</option>
+    </select>
+  </div>
+  <div>
+    <label class="ifm-field-label">Otter Connector JAR (if registering)</label>
+    <input id="ifm-mth-otter-jar" class="field-input" type="text"
+      style="font-size:11px;font-family:var(--mono);"
+      placeholder="/opt/flink/lib/otter-streams-connector.jar"
+      value="${_escIfm(mc['ifm-mth-otter-jar']||'')}" />
+  </div>
+  <div>
+    <label class="ifm-field-label">Otter Class Name (if registering)</label>
+    <input id="ifm-mth-otter-class" class="field-input" type="text"
+      style="font-size:11px;font-family:var(--mono);"
+      placeholder="com.otterstreams.flink.udf.OtterMLPredict"
+      value="${_escIfm(mc['ifm-mth-otter-class']||'')}" />
+  </div>
+</div>`,
+
+        udf_view: `
+<div class="ifm-info-box" style="margin-bottom:10px;">
+  Creates a <code>CREATE TEMPORARY VIEW</code> that wraps the inference logic.
+  Downstream queries simply <code>SELECT * FROM scored_view</code>.
+  The underlying UDF is still needed — this is a SQL organisation pattern.
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+  <div>
+    <label class="ifm-field-label">View Name <span class="ifm-required">*</span></label>
+    <input id="ifm-mth-view-name" class="field-input" type="text"
+      style="font-size:11px;font-family:var(--mono);"
+      placeholder="scored_transactions_v"
+      value="${_escIfm(mc['ifm-mth-view-name']||'')}" />
+  </div>
+  <div>
+    <label class="ifm-field-label">Underlying UDF Function Name</label>
+    <input id="ifm-mth-view-udf" class="field-input" type="text"
+      style="font-size:11px;font-family:var(--mono);"
+      placeholder="CALL_MODEL_UDF"
+      value="${_escIfm(mc['ifm-mth-view-udf']||'CALL_MODEL_UDF')}" />
+  </div>
+  <div>
+    <label class="ifm-field-label">UDF Class Name</label>
+    <input id="ifm-mth-view-class" class="field-input" type="text"
+      style="font-size:11px;font-family:var(--mono);"
+      placeholder="com.yourcompany.flink.udf.ModelAsyncUDF"
+      value="${_escIfm(mc['ifm-mth-view-class']||'')}" />
+  </div>
+  <div>
+    <label class="ifm-field-label">Also generate INSERT INTO sink?</label>
+    <select id="ifm-mth-view-insert" class="field-input" style="font-size:11px;">
+      <option value="yes" ${(mc['ifm-mth-view-insert']||'yes')==='yes'?'selected':''}>Yes — INSERT INTO sink FROM view</option>
+      <option value="no"  ${mc['ifm-mth-view-insert']==='no'?'selected':''}>No — view only</option>
+    </select>
+  </div>
+</div>`,
+
+        custom_function: `
+<div class="ifm-info-box" style="margin-bottom:10px;">
+  Specify the function name to call. Write any additional setup SQL in the custom preamble below.
+  This gives you full control over the generated INSERT statement.
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+  <div>
+    <label class="ifm-field-label">Function Name <span class="ifm-required">*</span></label>
+    <input id="ifm-mth-custom-fn" class="field-input" type="text"
+      style="font-size:11px;font-family:var(--mono);"
+      placeholder="MY_PREDICT_FUNCTION"
+      value="${_escIfm(mc['ifm-mth-custom-fn']||'')}" />
+  </div>
+  <div>
+    <label class="ifm-field-label">Function already registered?</label>
+    <select id="ifm-mth-custom-reg" class="field-input" style="font-size:11px;">
+      <option value="yes" ${(mc['ifm-mth-custom-reg']||'yes')==='yes'?'selected':''}>Yes — skip CREATE FUNCTION</option>
+      <option value="no"  ${mc['ifm-mth-custom-reg']==='no'?'selected':''}>No — include CREATE FUNCTION stub</option>
+    </select>
+  </div>
+</div>
+<div style="margin-top:10px;">
+  <label class="ifm-field-label">Custom preamble SQL (executed before INSERT — optional)</label>
+  <textarea id="ifm-mth-custom-preamble" class="field-input" rows="4"
+    style="font-size:11px;font-family:var(--mono);resize:vertical;"
+    placeholder="-- e.g. CREATE TEMPORARY FUNCTION IF NOT EXISTS MY_PREDICT_FUNCTION&#10;--   AS 'com.example.MyUDF' LANGUAGE JAVA;">${_escIfm(mc['ifm-mth-custom-preamble']||'')}</textarea>
+</div>`,
+    };
+
+    wrap.innerHTML = `
+<div style="padding:12px 14px;background:var(--bg1);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:10px;">
+  <span style="display:flex;align-items:center;">${m.icon}</span>
+  <div>
+    <div style="font-size:12px;font-weight:700;color:var(--text0);">${m.label}</div>
+    <div style="font-size:10px;color:var(--text3);margin-top:1px;">${m.desc}</div>
+  </div>
+  <span style="margin-left:auto;font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px;
+    background:${m.badgeColor}22;color:${m.badgeColor};border:1px solid ${m.badgeColor}44;">${m.badge}</span>
+</div>
+ 
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:0;border-bottom:1px solid var(--border);">
+  <div style="padding:10px 14px;border-right:1px solid var(--border);">
+    <div style="font-size:9px;font-weight:700;color:var(--green);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">✓ Pros</div>
+    ${m.pros.map(p=>`<div style="font-size:10px;color:var(--text1);margin-bottom:3px;display:flex;gap:5px;"><span style="color:var(--green);flex-shrink:0;">+</span>${p}</div>`).join('')}
+  </div>
+  <div style="padding:10px 14px;">
+    <div style="font-size:9px;font-weight:700;color:var(--yellow,#f5a623);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">⚠ Cons</div>
+    ${m.cons.map(c=>`<div style="font-size:10px;color:var(--text1);margin-bottom:3px;display:flex;gap:5px;"><span style="color:var(--yellow,#f5a623);flex-shrink:0;">−</span>${c}</div>`).join('')}
+  </div>
+</div>
+ 
+<div style="padding:10px 14px;border-bottom:1px solid var(--border);background:var(--bg0);">
+  <span style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;">Generates: </span>
+  <code style="font-size:10px;color:var(--accent);font-family:var(--mono);">${m.generates}</code>
+</div>
+ 
+<div style="padding:14px;">
+  <div style="font-size:9px;font-weight:700;color:var(--text3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px;">Configuration</div>
+  ${configForms[m.id] || '<div style="font-size:11px;color:var(--text3);">No additional configuration required.</div>'}
+</div>`;
+}
+
+function _ifmCollectMethodConfig() {
+    const cfg = {};
+    document.querySelectorAll('[id^="ifm-mth-"]').forEach(el => {
+        cfg[el.id] = el.value;
+    });
+    _IFM.inferenceMethodConfig = cfg;
+    // Also store the currently selected method (in case user didn't click a card)
+    const selected = document.querySelector('[id^="ifm-mth-card-"][style*="rgba(79,163,224,0.1)"]');
+    // Method is already stored in _IFM.inferenceMethod via _ifmSelectMethod()
+}
 
 // ── Modal skeleton ─────────────────────────────────────────────────────────────
 function _ifmBuildModal() {
@@ -224,7 +751,8 @@ function _ifmResetAll() {
         inferenceConfig:{ inputCol:'', outputAlias:'prediction', outputType:'DOUBLE',
             batchSize:'1', timeoutMs:'5000', retries:'2', asyncParallelism:'4',
             passthroughCols:'', preProcessExpr:'', postProcessExpr:'' },
-        outputTable:'', sinkType:'kafka', generatedSql:'',
+            outputTable:'', sinkType:'kafka', generatedSql:'',
+            inferenceMethod:'async_udf', inferenceMethodConfig:{},
     });
     _ifmGoStep(0);
 }
@@ -242,7 +770,6 @@ function _ifmValidateStep(step) {
             if (!_IFM.modelServer) return 'Select a model server to continue.';
             return null;
         case 2: {
-            const srv = IFM_SERVERS.find(s => s.id === _IFM.modelServer);
             if (_IFM.modelServer === 'custom_udf') {
                 if (!document.getElementById('ifm-mc-udf-name')?.value?.trim()) return 'UDF function name is required.';
             } else if (_IFM.modelServer !== 'minio') {
@@ -251,14 +778,14 @@ function _ifmValidateStep(step) {
             }
             return null;
         }
-        case 4: {
+        case 5: {
             const inp = document.getElementById('ifm-ic-input-col')?.value?.trim() || _IFM.inferenceConfig.inputCol;
             if (!inp) return 'Select or enter the input column for inference.';
             const alias = document.getElementById('ifm-ic-output-alias')?.value?.trim() || _IFM.inferenceConfig.outputAlias;
             if (!alias) return 'Output alias for the model result is required.';
             return null;
         }
-        case 5: {
+        case 6: {
             const out = document.getElementById('ifm-out-table')?.value?.trim() || _IFM.outputTable;
             if (!out) return 'Output table name is required.';
             return null;
@@ -284,9 +811,10 @@ function _ifmCollectCurrentStep() {
             _ifmParseSourceCols(document.getElementById('ifm-src-cols')?.value || '');
             break;
         case 2: _ifmCollectModelConfig(); break;
-        case 3: _ifmCollectAuthConfig(); break;
-        case 4: _ifmCollectInferenceConfig(); break;
-        case 5:
+        case 3: _ifmCollectMethodConfig(); break;
+        case 4: _ifmCollectAuthConfig(); break;
+        case 5: _ifmCollectInferenceConfig(); break;
+        case 6:
             _IFM.outputTable = document.getElementById('ifm-out-table')?.value?.trim() || _IFM.outputTable;
             _IFM.sinkType = document.getElementById('ifm-sink-type')?.value || _IFM.sinkType;
             _ifmCollectSinkConfig();
@@ -321,14 +849,15 @@ function _ifmGoStep(n) {
     const gen  = document.getElementById('ifm-btn-generate');
     const lbl  = document.getElementById('ifm-step-label');
     if (back) back.style.display = n === 0 ? 'none' : '';
-    if (next) next.style.display = n === 6 ? 'none' : '';
-    if (gen)  gen.style.display  = n === 6 ? '' : 'none';
+    if (next) next.style.display = n === 7 ? 'none' : '';
+     if (gen)  gen.style.display  = n === 7 ? '' : 'none';
     if (lbl)  lbl.textContent    = `Step ${n + 1} of ${IFM_STEPS.length} — ${IFM_STEPS[n].label}`;
 
     const renderers = [
-        _ifmRenderStep0, _ifmRenderStep1, _ifmRenderStep2,
-        _ifmRenderStep3, _ifmRenderStep4, _ifmRenderStep5, _ifmRenderStep6,
-    ];
+         _ifmRenderStep0, _ifmRenderStep1, _ifmRenderStep2,
+         _ifmRenderStepMethod,
+     _ifmRenderStep3, _ifmRenderStep4, _ifmRenderStep5, _ifmRenderStep6,
+     ];
     const body = document.getElementById('ifm-body');
     if (body) { body.innerHTML = ''; renderers[n]?.(); }
 }
@@ -337,7 +866,7 @@ function _ifmNext() {
     const err = _ifmValidateStep(_IFM.step);
     if (err) { _ifmShowValidationError(err); return; }
     _ifmCollectCurrentStep();
-    if (_IFM.step < 6) _ifmGoStep(_IFM.step + 1);
+    if (_IFM.step < 7) _ifmGoStep(_IFM.step + 1);
 }
 
 function _ifmBack() {
@@ -345,40 +874,29 @@ function _ifmBack() {
     if (_IFM.step > 0) _ifmGoStep(_IFM.step - 1);
 }
 
+
 // ─────────────────────────────────────────────────────────────────────────────
-// STEP 0 — Source Table
+// STEP 0 — Source Table (unchanged from original)
 // ─────────────────────────────────────────────────────────────────────────────
 function _ifmRenderStep0() {
     const body = document.getElementById('ifm-body');
-
-    // Try to pull existing tables from session state
     let sessionTables = [];
     try {
         const hist = JSON.parse(localStorage.getItem('strlabstudio_query_history') || '[]');
         const createMatches = hist.map(h => h.sql || '').join('\n')
             .match(/CREATE\s+(?:TEMPORARY\s+)?TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(\w+)/gi) || [];
-        sessionTables = [...new Set(createMatches.map(m => {
-            const parts = m.trim().split(/\s+/);
-            return parts[parts.length - 1];
-        }))];
+        sessionTables = [...new Set(createMatches.map(m => { const parts = m.trim().split(/\s+/); return parts[parts.length - 1]; }))];
     } catch (_) {}
-
-    // Also pull from FEM history
     try {
         const femH = JSON.parse(localStorage.getItem('strlabstudio_fem_history') || '[]');
         femH.forEach(h => { if (h.outputTable) sessionTables.push(h.outputTable); });
     } catch (_) {}
-
     sessionTables = [...new Set(sessionTables)].slice(0, 40);
-
-    // Build combined table list: FEM outputs first, then session tables
     const femTables = [];
     try {
         const femH = JSON.parse(localStorage.getItem('strlabstudio_fem_history') || '[]');
-        femH.forEach(h => { if (h.outputTable) femTables.push({ name: h.outputTable, src: 'FEM', ts: h.ts }); });
+        femH.forEach(h => { if (h.outputTable) femTables.push({ name: h.outputTable, src: 'fem', ts: h.ts }); });
     } catch (_) {}
-
-    // Merge, dedupe, FEM first
     const allKnownTables = [
         ...femTables,
         ...sessionTables.filter(t => !femTables.find(f => f.name === t)).map(t => ({ name: t, src: 'session' })),
@@ -388,30 +906,24 @@ function _ifmRenderStep0() {
 <div class="ifm-info-box">
   Select the <strong>source Flink table</strong> that carries the streaming data for ML inference.
   Use the dropdown to pick from known session/FEM tables, or type a custom name.
-  Selecting a table auto-populates the schema from history where available.
 </div>
-
 <div class="ifm-card">
   <div class="ifm-section-title">Source Table</div>
-
-  <!-- Table selector row: dropdown + text input + FEM button all aligned -->
   <div style="display:flex;gap:8px;align-items:stretch;margin-bottom:10px;">
-    <!-- Known-tables dropdown -->
     <div style="flex-shrink:0;min-width:0;">
       <label class="ifm-field-label">Select Known Table</label>
       <select id="ifm-table-dropdown" class="field-input"
         style="font-size:11px;font-family:var(--mono);height:32px;cursor:pointer;"
         onchange="_ifmSelectKnownTable(this.value)">
         <option value="">— pick a table —</option>
-        ${allKnownTables.length ? `<optgroup label="── Feature Engineering outputs">` : ''}
+        ${femTables.length ? `<optgroup label="── Feature Engineering outputs">` : ''}
         ${femTables.map(t => `<option value="${_escIfm(t.name)}" data-src="fem">⬡ ${_escIfm(t.name)}</option>`).join('')}
-        ${femTables.length && sessionTables.filter(t => !femTables.find(f=>f.name===t)).length ? `</optgroup><optgroup label="── Session tables">` : (femTables.length ? '</optgroup>' : '')}
+        ${femTables.length ? `</optgroup>` : ''}
+        ${sessionTables.filter(t => !femTables.find(f => f.name === t)).length ? `<optgroup label="── Session tables">` : ''}
         ${sessionTables.filter(t => !femTables.find(f => f.name === t)).map(t => `<option value="${_escIfm(t)}" data-src="session">◈ ${_escIfm(t)}</option>`).join('')}
-        ${sessionTables.filter(t => !femTables.find(f => f.name === t)).length && femTables.length ? '</optgroup>' : ''}
+        ${sessionTables.filter(t => !femTables.find(f => f.name === t)).length ? `</optgroup>` : ''}
       </select>
     </div>
-
-    <!-- Manual text input -->
     <div style="flex:1;min-width:0;">
       <label class="ifm-field-label">Table Name <span class="ifm-required">*</span></label>
       <input id="ifm-src-table" class="field-input" type="text"
@@ -420,8 +932,6 @@ function _ifmRenderStep0() {
         value="${_escIfm(_IFM.sourceTable)}"
         oninput="_IFM.sourceTable=this.value" />
     </div>
-
-    <!-- From FEM button — aligned to input height -->
     <div style="flex-shrink:0;display:flex;flex-direction:column;justify-content:flex-end;">
       <label class="ifm-field-label" style="visibility:hidden;">btn</label>
       <button onclick="_ifmAutoFillFromFem()"
@@ -437,43 +947,27 @@ function _ifmRenderStep0() {
       </button>
     </div>
   </div>
-
-  <!-- Known tables quick-pills -->
   ${allKnownTables.length ? `
   <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:2px;">
     ${allKnownTables.slice(0,12).map(t => `
       <div onclick="_ifmSelectKnownTable('${_escIfm(t.name)}')"
-        title="${t.src === 'fem' ? 'Feature Engineering output' : 'Session table'}"
         style="padding:2px 9px;border-radius:3px;font-size:10px;font-family:var(--mono);cursor:pointer;
           background:${t.src==='fem'?'rgba(0,212,170,0.08)':'rgba(79,163,224,0.07)'};
           border:1px solid ${t.src==='fem'?'rgba(0,212,170,0.25)':'rgba(79,163,224,0.2)'};
-          color:${t.src==='fem'?'var(--accent)':'var(--blue,#4fa3e0)'};
-          transition:opacity 0.1s;" onmouseenter="this.style.opacity='0.75'" onmouseleave="this.style.opacity='1'">
+          color:${t.src==='fem'?'var(--accent)':'var(--blue,#4fa3e0)'};">
         ${t.src==='fem'?'⬡':'◈'} ${_escIfm(t.name)}
       </div>`).join('')}
   </div>` : ''}
 </div>
-
 <div class="ifm-card">
   <div class="ifm-section-title">Input Schema <span class="ifm-required">*</span></div>
   <div style="font-size:11px;color:var(--text2);margin-bottom:8px;line-height:1.7;">
-    Columns available in the source table. Selecting a table above auto-fills this from history.
     Format: <code style="background:var(--bg0);padding:1px 5px;border-radius:2px;color:var(--blue,#4fa3e0);">name TYPE</code> one per line.
   </div>
-
-  <!-- Schema loading indicator -->
-  <div id="ifm-schema-loading" style="display:none;font-size:11px;color:var(--accent);font-family:var(--mono);margin-bottom:6px;">
-    ⟳ Loading schema…
-  </div>
-
-  <!-- Column tag display (shown when a table is selected from dropdown) -->
+  <div id="ifm-schema-loading" style="display:none;font-size:11px;color:var(--accent);font-family:var(--mono);margin-bottom:6px;">⟳ Loading schema…</div>
   <div id="ifm-col-tags-wrap" style="display:${_IFM.inputColumns.length?'flex':'none'};flex-wrap:wrap;gap:3px;margin-bottom:8px;padding:8px;background:var(--bg0);border:1px solid var(--border);border-radius:3px;min-height:32px;">
-    ${_IFM.inputColumns.map(c => `
-      <div class="ifm-col-tag selected" title="${c.type}">
-        ${_escIfm(c.name)}<span class="ifm-tag-type">${c.type}</span>
-      </div>`).join('')}
+    ${_IFM.inputColumns.map(c => `<div class="ifm-col-tag selected" title="${c.type}">${_escIfm(c.name)}<span class="ifm-tag-type">${c.type}</span></div>`).join('')}
   </div>
-
   <textarea id="ifm-src-cols" class="field-input" rows="7"
     style="font-family:var(--mono);font-size:11px;resize:vertical;line-height:1.8;"
     placeholder="user_id BIGINT&#10;amount DOUBLE&#10;tx_count_5m BIGINT&#10;total_amt_5m DOUBLE&#10;avg_amt_5m DOUBLE&#10;risk_tier STRING&#10;is_international BOOLEAN&#10;event_time TIMESTAMP(3)"
@@ -484,7 +978,6 @@ function _ifmRenderStep0() {
     setTimeout(() => {
         const ta = document.getElementById('ifm-src-cols');
         if (ta && ta.value.trim()) _ifmParseSourceCols(ta.value);
-        // Sync dropdown to current value
         const dd = document.getElementById('ifm-table-dropdown');
         if (dd && _IFM.sourceTable) dd.value = _IFM.sourceTable;
     }, 50);
@@ -493,96 +986,32 @@ function _ifmRenderStep0() {
 function _ifmSelectKnownTable(tableName) {
     if (!tableName) return;
     _IFM.sourceTable = tableName;
-
-    // Sync text input and dropdown
     const inp = document.getElementById('ifm-src-table');
     if (inp) inp.value = tableName;
     const dd = document.getElementById('ifm-table-dropdown');
     if (dd) dd.value = tableName;
-
     const loading = document.getElementById('ifm-schema-loading');
     if (loading) loading.style.display = '';
-
     let loaded = false;
-
-    // ── Strategy 1: direct outputColumns from FEM history entry (richest — set by _femDeriveOutputColumns)
     try {
         const femH = JSON.parse(localStorage.getItem('strlabstudio_fem_history') || '[]');
         const match = femH.find(h => h.outputTable === tableName);
         if (match) {
-            // Prefer outputColumns (schema of the output/scored table) — exactly what IFM needs
-            const cols = match.outputColumns?.length ? match.outputColumns
-                : match.sourceColumns?.length ? match.sourceColumns
-                    : null;
-            if (cols && cols.length) {
-                _IFM.inputColumns = cols;
-                loaded = true;
-                _ifmRefreshSchemaDisplay(cols,
-                    `✓ ${cols.length} columns loaded from Feature Engineering output "${tableName}"`);
-            }
+            const cols = match.outputColumns?.length ? match.outputColumns : match.sourceColumns?.length ? match.sourceColumns : null;
+            if (cols && cols.length) { _IFM.inputColumns = cols; loaded = true; _ifmRefreshSchemaDisplay(cols, `✓ ${cols.length} columns loaded from Feature Engineering output "${tableName}"`); }
         }
     } catch (_) {}
-
-    // ── Strategy 2: fem_state snapshot (quick-access, written by _femSaveHistory)
     if (!loaded) {
         try {
             const state = JSON.parse(localStorage.getItem('strlabstudio_fem_state') || 'null');
             if (state) {
-                const cols = state.outputTable === tableName
-                    ? (state.outputColumns?.length ? state.outputColumns : state.sourceColumns)
-                    : state.sourceTable === tableName
-                        ? state.sourceColumns
-                        : null;
-                if (cols && cols.length) {
-                    _IFM.inputColumns = cols;
-                    loaded = true;
-                    _ifmRefreshSchemaDisplay(cols, `✓ ${cols.length} columns loaded from FEM state snapshot`);
-                }
+                const cols = state.outputTable === tableName ? (state.outputColumns?.length ? state.outputColumns : state.sourceColumns) : state.sourceTable === tableName ? state.sourceColumns : null;
+                if (cols && cols.length) { _IFM.inputColumns = cols; loaded = true; _ifmRefreshSchemaDisplay(cols, `✓ ${cols.length} columns loaded from FEM state snapshot`); }
             }
         } catch (_) {}
     }
-
-    // ── Strategy 3: parse CREATE TABLE DDL from the stored SQL
-    if (!loaded) {
-        try {
-            const femH = JSON.parse(localStorage.getItem('strlabstudio_fem_history') || '[]');
-            const match = femH.find(h => h.outputTable === tableName || h.sourceTable === tableName);
-            if (match && match.sql) {
-                // Match the exact table name in CREATE TABLE
-                const re = new RegExp(
-                    `CREATE\\s+(?:TEMPORARY\\s+)?TABLE\\s+(?:IF\\s+NOT\\s+EXISTS\\s+)?${tableName}\\s*\\(([\\s\\S]+?)\\)\\s*WITH`,
-                    'i'
-                );
-                const createMatch = match.sql.match(re);
-                if (createMatch) {
-                    const cols = createMatch[1]
-                        .split('\n')
-                        .map(l => l.trim().replace(/,\s*$/, ''))
-                        .filter(l => l && !l.toUpperCase().startsWith('PRIMARY')
-                            && !l.toUpperCase().startsWith('WATERMARK')
-                            && !l.startsWith('--')
-                            && !l.startsWith('/*'))
-                        .map(l => {
-                            const parts = l.trim().split(/\s+/);
-                            return parts.length >= 2
-                                ? { name: parts[0], type: parts.slice(1).join(' ').replace(/,$/, '') }
-                                : null;
-                        })
-                        .filter(Boolean);
-                    if (cols.length) {
-                        _IFM.inputColumns = cols;
-                        loaded = true;
-                        _ifmRefreshSchemaDisplay(cols, `✓ ${cols.length} columns parsed from pipeline SQL`);
-                    }
-                }
-            }
-        } catch (_) {}
-    }
-
-    // ── Nothing found — clear indicator and let user type manually
     if (!loaded) {
         if (loading) loading.style.display = 'none';
-        // Clear any stale columns if switching to an unknown table
         _IFM.inputColumns = [];
         const tagsWrap = document.getElementById('ifm-col-tags-wrap');
         if (tagsWrap) tagsWrap.style.display = 'none';
@@ -595,25 +1024,15 @@ function _ifmSelectKnownTable(tableName) {
 function _ifmRefreshSchemaDisplay(cols, feedbackMsg) {
     const loading = document.getElementById('ifm-schema-loading');
     if (loading) loading.style.display = 'none';
-
-    // Update textarea
     const ta = document.getElementById('ifm-src-cols');
     if (ta) ta.value = cols.map(c => c.name + ' ' + c.type).join('\n');
-
-    // Update tag display
     const tagsWrap = document.getElementById('ifm-col-tags-wrap');
     if (tagsWrap) {
         tagsWrap.style.display = 'flex';
-        tagsWrap.innerHTML = cols.map(c => `
-      <div class="ifm-col-tag selected" title="${c.type}">
-        ${_escIfm(c.name)}<span class="ifm-tag-type">${c.type}</span>
-      </div>`).join('');
+        tagsWrap.innerHTML = cols.map(c => `<div class="ifm-col-tag selected" title="${c.type}">${_escIfm(c.name)}<span class="ifm-tag-type">${c.type}</span></div>`).join('');
     }
-
-    // Feedback
     const fb = document.getElementById('ifm-src-cols-feedback');
     if (fb) { fb.textContent = feedbackMsg; fb.style.color = 'var(--green)'; }
-
     if (typeof toast === 'function') toast(feedbackMsg, 'ok');
 }
 
@@ -623,19 +1042,11 @@ function _ifmParseSourceCols(raw) {
         return parts.length >= 2 ? { name: parts[0], type: parts.slice(1).join(' ') } : null;
     }).filter(Boolean);
     _IFM.inputColumns = cols;
-
-    // Update tag display live as user types
     const tagsWrap = document.getElementById('ifm-col-tags-wrap');
     if (tagsWrap && cols.length) {
         tagsWrap.style.display = 'flex';
-        tagsWrap.innerHTML = cols.map(c => `
-      <div class="ifm-col-tag selected" title="${c.type}">
-        ${_escIfm(c.name)}<span class="ifm-tag-type">${c.type}</span>
-      </div>`).join('');
-    } else if (tagsWrap) {
-        tagsWrap.style.display = 'none';
-    }
-
+        tagsWrap.innerHTML = cols.map(c => `<div class="ifm-col-tag selected" title="${c.type}">${_escIfm(c.name)}<span class="ifm-tag-type">${c.type}</span></div>`).join('');
+    } else if (tagsWrap) { tagsWrap.style.display = 'none'; }
     const fb = document.getElementById('ifm-src-cols-feedback');
     if (fb) { fb.textContent = cols.length ? `✓ ${cols.length} column${cols.length > 1 ? 's' : ''} parsed` : ''; fb.style.color = 'var(--text3)'; }
 }
@@ -643,19 +1054,19 @@ function _ifmParseSourceCols(raw) {
 function _ifmAutoFillFromFem() {
     try {
         const femH = JSON.parse(localStorage.getItem('strlabstudio_fem_history') || '[]');
-        if (!femH.length) { if (typeof toast === 'function') toast('No Feature Engineering history found — run the Feature Engineering Manager first', 'warn'); return; }
-        const latest = femH[0];
-        if (latest.outputTable) _ifmSelectKnownTable(latest.outputTable);
+        if (!femH.length) { if (typeof toast === 'function') toast('No Feature Engineering history found', 'warn'); return; }
+        _ifmSelectKnownTable(femH[0].outputTable);
     } catch (_) {}
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // STEP 1 — Model Server Selection
+// NOTE: Server cards now render op.icon directly (img tag or emoji span).
+//       Both are treated identically by innerHTML injection.
 // ─────────────────────────────────────────────────────────────────────────────
 function _ifmRenderStep1() {
     const body = document.getElementById('ifm-body');
     const groups = [...new Set(IFM_SERVERS.map(s => s.group))];
-
     body.innerHTML = `
 <div class="ifm-info-box">
   Select the <strong>model serving platform</strong> where your trained model is hosted. Each server type generates the appropriate connector pattern, authentication, and Flink async UDF template.
@@ -682,8 +1093,9 @@ function _ifmSelectServer(id) {
     if (card) card.classList.add('selected');
 }
 
+
 // ─────────────────────────────────────────────────────────────────────────────
-// STEP 2 — Model Configuration
+// STEP 2 — Model Configuration (unchanged logic, icon refs updated in srv object)
 // ─────────────────────────────────────────────────────────────────────────────
 function _ifmRenderStep2() {
     const body = document.getElementById('ifm-body');
@@ -706,255 +1118,38 @@ function _ifmRenderStep2() {
     </select></div>`;
 
     const serverForms = {
-        mlflow: `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        ${fi('MLflow Tracking URI','ifm-mc-endpoint','http://mlflow:5000',true)}
-        ${fi('Model Name','ifm-mc-model-name','fraud-detection-model',true)}
-        ${fi('Model Stage / Version','ifm-mc-model-version','Production')}
-        ${sel('Serving Flavour','ifm-mc-mlflow-flavour',['REST (pyfunc serve)','Python Function','ONNX','Spark ML','H2O'])}
-        ${fi('Registered Model URI','ifm-mc-model-uri','models:/fraud-detection-model/Production')}
-        ${fi('Experiment ID (optional)','ifm-mc-exp-id','')}
-      </div>`,
-
-        mlflow_serve: `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        ${fi('mlflow serve Endpoint URL','ifm-mc-endpoint','http://model-server:5001/invocations',true)}
-        ${fi('Model Name','ifm-mc-model-name','my-model',true)}
-        ${sel('Input Format','ifm-mc-mlflow-fmt',['dataframe-split','dataframe-records','instances','inputs'])}
-      </div>`,
-
-        sagemaker: `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        ${fi('Endpoint Name','ifm-mc-endpoint','fraud-detection-endpoint-prod',true)}
-        ${fi('AWS Region','ifm-mc-aws-region','us-east-1',true)}
-        ${sel('Content Type','ifm-mc-content-type',['application/json','text/csv','application/x-recordio-protobuf'])}
-        ${sel('Accept Type','ifm-mc-accept-type',['application/json','text/csv'])}
-        ${fi('Model Variant (optional)','ifm-mc-variant','')}
-        ${fi('Target Container Hostname (optional)','ifm-mc-target-host','')}
-      </div>`,
-
-        azureml: `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        ${fi('Endpoint URL','ifm-mc-endpoint','https://my-endpoint.eastus.inference.ml.azure.com/score',true)}
-        ${fi('Deployment Name','ifm-mc-deployment','fraud-blue')}
-        ${fi('Workspace Name (for logging)','ifm-mc-workspace','my-workspace')}
-        ${fi('Resource Group','ifm-mc-rg','ml-resource-group')}
-        ${fi('Subscription ID','ifm-mc-sub-id','')}
-      </div>`,
-
-        vertexai: `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        ${fi('Project ID','ifm-mc-gcp-project','my-gcp-project',true)}
-        ${fi('Location / Region','ifm-mc-gcp-region','us-central1',true)}
-        ${fi('Endpoint ID','ifm-mc-endpoint','1234567890',true)}
-        ${sel('API Version','ifm-mc-gcp-ver',['v1','v1beta1'])}
-        ${fi('Deployed Model ID (optional)','ifm-mc-gcp-deployed-model','')}
-      </div>`,
-
-        databricks: `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        ${fi('Databricks Workspace URL','ifm-mc-endpoint','https://my-workspace.azuredatabricks.net',true)}
-        ${fi('Registered Model Name','ifm-mc-model-name','fraud-model',true)}
-        ${fi('Model Version or Alias','ifm-mc-model-version','Champion')}
-        ${fi('Serving Endpoint Name','ifm-mc-db-serving-ep','fraud-model-serving')}
-      </div>`,
-
-        bentoml: `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        ${fi('BentoML Server URL','ifm-mc-endpoint','http://bentoml:3000',true)}
-        ${fi('Service / Runner Route','ifm-mc-route','/predict',true)}
-        ${sel('Protocol','ifm-mc-protocol',['HTTP REST','gRPC'])}
-        ${fi('Bento Tag','ifm-mc-bento-tag','fraud_classifier:latest')}
-      </div>`,
-
-        triton: `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        ${fi('Triton HTTP URL','ifm-mc-endpoint','http://triton:8000',true)}
-        ${fi('Model Name','ifm-mc-model-name','fraud_onnx',true)}
-        ${fi('Model Version','ifm-mc-model-version','1')}
-        ${sel('Protocol','ifm-mc-protocol',['HTTP','gRPC (port 8001)'])}
-        ${sel('Input Data Type','ifm-mc-triton-dtype',['FP32','FP64','INT32','INT64','BYTES','BOOL'])}
-        ${fi('Input Tensor Name','ifm-mc-triton-input','INPUT__0')}
-      </div>`,
-
-        torchserve: `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        ${fi('TorchServe URL','ifm-mc-endpoint','http://torchserve:8080',true)}
-        ${fi('Model Name','ifm-mc-model-name','fraud_classifier',true)}
-        ${fi('Model Version','ifm-mc-model-version','1.0')}
-        ${sel('API Type','ifm-mc-ts-api',['Predictions API','Explanations API'])}
-      </div>`,
-
-        tfserving: `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        ${fi('TF Serving URL','ifm-mc-endpoint','http://tfserving:8501',true)}
-        ${fi('Model Name','ifm-mc-model-name','fraud_v2',true)}
-        ${fi('Signature Name','ifm-mc-tf-sig','serving_default')}
-        ${sel('API Version','ifm-mc-tf-apiver',['v1 (REST)','v2 (REST)'])}
-      </div>`,
-
-        ray: `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        ${fi('Ray Serve URL','ifm-mc-endpoint','http://ray-head:8000',true)}
-        ${fi('Deployment Route','ifm-mc-route','/fraud-classifier',true)}
-        ${fi('Ray Dashboard URL (opt)','ifm-mc-ray-dashboard','http://ray-head:8265')}
-      </div>`,
-
-        seldon: `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        ${fi('Seldon URL','ifm-mc-endpoint','http://seldon-ambassador:80',true)}
-        ${fi('Namespace','ifm-mc-seldon-ns','default',true)}
-        ${fi('Deployment Name','ifm-mc-model-name','fraud-classifier',true)}
-        ${sel('Predictor Protocol','ifm-mc-seldon-proto',['REST V2','REST V1','gRPC'])}
-      </div>`,
-
-        kserve: `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        ${fi('KServe Ingress URL','ifm-mc-endpoint','http://istio-ingressgateway',true)}
-        ${fi('InferenceService Name','ifm-mc-model-name','fraud-classifier',true)}
-        ${fi('Namespace','ifm-mc-kserve-ns','default')}
-        ${sel('Protocol Version','ifm-mc-kserve-proto',['v2','v1'])}
-      </div>`,
-
-        minio: `
-      <div class="ifm-warn-box">
-        MinIO / S3 is an artifact store. Models are loaded by the Flink operator or UDF at startup. Configure the model artifact path and loading strategy below.
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        ${fi('MinIO / S3 Endpoint','ifm-mc-endpoint','http://minio:9000',true)}
-        ${fi('Bucket Name','ifm-mc-minio-bucket','ml-models',true)}
-        ${fi('Model Object Path','ifm-mc-minio-path','fraud/v3/model.pkl',true)}
-        ${sel('Model Format','ifm-mc-minio-fmt',['pickle (sklearn)','ONNX','TensorFlow SavedModel','PyTorch TorchScript','XGBoost JSON','LightGBM','PMML'])}
-        ${fi('Local Load Path (Flink TaskManager)','ifm-mc-local-path','/tmp/models/fraud_v3')}
-        ${fi('Cache TTL (seconds, 0=no refresh)','ifm-mc-cache-ttl','3600')}
-      </div>`,
-
-        huggingface: `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        ${fi('Model ID / Endpoint URL','ifm-mc-endpoint','https://api-inference.huggingface.co/models/my-org/fraud-v1',true)}
-        ${fi('Model ID (for Inference API)','ifm-mc-hf-model','my-org/fraud-classifier')}
-        ${sel('Task','ifm-mc-hf-task',['text-classification','token-classification','feature-extraction','text-generation','fill-mask','question-answering','zero-shot-classification','tabular-classification','tabular-regression'])}
-        ${sel('API Type','ifm-mc-hf-api',['Inference API (free)','Inference Endpoints (dedicated)'])}
-      </div>`,
-
-        openai: `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        ${fi('Base URL (override, optional)','ifm-mc-endpoint','https://api.openai.com/v1','false')}
-        ${fi('Model','ifm-mc-model-name','gpt-4o-mini',true)}
-        ${fi('System Prompt','ifm-mc-system-prompt','You are a fraud detection assistant. Classify each transaction.')}
-        ${sel('Response Format','ifm-mc-openai-fmt',['text','json_object'])}
-        ${fi('Max Tokens','ifm-mc-max-tokens','64')}
-        ${fi('Temperature','ifm-mc-temperature','0.0')}
-      </div>`,
-
-        anthropic: `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        ${fi('API Base URL','ifm-mc-endpoint','https://api.anthropic.com')}
-        ${sel('Model','ifm-mc-model-name',[{v:'claude-sonnet-4-6',l:'Claude Sonnet 4.6'},{v:'claude-opus-4-6',l:'Claude Opus 4.6'},{v:'claude-haiku-4-5-20251001',l:'Claude Haiku 4.5'}])}
-        ${fi('System Prompt','ifm-mc-system-prompt','Classify this transaction as FRAUD or LEGITIMATE.')}
-        ${fi('Max Tokens','ifm-mc-max-tokens','128')}
-        ${fi('anthropic-version header','ifm-mc-anthropic-ver','2023-06-01')}
-        ${sel('Response Parsing','ifm-mc-anthropic-parse',['First content text block','JSON from text block'])}
-      </div>`,
-
-        cohere: `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        ${fi('API Base URL','ifm-mc-endpoint','https://api.cohere.com')}
-        ${sel('Endpoint','ifm-mc-cohere-ep',['/v2/classify','/v2/embed','/v2/chat','/v2/generate'])}
-        ${fi('Model','ifm-mc-model-name','command-r-plus')}
-        ${fi('Classification Labels (comma-sep for /classify)','ifm-mc-cohere-labels','FRAUD,LEGITIMATE')}
-      </div>`,
-
-        mistral: `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        ${fi('API Base URL','ifm-mc-endpoint','https://api.mistral.ai/v1')}
-        ${fi('Model','ifm-mc-model-name','mistral-small-latest',true)}
-        ${fi('System Prompt','ifm-mc-system-prompt','Classify this transaction.')}
-        ${fi('Max Tokens','ifm-mc-max-tokens','64')}
-        ${fi('Temperature','ifm-mc-temperature','0.0')}
-      </div>`,
-
-        together: `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        ${fi('API Base URL','ifm-mc-endpoint','https://api.together.xyz/v1')}
-        ${fi('Model','ifm-mc-model-name','meta-llama/Llama-3-8b-chat-hf',true)}
-        ${fi('System Prompt','ifm-mc-system-prompt','Classify this transaction as FRAUD or LEGITIMATE. Respond with one word.')}
-        ${fi('Max Tokens','ifm-mc-max-tokens','16')}
-      </div>`,
-
-        bedrock: `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        ${fi('AWS Region','ifm-mc-aws-region','us-east-1',true)}
-        ${sel('Model ID','ifm-mc-model-name',[
-            {v:'anthropic.claude-sonnet-4-6',l:'Claude Sonnet 4.6'},
-            {v:'amazon.titan-text-express-v1',l:'Amazon Titan Text Express'},
-            {v:'meta.llama3-8b-instruct-v1:0',l:'Meta Llama 3 8B'},
-            {v:'mistral.mistral-7b-instruct-v0:2',l:'Mistral 7B Instruct'},
-            {v:'cohere.command-r-v1:0',l:'Cohere Command R'},
-            {v:'ai21.j2-ultra-v1',l:'AI21 Jurassic-2 Ultra'},
-        ])}
-        ${fi('System Prompt','ifm-mc-system-prompt','Classify the following transaction.')}
-        ${fi('Max Tokens','ifm-mc-max-tokens','128')}
-      </div>`,
-
-        openai_compat: `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        ${fi('Base URL','ifm-mc-endpoint','http://localhost:11434/v1',true)}
-        ${fi('Model','ifm-mc-model-name','llama3',true)}
-        ${fi('System Prompt','ifm-mc-system-prompt','Classify this transaction.')}
-        ${fi('Max Tokens','ifm-mc-max-tokens','64')}
-        ${fi('Temperature','ifm-mc-temperature','0.0')}
-        ${sel('Compatible With','ifm-mc-compat-type',['vLLM','Ollama','LocalAI','LM Studio','Llamafile','Other'])}
-      </div>`,
-
-        custom_http: `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        ${fi('Endpoint URL','ifm-mc-endpoint','https://my-model-server.internal/v1/predict',true)}
-        ${sel('HTTP Method','ifm-mc-http-method',['POST','GET','PUT'])}
-        ${sel('Content-Type','ifm-mc-content-type',['application/json','text/plain','application/x-www-form-urlencoded','multipart/form-data'])}
-        ${sel('Response Parsing','ifm-mc-http-parse',['JSON path extraction','Full JSON response as STRING','Raw text body'])}
-        ${fi('JSON Response Path (e.g. $.result.score)','ifm-mc-json-path','$.prediction')}
-        ${fi('Request Body Template','ifm-mc-req-template','{"inputs": [{{INPUT_COL}}]}')}
-      </div>
-      <div style="margin-top:8px;">
-        <label class="ifm-field-label">Custom Request Headers (one per line: Header-Name: value)</label>
-        <textarea id="ifm-mc-custom-headers" class="field-input" rows="3"
-          style="font-size:11px;font-family:var(--mono);resize:vertical;"
-          placeholder="X-Model-Version: v3&#10;X-Tenant-ID: fraud-team">${_escIfm(mc['ifm-mc-custom-headers']||'')}</textarea>
-      </div>`,
-
-        custom_grpc: `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        ${fi('gRPC Target (host:port)','ifm-mc-endpoint','model-server:50051',true)}
-        ${fi('Proto Package.Service.Method','ifm-mc-grpc-method','inference.PredictionService/Predict',true)}
-        ${fi('Proto File Path or Descriptor','ifm-mc-grpc-proto','/opt/flink/protos/inference.proto')}
-        ${sel('Channel Security','ifm-mc-grpc-tls',['Plaintext','TLS','mTLS'])}
-        ${fi('Request Timeout (ms)','ifm-mc-grpc-timeout','3000')}
-      </div>`,
-
-        custom_udf: `
-      <div class="ifm-info-box">
-        Use a Flink scalar or async UDF that wraps your model inference logic (Java/Scala/Python). The UDF must be registered in the session via the UDF Manager or a prior CREATE FUNCTION statement.
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        ${fi('UDF Function Name','ifm-mc-udf-name','predict_fraud_score',true)}
-        ${sel('UDF Kind','ifm-mc-udf-kind',['Scalar Function','Async Scalar Function','Table Function','Aggregate Function'])}
-        ${fi('UDF Arguments (col names, comma-sep)','ifm-mc-udf-args','amount, tx_count_5m, avg_amt_5m')}
-        ${fi('UDF Return Type','ifm-mc-udf-return','DOUBLE')}
-        ${fi('CREATE FUNCTION Statement (if not yet registered)','ifm-mc-udf-create','')}
-        ${fi('JAR Path / Class Name (for reference)','ifm-mc-udf-class','com.mycompany.flink.udf.FraudScoreUDF')}
-      </div>`,
+        mlflow: `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">${fi('MLflow Tracking URI','ifm-mc-endpoint','http://mlflow:5000',true)}${fi('Model Name','ifm-mc-model-name','fraud-detection-model',true)}${fi('Model Stage / Version','ifm-mc-model-version','Production')}${sel('Serving Flavour','ifm-mc-mlflow-flavour',['REST (pyfunc serve)','Python Function','ONNX','Spark ML','H2O'])}${fi('Registered Model URI','ifm-mc-model-uri','models:/fraud-detection-model/Production')}${fi('Experiment ID (optional)','ifm-mc-exp-id','')}</div>`,
+        mlflow_serve: `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">${fi('mlflow serve Endpoint URL','ifm-mc-endpoint','http://model-server:5001/invocations',true)}${fi('Model Name','ifm-mc-model-name','my-model',true)}${sel('Input Format','ifm-mc-mlflow-fmt',['dataframe-split','dataframe-records','instances','inputs'])}</div>`,
+        sagemaker: `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">${fi('Endpoint Name','ifm-mc-endpoint','fraud-detection-endpoint-prod',true)}${fi('AWS Region','ifm-mc-aws-region','us-east-1',true)}${sel('Content Type','ifm-mc-content-type',['application/json','text/csv','application/x-recordio-protobuf'])}${sel('Accept Type','ifm-mc-accept-type',['application/json','text/csv'])}${fi('Model Variant (optional)','ifm-mc-variant','')}${fi('Target Container Hostname (optional)','ifm-mc-target-host','')}</div>`,
+        azureml: `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">${fi('Endpoint URL','ifm-mc-endpoint','https://my-endpoint.eastus.inference.ml.azure.com/score',true)}${fi('Deployment Name','ifm-mc-deployment','fraud-blue')}${fi('Workspace Name (for logging)','ifm-mc-workspace','my-workspace')}${fi('Resource Group','ifm-mc-rg','ml-resource-group')}${fi('Subscription ID','ifm-mc-sub-id','')}</div>`,
+        vertexai: `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">${fi('Project ID','ifm-mc-gcp-project','my-gcp-project',true)}${fi('Location / Region','ifm-mc-gcp-region','us-central1',true)}${fi('Endpoint ID','ifm-mc-endpoint','1234567890',true)}${sel('API Version','ifm-mc-gcp-ver',['v1','v1beta1'])}${fi('Deployed Model ID (optional)','ifm-mc-gcp-deployed-model','')}</div>`,
+        databricks: `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">${fi('Databricks Workspace URL','ifm-mc-endpoint','https://my-workspace.azuredatabricks.net',true)}${fi('Registered Model Name','ifm-mc-model-name','fraud-model',true)}${fi('Model Version or Alias','ifm-mc-model-version','Champion')}${fi('Serving Endpoint Name','ifm-mc-db-serving-ep','fraud-model-serving')}</div>`,
+        bentoml: `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">${fi('BentoML Server URL','ifm-mc-endpoint','http://bentoml:3000',true)}${fi('Service / Runner Route','ifm-mc-route','/predict',true)}${sel('Protocol','ifm-mc-protocol',['HTTP REST','gRPC'])}${fi('Bento Tag','ifm-mc-bento-tag','fraud_classifier:latest')}</div>`,
+        triton: `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">${fi('Triton HTTP URL','ifm-mc-endpoint','http://triton:8000',true)}${fi('Model Name','ifm-mc-model-name','fraud_onnx',true)}${fi('Model Version','ifm-mc-model-version','1')}${sel('Protocol','ifm-mc-protocol',['HTTP','gRPC (port 8001)'])}${sel('Input Data Type','ifm-mc-triton-dtype',['FP32','FP64','INT32','INT64','BYTES','BOOL'])}${fi('Input Tensor Name','ifm-mc-triton-input','INPUT__0')}</div>`,
+        torchserve: `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">${fi('TorchServe URL','ifm-mc-endpoint','http://torchserve:8080',true)}${fi('Model Name','ifm-mc-model-name','fraud_classifier',true)}${fi('Model Version','ifm-mc-model-version','1.0')}${sel('API Type','ifm-mc-ts-api',['Predictions API','Explanations API'])}</div>`,
+        tfserving: `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">${fi('TF Serving URL','ifm-mc-endpoint','http://tfserving:8501',true)}${fi('Model Name','ifm-mc-model-name','fraud_v2',true)}${fi('Signature Name','ifm-mc-tf-sig','serving_default')}${sel('API Version','ifm-mc-tf-apiver',['v1 (REST)','v2 (REST)'])}</div>`,
+        ray: `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">${fi('Ray Serve URL','ifm-mc-endpoint','http://ray-head:8000',true)}${fi('Deployment Route','ifm-mc-route','/fraud-classifier',true)}${fi('Ray Dashboard URL (opt)','ifm-mc-ray-dashboard','http://ray-head:8265')}</div>`,
+        seldon: `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">${fi('Seldon URL','ifm-mc-endpoint','http://seldon-ambassador:80',true)}${fi('Namespace','ifm-mc-seldon-ns','default',true)}${fi('Deployment Name','ifm-mc-model-name','fraud-classifier',true)}${sel('Predictor Protocol','ifm-mc-seldon-proto',['REST V2','REST V1','gRPC'])}</div>`,
+        kserve: `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">${fi('KServe Ingress URL','ifm-mc-endpoint','http://istio-ingressgateway',true)}${fi('InferenceService Name','ifm-mc-model-name','fraud-classifier',true)}${fi('Namespace','ifm-mc-kserve-ns','default')}${sel('Protocol Version','ifm-mc-kserve-proto',['v2','v1'])}</div>`,
+        minio: `<div class="ifm-warn-box">MinIO / S3 is an artifact store. Models are loaded by the Flink operator or UDF at startup.</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">${fi('MinIO / S3 Endpoint','ifm-mc-endpoint','http://minio:9000',true)}${fi('Bucket Name','ifm-mc-minio-bucket','ml-models',true)}${fi('Model Object Path','ifm-mc-minio-path','fraud/v3/model.pkl',true)}${sel('Model Format','ifm-mc-minio-fmt',['pickle (sklearn)','ONNX','TensorFlow SavedModel','PyTorch TorchScript','XGBoost JSON','LightGBM','PMML'])}${fi('Local Load Path (Flink TaskManager)','ifm-mc-local-path','/tmp/models/fraud_v3')}${fi('Cache TTL (seconds, 0=no refresh)','ifm-mc-cache-ttl','3600')}</div>`,
+        huggingface: `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">${fi('Model ID / Endpoint URL','ifm-mc-endpoint','https://api-inference.huggingface.co/models/my-org/fraud-v1',true)}${fi('Model ID (for Inference API)','ifm-mc-hf-model','my-org/fraud-classifier')}${sel('Task','ifm-mc-hf-task',['text-classification','token-classification','feature-extraction','text-generation','fill-mask','question-answering','zero-shot-classification','tabular-classification','tabular-regression'])}${sel('API Type','ifm-mc-hf-api',['Inference API (free)','Inference Endpoints (dedicated)'])}</div>`,
+        openai: `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">${fi('Base URL (override, optional)','ifm-mc-endpoint','https://api.openai.com/v1')}${fi('Model','ifm-mc-model-name','gpt-4o-mini',true)}${fi('System Prompt','ifm-mc-system-prompt','You are a fraud detection assistant. Classify each transaction.')}${sel('Response Format','ifm-mc-openai-fmt',['text','json_object'])}${fi('Max Tokens','ifm-mc-max-tokens','64')}${fi('Temperature','ifm-mc-temperature','0.0')}</div>`,
+        anthropic: `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">${fi('API Base URL','ifm-mc-endpoint','https://api.anthropic.com')}${sel('Model','ifm-mc-model-name',[{v:'claude-sonnet-4-6',l:'Claude Sonnet 4.6'},{v:'claude-opus-4-6',l:'Claude Opus 4.6'},{v:'claude-haiku-4-5-20251001',l:'Claude Haiku 4.5'}])}${fi('System Prompt','ifm-mc-system-prompt','Classify this transaction as FRAUD or LEGITIMATE.')}${fi('Max Tokens','ifm-mc-max-tokens','128')}${fi('anthropic-version header','ifm-mc-anthropic-ver','2023-06-01')}${sel('Response Parsing','ifm-mc-anthropic-parse',['First content text block','JSON from text block'])}</div>`,
+        cohere: `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">${fi('API Base URL','ifm-mc-endpoint','https://api.cohere.com')}${sel('Endpoint','ifm-mc-cohere-ep',['/v2/classify','/v2/embed','/v2/chat','/v2/generate'])}${fi('Model','ifm-mc-model-name','command-r-plus')}${fi('Classification Labels (comma-sep for /classify)','ifm-mc-cohere-labels','FRAUD,LEGITIMATE')}</div>`,
+        mistral: `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">${fi('API Base URL','ifm-mc-endpoint','https://api.mistral.ai/v1')}${fi('Model','ifm-mc-model-name','mistral-small-latest',true)}${fi('System Prompt','ifm-mc-system-prompt','Classify this transaction.')}${fi('Max Tokens','ifm-mc-max-tokens','64')}${fi('Temperature','ifm-mc-temperature','0.0')}</div>`,
+        together: `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">${fi('API Base URL','ifm-mc-endpoint','https://api.together.xyz/v1')}${fi('Model','ifm-mc-model-name','meta-llama/Llama-3-8b-chat-hf',true)}${fi('System Prompt','ifm-mc-system-prompt','Classify this transaction as FRAUD or LEGITIMATE. Respond with one word.')}${fi('Max Tokens','ifm-mc-max-tokens','16')}</div>`,
+        bedrock: `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">${fi('AWS Region','ifm-mc-aws-region','us-east-1',true)}${sel('Model ID','ifm-mc-model-name',[{v:'anthropic.claude-sonnet-4-6',l:'Claude Sonnet 4.6'},{v:'amazon.titan-text-express-v1',l:'Amazon Titan Text Express'},{v:'meta.llama3-8b-instruct-v1:0',l:'Meta Llama 3 8B'},{v:'mistral.mistral-7b-instruct-v0:2',l:'Mistral 7B Instruct'},{v:'cohere.command-r-v1:0',l:'Cohere Command R'},{v:'ai21.j2-ultra-v1',l:'AI21 Jurassic-2 Ultra'}])}${fi('System Prompt','ifm-mc-system-prompt','Classify the following transaction.')}${fi('Max Tokens','ifm-mc-max-tokens','128')}</div>`,
+        openai_compat: `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">${fi('Base URL','ifm-mc-endpoint','http://localhost:11434/v1',true)}${fi('Model','ifm-mc-model-name','llama3',true)}${fi('System Prompt','ifm-mc-system-prompt','Classify this transaction.')}${fi('Max Tokens','ifm-mc-max-tokens','64')}${fi('Temperature','ifm-mc-temperature','0.0')}${sel('Compatible With','ifm-mc-compat-type',['vLLM','Ollama','LocalAI','LM Studio','Llamafile','Other'])}</div>`,
+        custom_http: `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">${fi('Endpoint URL','ifm-mc-endpoint','https://my-model-server.internal/v1/predict',true)}${sel('HTTP Method','ifm-mc-http-method',['POST','GET','PUT'])}${sel('Content-Type','ifm-mc-content-type',['application/json','text/plain','application/x-www-form-urlencoded','multipart/form-data'])}${sel('Response Parsing','ifm-mc-http-parse',['JSON path extraction','Full JSON response as STRING','Raw text body'])}${fi('JSON Response Path (e.g. $.result.score)','ifm-mc-json-path','$.prediction')}${fi('Request Body Template','ifm-mc-req-template','{"inputs": [{{INPUT_COL}}]}')}</div><div style="margin-top:8px;"><label class="ifm-field-label">Custom Request Headers (one per line: Header-Name: value)</label><textarea id="ifm-mc-custom-headers" class="field-input" rows="3" style="font-size:11px;font-family:var(--mono);resize:vertical;" placeholder="X-Model-Version: v3&#10;X-Tenant-ID: fraud-team">${_escIfm(mc['ifm-mc-custom-headers']||'')}</textarea></div>`,
+        custom_grpc: `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">${fi('gRPC Target (host:port)','ifm-mc-endpoint','model-server:50051',true)}${fi('Proto Package.Service.Method','ifm-mc-grpc-method','inference.PredictionService/Predict',true)}${fi('Proto File Path or Descriptor','ifm-mc-grpc-proto','/opt/flink/protos/inference.proto')}${sel('Channel Security','ifm-mc-grpc-tls',['Plaintext','TLS','mTLS'])}${fi('Request Timeout (ms)','ifm-mc-grpc-timeout','3000')}</div>`,
+        custom_udf: `<div class="ifm-info-box">Use a Flink scalar or async UDF that wraps your model inference logic (Java/Scala/Python). The UDF must be registered in the session via the UDF Manager or a prior CREATE FUNCTION statement.</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">${fi('UDF Function Name','ifm-mc-udf-name','predict_fraud_score',true)}${sel('UDF Kind','ifm-mc-udf-kind',['Scalar Function','Async Scalar Function','Table Function','Aggregate Function'])}${fi('UDF Arguments (col names, comma-sep)','ifm-mc-udf-args','amount, tx_count_5m, avg_amt_5m')}${fi('UDF Return Type','ifm-mc-udf-return','DOUBLE')}${fi('CREATE FUNCTION Statement (if not yet registered)','ifm-mc-udf-create','')}${fi('JAR Path / Class Name (for reference)','ifm-mc-udf-class','com.mycompany.flink.udf.FraudScoreUDF')}</div>`,
     };
 
-    const form = serverForms[_IFM.modelServer] || `
-    <div class="ifm-warn-box">No specific configuration form for "${srv.name}". Fill in the endpoint and proceed to Auth.</div>
-    <div style="display:grid;grid-template-columns:1fr;gap:10px;">
-      ${fi('Endpoint / Base URL','ifm-mc-endpoint','https://your-model-server.com/predict',true)}
-    </div>`;
+    const form = serverForms[_IFM.modelServer] || `<div class="ifm-warn-box">No specific configuration form for "${srv.name}". Fill in the endpoint and proceed to Auth.</div><div style="display:grid;grid-template-columns:1fr;gap:10px;">${fi('Endpoint / Base URL','ifm-mc-endpoint','https://your-model-server.com/predict',true)}</div>`;
 
     body.innerHTML = `
 <div class="ifm-info-box">
-  Configure your <strong>${srv.icon} ${srv.name}</strong> model server connection. Fields marked <span class="ifm-required">*</span> are required.
+  Configure your <strong>${srv.name}</strong> model server connection. Fields marked <span class="ifm-required">*</span> are required.
 </div>
 <div class="ifm-card">
   <div class="ifm-section-title">${srv.name} — Connection Settings</div>
@@ -964,111 +1159,37 @@ function _ifmRenderStep2() {
 
 function _ifmCollectModelConfig() {
     const mc = {};
-    document.querySelectorAll('[id^="ifm-mc-"]').forEach(el => {
-        mc[el.id] = el.value;
-    });
+    document.querySelectorAll('[id^="ifm-mc-"]').forEach(el => { mc[el.id] = el.value; });
     _IFM.modelConfig = mc;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// STEP 3 — Authentication & Credentials
+// STEP 3 — Authentication & Credentials (unchanged)
 // ─────────────────────────────────────────────────────────────────────────────
 function _ifmRenderStep3() {
     const body = document.getElementById('ifm-body');
     const srv = IFM_SERVERS.find(s => s.id === _IFM.modelServer) || IFM_SERVERS[0];
     const ac = _IFM.authConfig;
-
     const AUTH_TYPES = [
-        { id:'none',       label:'No Auth',           icon:'🔓' },
-        { id:'bearer',     label:'Bearer Token',       icon:'🔑' },
-        { id:'api_key',    label:'API Key (header)',   icon:'🗝' },
-        { id:'x_api_key',  label:'x-api-key header',  icon:'🗝' },
-        { id:'basic',      label:'Basic Auth',         icon:'👤' },
-        { id:'header',     label:'Custom Header',      icon:'📋' },
-        { id:'aws_sigv4',  label:'AWS SigV4',          icon:'☁' },
-        { id:'aws_keys',   label:'AWS Access Keys',    icon:'☁' },
-        { id:'minio_keys', label:'MinIO Access Keys',  icon:'🗄' },
-        { id:'azure_ad',   label:'Azure AD Token',     icon:'🔷' },
-        { id:'google_sa',  label:'Google Service Acct',icon:'⬡' },
-        { id:'tls_cert',   label:'mTLS Certificate',   icon:'🛡' },
+        { id:'none',       label:'No Auth',            icon:'🔓' },
+        { id:'bearer',     label:'Bearer Token',        icon:'🔑' },
+        { id:'api_key',    label:'API Key (header)',    icon:'🗝' },
+        { id:'x_api_key',  label:'x-api-key header',   icon:'🗝' },
+        { id:'basic',      label:'Basic Auth',          icon:'👤' },
+        { id:'header',     label:'Custom Header',       icon:'📋' },
+        { id:'aws_sigv4',  label:'AWS SigV4',           icon:'☁' },
+        { id:'aws_keys',   label:'AWS Access Keys',     icon:'☁' },
+        { id:'minio_keys', label:'MinIO Access Keys',   icon:'🗄' },
+        { id:'azure_ad',   label:'Azure AD Token',      icon:'🔷' },
+        { id:'google_sa',  label:'Google Service Acct', icon:'⬡' },
+        { id:'tls_cert',   label:'mTLS Certificate',    icon:'🛡' },
     ];
-
     const availableAuth = srv.authTypes || ['bearer','api_key','none'];
     const current = _IFM.authType || availableAuth[0] || 'none';
 
-    const authForms = {
-        none:      `<div style="font-size:11px;color:var(--text3);padding:8px 0;">No authentication required for this endpoint.</div>`,
-        bearer:    `<div><label class="ifm-field-label">Bearer Token <span class="ifm-required">*</span></label>
-                <input id="ifm-ac-token" class="field-input" type="password" placeholder="eyJhbGci…" value="${_escIfm(ac['ifm-ac-token']||'')}" style="font-size:11px;font-family:var(--mono);" /></div>
-                <div style="margin-top:8px;font-size:10px;color:var(--text3);">Sent as: <code>Authorization: Bearer &lt;token&gt;</code></div>`,
-        api_key:   `<div><label class="ifm-field-label">API Key <span class="ifm-required">*</span></label>
-                <input id="ifm-ac-apikey" class="field-input" type="password" placeholder="sk-…" value="${_escIfm(ac['ifm-ac-apikey']||'')}" style="font-size:11px;font-family:var(--mono);" /></div>
-                <div><label class="ifm-field-label" style="margin-top:8px;">Header Name</label>
-                <input id="ifm-ac-header-name" class="field-input" type="text" value="${_escIfm(ac['ifm-ac-header-name']||'Authorization')}" style="font-size:11px;font-family:var(--mono);" /></div>
-                <div style="margin-top:6px;font-size:10px;color:var(--text3);">Sent as: <code>Authorization: Bearer &lt;key&gt;</code> or <code>&lt;Header&gt;: &lt;key&gt;</code></div>`,
-        x_api_key: `<div><label class="ifm-field-label">Anthropic API Key <span class="ifm-required">*</span></label>
-                <input id="ifm-ac-xapikey" class="field-input" type="password" placeholder="sk-ant-…" value="${_escIfm(ac['ifm-ac-xapikey']||'')}" style="font-size:11px;font-family:var(--mono);" /></div>
-                <div style="margin-top:6px;font-size:10px;color:var(--text3);">Sent as: <code>x-api-key: &lt;key&gt;</code></div>`,
-        basic:     `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-                <div><label class="ifm-field-label">Username <span class="ifm-required">*</span></label>
-                <input id="ifm-ac-user" class="field-input" type="text" value="${_escIfm(ac['ifm-ac-user']||'')}" placeholder="admin" style="font-size:11px;font-family:var(--mono);" /></div>
-                <div><label class="ifm-field-label">Password <span class="ifm-required">*</span></label>
-                <input id="ifm-ac-pass" class="field-input" type="password" value="${_escIfm(ac['ifm-ac-pass']||'')}" placeholder="●●●●●●" style="font-size:11px;font-family:var(--mono);" /></div>
-                </div>`,
-        header:    `<div><label class="ifm-field-label">Header Name <span class="ifm-required">*</span></label>
-                <input id="ifm-ac-h-name" class="field-input" type="text" value="${_escIfm(ac['ifm-ac-h-name']||'X-API-Token')}" style="font-size:11px;font-family:var(--mono);" /></div>
-                <div style="margin-top:8px;"><label class="ifm-field-label">Header Value <span class="ifm-required">*</span></label>
-                <input id="ifm-ac-h-val" class="field-input" type="password" value="${_escIfm(ac['ifm-ac-h-val']||'')}" placeholder="secret-token" style="font-size:11px;font-family:var(--mono);" /></div>`,
-        aws_sigv4: `<div class="ifm-info-box">AWS SigV4 signing is handled by the Flink async UDF. Credentials are read from environment variables or the instance role — no additional config needed if running on EC2/ECS/EKS.</div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-                <div><label class="ifm-field-label">AWS Region</label>
-                <input id="ifm-ac-aws-region" class="field-input" type="text" value="${_escIfm(ac['ifm-ac-aws-region']||_IFM.modelConfig['ifm-mc-aws-region']||'us-east-1')}" style="font-size:11px;font-family:var(--mono);" /></div>
-                <div><label class="ifm-field-label">Service Name</label>
-                <input id="ifm-ac-aws-service" class="field-input" type="text" value="${_escIfm(ac['ifm-ac-aws-service']||'sagemaker')}" style="font-size:11px;font-family:var(--mono);" /></div>
-                </div>`,
-        aws_keys:  `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-                <div><label class="ifm-field-label">Access Key ID <span class="ifm-required">*</span></label>
-                <input id="ifm-ac-aws-kid" class="field-input" type="text" placeholder="AKIAIOSFODNN7EXAMPLE" value="${_escIfm(ac['ifm-ac-aws-kid']||'')}" style="font-size:11px;font-family:var(--mono);" /></div>
-                <div><label class="ifm-field-label">Secret Access Key <span class="ifm-required">*</span></label>
-                <input id="ifm-ac-aws-sak" class="field-input" type="password" value="${_escIfm(ac['ifm-ac-aws-sak']||'')}" style="font-size:11px;font-family:var(--mono);" /></div>
-                <div><label class="ifm-field-label">Session Token (optional)</label>
-                <input id="ifm-ac-aws-token" class="field-input" type="password" value="${_escIfm(ac['ifm-ac-aws-token']||'')}" style="font-size:11px;font-family:var(--mono);" /></div>
-                <div><label class="ifm-field-label">AWS Region</label>
-                <input id="ifm-ac-aws-region" class="field-input" type="text" value="${_escIfm(ac['ifm-ac-aws-region']||'us-east-1')}" style="font-size:11px;font-family:var(--mono);" /></div>
-                </div>`,
-        minio_keys:`<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-                <div><label class="ifm-field-label">Access Key <span class="ifm-required">*</span></label>
-                <input id="ifm-ac-minio-key" class="field-input" type="text" value="${_escIfm(ac['ifm-ac-minio-key']||'minioadmin')}" style="font-size:11px;font-family:var(--mono);" /></div>
-                <div><label class="ifm-field-label">Secret Key <span class="ifm-required">*</span></label>
-                <input id="ifm-ac-minio-secret" class="field-input" type="password" value="${_escIfm(ac['ifm-ac-minio-secret']||'')}" style="font-size:11px;font-family:var(--mono);" /></div>
-                </div>`,
-        azure_ad:  `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-                <div><label class="ifm-field-label">Tenant ID <span class="ifm-required">*</span></label>
-                <input id="ifm-ac-az-tenant" class="field-input" type="text" value="${_escIfm(ac['ifm-ac-az-tenant']||'')}" style="font-size:11px;font-family:var(--mono);" /></div>
-                <div><label class="ifm-field-label">Client ID <span class="ifm-required">*</span></label>
-                <input id="ifm-ac-az-client" class="field-input" type="text" value="${_escIfm(ac['ifm-ac-az-client']||'')}" style="font-size:11px;font-family:var(--mono);" /></div>
-                <div><label class="ifm-field-label">Client Secret <span class="ifm-required">*</span></label>
-                <input id="ifm-ac-az-secret" class="field-input" type="password" value="${_escIfm(ac['ifm-ac-az-secret']||'')}" style="font-size:11px;font-family:var(--mono);" /></div>
-                <div><label class="ifm-field-label">Scope</label>
-                <input id="ifm-ac-az-scope" class="field-input" type="text" value="${_escIfm(ac['ifm-ac-az-scope']||'https://ml.azure.com/.default')}" style="font-size:11px;font-family:var(--mono);" /></div>
-                </div>`,
-        google_sa: `<div><label class="ifm-field-label">Service Account JSON Key Path <span class="ifm-required">*</span></label>
-                <input id="ifm-ac-gsa-path" class="field-input" type="text" value="${_escIfm(ac['ifm-ac-gsa-path']||'/etc/gcp/sa-key.json')}" style="font-size:11px;font-family:var(--mono);" /></div>
-                <div style="margin-top:8px;"><label class="ifm-field-label">Scopes</label>
-                <input id="ifm-ac-gsa-scope" class="field-input" type="text" value="${_escIfm(ac['ifm-ac-gsa-scope']||'https://www.googleapis.com/auth/cloud-platform')}" style="font-size:11px;font-family:var(--mono);" /></div>`,
-        tls_cert:  `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-                <div><label class="ifm-field-label">Client Certificate Path</label>
-                <input id="ifm-ac-tls-cert" class="field-input" type="text" value="${_escIfm(ac['ifm-ac-tls-cert']||'/etc/certs/client.crt')}" style="font-size:11px;font-family:var(--mono);" /></div>
-                <div><label class="ifm-field-label">Client Key Path</label>
-                <input id="ifm-ac-tls-key" class="field-input" type="text" value="${_escIfm(ac['ifm-ac-tls-key']||'/etc/certs/client.key')}" style="font-size:11px;font-family:var(--mono);" /></div>
-                <div><label class="ifm-field-label">CA Certificate Path</label>
-                <input id="ifm-ac-tls-ca" class="field-input" type="text" value="${_escIfm(ac['ifm-ac-tls-ca']||'/etc/certs/ca.crt')}" style="font-size:11px;font-family:var(--mono);" /></div>
-                </div>`,
-    };
-
     body.innerHTML = `
 <div class="ifm-info-box">
-  Configure authentication for <strong>${srv.icon} ${srv.name}</strong>. Credentials stored here are embedded as comments in the generated SQL — use environment variables or Flink secrets in production.
+  Configure authentication for <strong>${srv.name}</strong>. Credentials stored here are embedded as comments in the generated SQL — use environment variables or Flink secrets in production.
 </div>
 <div class="ifm-card">
   <div class="ifm-section-title">Authentication Method</div>
@@ -1110,47 +1231,44 @@ function _ifmSelectAuth(id) {
 function _ifmRenderAuthForm(id) {
     const wrap = document.getElementById('ifm-auth-form');
     if (!wrap) return;
+    const ac = _IFM.authConfig;
     const authForms = {
         none:      `<div style="font-size:11px;color:var(--text3);">No authentication required.</div>`,
-        bearer:    `<label class="ifm-field-label">Bearer Token</label><input id="ifm-ac-token" class="field-input" type="password" placeholder="eyJhbGci…" value="${_escIfm(_IFM.authConfig['ifm-ac-token']||'')}" style="font-size:11px;font-family:var(--mono);" />`,
-        api_key:   `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"><div><label class="ifm-field-label">API Key</label><input id="ifm-ac-apikey" class="field-input" type="password" placeholder="sk-…" value="${_escIfm(_IFM.authConfig['ifm-ac-apikey']||'')}" style="font-size:11px;font-family:var(--mono);" /></div><div><label class="ifm-field-label">Header Name</label><input id="ifm-ac-header-name" class="field-input" type="text" value="${_escIfm(_IFM.authConfig['ifm-ac-header-name']||'Authorization')}" style="font-size:11px;font-family:var(--mono);" /></div></div>`,
-        x_api_key: `<label class="ifm-field-label">x-api-key</label><input id="ifm-ac-xapikey" class="field-input" type="password" placeholder="sk-ant-…" value="${_escIfm(_IFM.authConfig['ifm-ac-xapikey']||'')}" style="font-size:11px;font-family:var(--mono);" />`,
-        basic:     `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"><div><label class="ifm-field-label">Username</label><input id="ifm-ac-user" class="field-input" type="text" value="${_escIfm(_IFM.authConfig['ifm-ac-user']||'')}" style="font-size:11px;font-family:var(--mono);" /></div><div><label class="ifm-field-label">Password</label><input id="ifm-ac-pass" class="field-input" type="password" value="${_escIfm(_IFM.authConfig['ifm-ac-pass']||'')}" style="font-size:11px;font-family:var(--mono);" /></div></div>`,
-        header:    `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"><div><label class="ifm-field-label">Header Name</label><input id="ifm-ac-h-name" class="field-input" type="text" value="${_escIfm(_IFM.authConfig['ifm-ac-h-name']||'X-API-Token')}" style="font-size:11px;font-family:var(--mono);" /></div><div><label class="ifm-field-label">Header Value</label><input id="ifm-ac-h-val" class="field-input" type="password" value="${_escIfm(_IFM.authConfig['ifm-ac-h-val']||'')}" style="font-size:11px;font-family:var(--mono);" /></div></div>`,
-        aws_sigv4: `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"><div><label class="ifm-field-label">AWS Region</label><input id="ifm-ac-aws-region" class="field-input" type="text" value="${_escIfm(_IFM.authConfig['ifm-ac-aws-region']||'us-east-1')}" style="font-size:11px;font-family:var(--mono);" /></div><div><label class="ifm-field-label">Service</label><input id="ifm-ac-aws-service" class="field-input" type="text" value="${_escIfm(_IFM.authConfig['ifm-ac-aws-service']||'sagemaker')}" style="font-size:11px;font-family:var(--mono);" /></div></div>`,
-        aws_keys:  `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"><div><label class="ifm-field-label">Access Key ID</label><input id="ifm-ac-aws-kid" class="field-input" type="text" value="${_escIfm(_IFM.authConfig['ifm-ac-aws-kid']||'')}" style="font-size:11px;font-family:var(--mono);" /></div><div><label class="ifm-field-label">Secret Access Key</label><input id="ifm-ac-aws-sak" class="field-input" type="password" value="${_escIfm(_IFM.authConfig['ifm-ac-aws-sak']||'')}" style="font-size:11px;font-family:var(--mono);" /></div><div><label class="ifm-field-label">AWS Region</label><input id="ifm-ac-aws-region" class="field-input" type="text" value="${_escIfm(_IFM.authConfig['ifm-ac-aws-region']||'us-east-1')}" style="font-size:11px;font-family:var(--mono);" /></div></div>`,
-        minio_keys:`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"><div><label class="ifm-field-label">Access Key</label><input id="ifm-ac-minio-key" class="field-input" type="text" value="${_escIfm(_IFM.authConfig['ifm-ac-minio-key']||'minioadmin')}" style="font-size:11px;font-family:var(--mono);" /></div><div><label class="ifm-field-label">Secret Key</label><input id="ifm-ac-minio-secret" class="field-input" type="password" value="${_escIfm(_IFM.authConfig['ifm-ac-minio-secret']||'')}" style="font-size:11px;font-family:var(--mono);" /></div></div>`,
-        azure_ad:  `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"><div><label class="ifm-field-label">Tenant ID</label><input id="ifm-ac-az-tenant" class="field-input" type="text" value="${_escIfm(_IFM.authConfig['ifm-ac-az-tenant']||'')}" style="font-size:11px;font-family:var(--mono);" /></div><div><label class="ifm-field-label">Client ID</label><input id="ifm-ac-az-client" class="field-input" type="text" value="${_escIfm(_IFM.authConfig['ifm-ac-az-client']||'')}" style="font-size:11px;font-family:var(--mono);" /></div><div><label class="ifm-field-label">Client Secret</label><input id="ifm-ac-az-secret" class="field-input" type="password" value="${_escIfm(_IFM.authConfig['ifm-ac-az-secret']||'')}" style="font-size:11px;font-family:var(--mono);" /></div></div>`,
-        google_sa: `<label class="ifm-field-label">Service Account Key Path</label><input id="ifm-ac-gsa-path" class="field-input" type="text" value="${_escIfm(_IFM.authConfig['ifm-ac-gsa-path']||'/etc/gcp/sa-key.json')}" style="font-size:11px;font-family:var(--mono);" />`,
-        tls_cert:  `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"><div><label class="ifm-field-label">Cert Path</label><input id="ifm-ac-tls-cert" class="field-input" type="text" value="${_escIfm(_IFM.authConfig['ifm-ac-tls-cert']||'/etc/certs/client.crt')}" style="font-size:11px;font-family:var(--mono);" /></div><div><label class="ifm-field-label">Key Path</label><input id="ifm-ac-tls-key" class="field-input" type="text" value="${_escIfm(_IFM.authConfig['ifm-ac-tls-key']||'/etc/certs/client.key')}" style="font-size:11px;font-family:var(--mono);" /></div><div><label class="ifm-field-label">CA Path</label><input id="ifm-ac-tls-ca" class="field-input" type="text" value="${_escIfm(_IFM.authConfig['ifm-ac-tls-ca']||'/etc/certs/ca.crt')}" style="font-size:11px;font-family:var(--mono);" /></div></div>`,
+        bearer:    `<label class="ifm-field-label">Bearer Token</label><input id="ifm-ac-token" class="field-input" type="password" placeholder="eyJhbGci…" value="${_escIfm(ac['ifm-ac-token']||'')}" style="font-size:11px;font-family:var(--mono);" />`,
+        api_key:   `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"><div><label class="ifm-field-label">API Key</label><input id="ifm-ac-apikey" class="field-input" type="password" placeholder="sk-…" value="${_escIfm(ac['ifm-ac-apikey']||'')}" style="font-size:11px;font-family:var(--mono);" /></div><div><label class="ifm-field-label">Header Name</label><input id="ifm-ac-header-name" class="field-input" type="text" value="${_escIfm(ac['ifm-ac-header-name']||'Authorization')}" style="font-size:11px;font-family:var(--mono);" /></div></div>`,
+        x_api_key: `<label class="ifm-field-label">x-api-key</label><input id="ifm-ac-xapikey" class="field-input" type="password" placeholder="sk-ant-…" value="${_escIfm(ac['ifm-ac-xapikey']||'')}" style="font-size:11px;font-family:var(--mono);" />`,
+        basic:     `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"><div><label class="ifm-field-label">Username</label><input id="ifm-ac-user" class="field-input" type="text" value="${_escIfm(ac['ifm-ac-user']||'')}" style="font-size:11px;font-family:var(--mono);" /></div><div><label class="ifm-field-label">Password</label><input id="ifm-ac-pass" class="field-input" type="password" value="${_escIfm(ac['ifm-ac-pass']||'')}" style="font-size:11px;font-family:var(--mono);" /></div></div>`,
+        header:    `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"><div><label class="ifm-field-label">Header Name</label><input id="ifm-ac-h-name" class="field-input" type="text" value="${_escIfm(ac['ifm-ac-h-name']||'X-API-Token')}" style="font-size:11px;font-family:var(--mono);" /></div><div><label class="ifm-field-label">Header Value</label><input id="ifm-ac-h-val" class="field-input" type="password" value="${_escIfm(ac['ifm-ac-h-val']||'')}" style="font-size:11px;font-family:var(--mono);" /></div></div>`,
+        aws_sigv4: `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"><div><label class="ifm-field-label">AWS Region</label><input id="ifm-ac-aws-region" class="field-input" type="text" value="${_escIfm(ac['ifm-ac-aws-region']||'us-east-1')}" style="font-size:11px;font-family:var(--mono);" /></div><div><label class="ifm-field-label">Service</label><input id="ifm-ac-aws-service" class="field-input" type="text" value="${_escIfm(ac['ifm-ac-aws-service']||'sagemaker')}" style="font-size:11px;font-family:var(--mono);" /></div></div>`,
+        aws_keys:  `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"><div><label class="ifm-field-label">Access Key ID</label><input id="ifm-ac-aws-kid" class="field-input" type="text" value="${_escIfm(ac['ifm-ac-aws-kid']||'')}" style="font-size:11px;font-family:var(--mono);" /></div><div><label class="ifm-field-label">Secret Access Key</label><input id="ifm-ac-aws-sak" class="field-input" type="password" value="${_escIfm(ac['ifm-ac-aws-sak']||'')}" style="font-size:11px;font-family:var(--mono);" /></div><div><label class="ifm-field-label">AWS Region</label><input id="ifm-ac-aws-region" class="field-input" type="text" value="${_escIfm(ac['ifm-ac-aws-region']||'us-east-1')}" style="font-size:11px;font-family:var(--mono);" /></div></div>`,
+        minio_keys:`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"><div><label class="ifm-field-label">Access Key</label><input id="ifm-ac-minio-key" class="field-input" type="text" value="${_escIfm(ac['ifm-ac-minio-key']||'minioadmin')}" style="font-size:11px;font-family:var(--mono);" /></div><div><label class="ifm-field-label">Secret Key</label><input id="ifm-ac-minio-secret" class="field-input" type="password" value="${_escIfm(ac['ifm-ac-minio-secret']||'')}" style="font-size:11px;font-family:var(--mono);" /></div></div>`,
+        azure_ad:  `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"><div><label class="ifm-field-label">Tenant ID</label><input id="ifm-ac-az-tenant" class="field-input" type="text" value="${_escIfm(ac['ifm-ac-az-tenant']||'')}" style="font-size:11px;font-family:var(--mono);" /></div><div><label class="ifm-field-label">Client ID</label><input id="ifm-ac-az-client" class="field-input" type="text" value="${_escIfm(ac['ifm-ac-az-client']||'')}" style="font-size:11px;font-family:var(--mono);" /></div><div><label class="ifm-field-label">Client Secret</label><input id="ifm-ac-az-secret" class="field-input" type="password" value="${_escIfm(ac['ifm-ac-az-secret']||'')}" style="font-size:11px;font-family:var(--mono);" /></div></div>`,
+        google_sa: `<label class="ifm-field-label">Service Account Key Path</label><input id="ifm-ac-gsa-path" class="field-input" type="text" value="${_escIfm(ac['ifm-ac-gsa-path']||'/etc/gcp/sa-key.json')}" style="font-size:11px;font-family:var(--mono);" />`,
+        tls_cert:  `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"><div><label class="ifm-field-label">Cert Path</label><input id="ifm-ac-tls-cert" class="field-input" type="text" value="${_escIfm(ac['ifm-ac-tls-cert']||'/etc/certs/client.crt')}" style="font-size:11px;font-family:var(--mono);" /></div><div><label class="ifm-field-label">Key Path</label><input id="ifm-ac-tls-key" class="field-input" type="text" value="${_escIfm(ac['ifm-ac-tls-key']||'/etc/certs/client.key')}" style="font-size:11px;font-family:var(--mono);" /></div><div><label class="ifm-field-label">CA Path</label><input id="ifm-ac-tls-ca" class="field-input" type="text" value="${_escIfm(ac['ifm-ac-tls-ca']||'/etc/certs/ca.crt')}" style="font-size:11px;font-family:var(--mono);" /></div></div>`,
     };
     wrap.innerHTML = authForms[id] || authForms['none'];
 }
 
 function _ifmCollectAuthConfig() {
     const ac = {};
-    document.querySelectorAll('[id^="ifm-ac-"]').forEach(el => {
-        ac[el.id] = el.type === 'checkbox' ? String(el.checked) : el.value;
-    });
+    document.querySelectorAll('[id^="ifm-ac-"]').forEach(el => { ac[el.id] = el.type === 'checkbox' ? String(el.checked) : el.value; });
     _IFM.authConfig = ac;
 }
 
+
 // ─────────────────────────────────────────────────────────────────────────────
-// STEP 4 — Inference I/O
+// STEP 4 — Inference I/O (unchanged)
 // ─────────────────────────────────────────────────────────────────────────────
 function _ifmRenderStep4() {
     const body = document.getElementById('ifm-body');
     const ic = _IFM.inferenceConfig;
     const cols = _IFM.inputColumns;
-    const numericTypes = ['INT','BIGINT','DOUBLE','FLOAT','DECIMAL','SMALLINT'];
-    const numCols = cols.filter(c => numericTypes.some(t => c.type.toUpperCase().startsWith(t)));
 
     body.innerHTML = `
 <div class="ifm-info-box">
   Configure the <strong>input features</strong>, <strong>output</strong>, and <strong>pre/post-processing</strong> expressions.
   The model call is wrapped in a Flink <strong>async scalar UDF pattern</strong> for non-blocking parallel inference.
 </div>
-
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
   <div>
     <div class="ifm-card">
@@ -1160,9 +1278,9 @@ function _ifmRenderStep4() {
         ${cols.map(c => {
         const isSel = _IFM.selectedInputCols.length === 0 || _IFM.selectedInputCols.find(f => f === c.name);
         return `<div class="ifm-col-tag ${isSel?'selected':''}" id="ifm-ftag-${c.name.replace(/\W/g,'_')}"
-            onclick="_ifmToggleFeatCol('${c.name}')" title="${c.type}">
-            ${c.name}<span class="ifm-tag-type">${c.type}</span>
-          </div>`;
+                onclick="_ifmToggleFeatCol('${c.name}')" title="${c.type}">
+                ${c.name}<span class="ifm-tag-type">${c.type}</span>
+              </div>`;
     }).join('')}
       </div>
       <div>
@@ -1176,15 +1294,13 @@ function _ifmRenderStep4() {
         <div style="font-size:9px;color:var(--text3);margin-top:3px;">For multi-feature models: use ARRAY[col1, col2, col3] or a JSON expression.</div>
       </div>
     </div>
-
     <div class="ifm-card">
       <div class="ifm-section-title">Pre-processing (optional)</div>
       <label class="ifm-field-label">Transform before sending to model</label>
       <textarea id="ifm-ic-preprocess" class="field-input" rows="3"
         style="font-size:11px;font-family:var(--mono);resize:vertical;"
-        placeholder="CAST(amount AS DOUBLE) / 1000.0&#10;-- or leave blank to pass raw column">${_escIfm(ic.preProcessExpr)}</textarea>
+        placeholder="CAST(amount AS DOUBLE) / 1000.0">${_escIfm(ic.preProcessExpr)}</textarea>
     </div>
-
     <div class="ifm-card">
       <div class="ifm-section-title">Passthrough Columns</div>
       <label class="ifm-field-label">Columns to carry forward alongside the prediction (comma-separated)</label>
@@ -1192,7 +1308,6 @@ function _ifmRenderStep4() {
         placeholder="user_id, event_time, amount" value="${_escIfm(ic.passthroughCols)}" />
     </div>
   </div>
-
   <div>
     <div class="ifm-card">
       <div class="ifm-section-title">Model Output <span class="ifm-required">*</span></div>
@@ -1212,7 +1327,6 @@ function _ifmRenderStep4() {
           placeholder="-- e.g. CASE WHEN prediction > 0.85 THEN 'HIGH_RISK' ELSE 'LOW_RISK' END AS risk_tier">${_escIfm(ic.postProcessExpr)}</textarea>
       </div>
     </div>
-
     <div class="ifm-card">
       <div class="ifm-section-title">Async UDF Performance Settings</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
@@ -1230,7 +1344,6 @@ function _ifmRenderStep4() {
             value="${_escIfm(ic.onError||'-1.0')}" placeholder="-1.0" /></div>
       </div>
     </div>
-
     <div class="ifm-card">
       <div class="ifm-section-title">Flink Job Settings</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
@@ -1277,12 +1390,11 @@ function _ifmCollectInferenceConfig() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// STEP 5 — Output Sink
+// STEP 5 — Output Sink (unchanged)
 // ─────────────────────────────────────────────────────────────────────────────
 function _ifmRenderStep5() {
     const body = document.getElementById('ifm-body');
     const src = _IFM.sourceTable || 'source_table';
-
     body.innerHTML = `
 <div class="ifm-info-box">
   Configure the <strong>output table</strong> that receives the original stream columns plus the model inference result.
@@ -1313,7 +1425,6 @@ function _ifmRenderStep5() {
   </div>
   <div id="ifm-sink-params-wrap"></div>
 </div>`;
-
     document.getElementById('ifm-sink-type').value = _IFM.sinkType || 'kafka';
     _ifmRenderIfmSinkParams(_IFM.sinkType || 'kafka');
 }
@@ -1322,7 +1433,6 @@ function _ifmRenderIfmSinkParams(type) {
     const wrap = document.getElementById('ifm-sink-params-wrap');
     if (!wrap) return;
     _IFM.sinkType = type;
-    // Collect existing sink config before re-rendering (preserves values on type change)
     _ifmCollectSinkConfig();
     const sc = _IFM.sinkConfig || {};
     const fi = `style="width:100%;box-sizing:border-box;background:var(--bg1);border:1px solid var(--border2);border-radius:3px;color:var(--text0);font-family:var(--mono);font-size:11px;padding:5px 8px;outline:none;"`;
@@ -1334,42 +1444,11 @@ function _ifmRenderIfmSinkParams(type) {
      <select id="${id}" ${fi}>${opts.map(o=>`<option value="${o}" ${(sc[id]||val||opts[0])===o?'selected':''}>${o}</option>`).join('')}</select></div>`;
 
     const forms = {
-        kafka: `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-      ${inp('Bootstrap Servers <span style="color:var(--red)">*</span>','ifm-sk-bootstrap','kafka:9092')}
-      ${inp('Output Topic <span style="color:var(--red)">*</span>','ifm-sk-topic','scored-output')}
-      ${sel('Format','ifm-sk-format',['json','avro','avro-confluent','csv'])}
-      ${sel('Security Protocol','ifm-sk-security',['PLAINTEXT','SASL_SSL','SSL','SASL_PLAINTEXT'],'PLAINTEXT')}
-      ${inp('SASL Username / API Key','ifm-sk-sasl-user','api-key')}
-      ${inp('SASL Password / Secret','ifm-sk-sasl-pass','',true)}
-      ${inp('Schema Registry URL (avro-confluent)','ifm-sk-sr-url','http://schema-registry:8081')}
-    </div>`,
-        jdbc: `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-      ${inp('JDBC URL <span style="color:var(--red)">*</span>','ifm-sk-jdbc-url','jdbc:postgresql://localhost:5432/ml_results')}
-      ${inp('Target Table <span style="color:var(--red)">*</span>','ifm-sk-jdbc-table','public.fraud_scores')}
-      ${inp('Username','ifm-sk-jdbc-user','flink_writer')}
-      ${inp('Password','ifm-sk-jdbc-pass','',true)}
-      ${sel('Driver','ifm-sk-jdbc-driver',['org.postgresql.Driver','com.mysql.cj.jdbc.Driver','com.amazon.redshift.jdbc.Driver'])}
-      ${inp('Sink Parallelism','ifm-sk-jdbc-par','4')}
-    </div>`,
-        elasticsearch: `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-      ${inp('ES Hosts <span style="color:var(--red)">*</span>','ifm-sk-es-hosts','http://elasticsearch:9200')}
-      ${inp('Index <span style="color:var(--red)">*</span>','ifm-sk-es-index','ml-scored-results')}
-      ${sel('ES Version','ifm-sk-es-ver',['7','8'])}
-      ${inp('Username','ifm-sk-es-user','elastic')}
-      ${inp('Password','ifm-sk-es-pass','',true)}
-    </div>`,
-        filesystem: `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-      ${inp('Sink Path <span style="color:var(--red)">*</span>','ifm-sk-fs-path','s3://my-bucket/scored/')}
-      ${sel('Format','ifm-sk-fs-format',['parquet','orc','json','csv'])}
-      ${inp('Rolling Interval','ifm-sk-fs-roll','10 min')}
-      ${inp('Partition Column','ifm-sk-fs-part','')}
-    </div>`,
-        iceberg: `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-      ${inp('Catalog Name','ifm-sk-ice-cat','iceberg_catalog')}
-      ${inp('Database.Table <span style="color:var(--red)">*</span>','ifm-sk-ice-tbl','ml.fraud_scores')}
-      ${sel('Catalog Type','ifm-sk-ice-cattype',['hive','hadoop','rest','glue'])}
-      ${inp('Warehouse Path','ifm-sk-ice-wh','s3://warehouse/iceberg')}
-    </div>`,
+        kafka: `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">${inp('Bootstrap Servers','ifm-sk-bootstrap','kafka:9092')}${inp('Output Topic','ifm-sk-topic','scored-output')}${sel('Format','ifm-sk-format',['json','avro','avro-confluent','csv'])}${sel('Security Protocol','ifm-sk-security',['PLAINTEXT','SASL_SSL','SSL','SASL_PLAINTEXT'],'PLAINTEXT')}${inp('SASL Username / API Key','ifm-sk-sasl-user','api-key')}${inp('SASL Password / Secret','ifm-sk-sasl-pass','',true)}${inp('Schema Registry URL (avro-confluent)','ifm-sk-sr-url','http://schema-registry:8081')}</div>`,
+        jdbc: `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">${inp('JDBC URL','ifm-sk-jdbc-url','jdbc:postgresql://localhost:5432/ml_results')}${inp('Target Table','ifm-sk-jdbc-table','public.fraud_scores')}${inp('Username','ifm-sk-jdbc-user','flink_writer')}${inp('Password','ifm-sk-jdbc-pass','',true)}${sel('Driver','ifm-sk-jdbc-driver',['org.postgresql.Driver','com.mysql.cj.jdbc.Driver','com.amazon.redshift.jdbc.Driver'])}${inp('Sink Parallelism','ifm-sk-jdbc-par','4')}</div>`,
+        elasticsearch: `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">${inp('ES Hosts','ifm-sk-es-hosts','http://elasticsearch:9200')}${inp('Index','ifm-sk-es-index','ml-scored-results')}${sel('ES Version','ifm-sk-es-ver',['7','8'])}${inp('Username','ifm-sk-es-user','elastic')}${inp('Password','ifm-sk-es-pass','',true)}</div>`,
+        filesystem: `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">${inp('Sink Path','ifm-sk-fs-path','s3://my-bucket/scored/')}${sel('Format','ifm-sk-fs-format',['parquet','orc','json','csv'])}${inp('Rolling Interval','ifm-sk-fs-roll','10 min')}${inp('Partition Column','ifm-sk-fs-part','')}</div>`,
+        iceberg: `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">${inp('Catalog Name','ifm-sk-ice-cat','iceberg_catalog')}${inp('Database.Table','ifm-sk-ice-tbl','ml.fraud_scores')}${sel('Catalog Type','ifm-sk-ice-cattype',['hive','hadoop','rest','glue'])}${inp('Warehouse Path','ifm-sk-ice-wh','s3://warehouse/iceberg')}</div>`,
         print:     `<div style="font-size:11px;color:var(--text3);padding:6px 0;">Outputs to TaskManager stdout. Development only — no credentials needed.</div>`,
         blackhole: `<div style="font-size:11px;color:var(--text3);padding:6px 0;">Discards all output — no credentials needed. Use for throughput benchmarking.</div>`,
     };
@@ -1378,26 +1457,17 @@ function _ifmRenderIfmSinkParams(type) {
 
 function _ifmCollectSinkConfig() {
     const cfg = {};
-    const ids = [
-        'ifm-sk-bootstrap','ifm-sk-topic','ifm-sk-format','ifm-sk-security',
-        'ifm-sk-sasl-user','ifm-sk-sasl-pass','ifm-sk-sr-url',
-        'ifm-sk-jdbc-url','ifm-sk-jdbc-table','ifm-sk-jdbc-user','ifm-sk-jdbc-pass','ifm-sk-jdbc-driver','ifm-sk-jdbc-par',
-        'ifm-sk-es-hosts','ifm-sk-es-index','ifm-sk-es-ver','ifm-sk-es-user','ifm-sk-es-pass',
-        'ifm-sk-fs-path','ifm-sk-fs-format','ifm-sk-fs-roll','ifm-sk-fs-part',
-        'ifm-sk-ice-cat','ifm-sk-ice-tbl','ifm-sk-ice-cattype','ifm-sk-ice-wh',
-    ];
-    ids.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) cfg[id] = el.value;
-    });
+    const ids = ['ifm-sk-bootstrap','ifm-sk-topic','ifm-sk-format','ifm-sk-security','ifm-sk-sasl-user','ifm-sk-sasl-pass','ifm-sk-sr-url','ifm-sk-jdbc-url','ifm-sk-jdbc-table','ifm-sk-jdbc-user','ifm-sk-jdbc-pass','ifm-sk-jdbc-driver','ifm-sk-jdbc-par','ifm-sk-es-hosts','ifm-sk-es-index','ifm-sk-es-ver','ifm-sk-es-user','ifm-sk-es-pass','ifm-sk-fs-path','ifm-sk-fs-format','ifm-sk-fs-roll','ifm-sk-fs-part','ifm-sk-ice-cat','ifm-sk-ice-tbl','ifm-sk-ice-cattype','ifm-sk-ice-wh'];
+    ids.forEach(id => { const el = document.getElementById(id); if (el) cfg[id] = el.value; });
     _IFM.sinkConfig = { ...(_IFM.sinkConfig || {}), ...cfg };
 }
 
+
 // ─────────────────────────────────────────────────────────────────────────────
 // STEP 6 — Review & SQL
-// ─────────────────────────────────────────────────────────────────────────────
-// ─────────────────────────────────────────────────────────────────────────────
-// IFM Canvas state (zoom / pan / maximise)
+// Canvas icon update: Simple Icons <img> tags are SVG-incompatible, so the
+// canvas SVG still uses emoji/text glyphs for server icons inside the SVG.
+// The srv.icon (img tag) is used in the HTML header above the canvas only.
 // ─────────────────────────────────────────────────────────────────────────────
 const _IFMC = {
     zoom: 1, panX: 0, panY: 0,
@@ -1445,12 +1515,7 @@ function _ifmToggleCanvasMaximise() {
     if (!_IFMC.maximised) {
         _IFMC.origStyle = container.getAttribute('style') || '';
         _IFMC.maximised = true;
-        container.style.cssText = `
-      position:fixed;inset:0;z-index:9990;
-      background:var(--bg0,#050810);
-      display:flex;flex-direction:column;
-      border:none;border-radius:0;
-    `;
+        container.style.cssText = `position:fixed;inset:0;z-index:9990;background:var(--bg0,#050810);display:flex;flex-direction:column;border:none;border-radius:0;`;
         btn.textContent = '⊟';
         btn.title = 'Restore canvas';
     } else {
@@ -1466,12 +1531,7 @@ function _ifmWireCanvasInteraction() {
     const wrap = document.getElementById('ifm-canvas-wrap');
     if (!wrap || wrap._ifmWired) return;
     wrap._ifmWired = true;
-
-    wrap.addEventListener('wheel', e => {
-        e.preventDefault();
-        _ifmCanvasZoom(e.deltaY < 0 ? 0.12 : -0.12, e.clientX, e.clientY);
-    }, { passive: false });
-
+    wrap.addEventListener('wheel', e => { e.preventDefault(); _ifmCanvasZoom(e.deltaY < 0 ? 0.12 : -0.12, e.clientX, e.clientY); }, { passive: false });
     wrap.addEventListener('mousedown', e => {
         if (e.button !== 0) return;
         _IFMC.panning = true;
@@ -1480,20 +1540,11 @@ function _ifmWireCanvasInteraction() {
         wrap.style.cursor = 'grabbing';
         e.preventDefault();
     });
-    const onMove = e => {
-        if (!_IFMC.panning) return;
-        _IFMC.panX = _IFMC.panOX + (e.clientX - _IFMC.panSX);
-        _IFMC.panY = _IFMC.panOY + (e.clientY - _IFMC.panSY);
-        _ifmApplyCanvasTransform();
-    };
+    const onMove = e => { if (!_IFMC.panning) return; _IFMC.panX = _IFMC.panOX + (e.clientX - _IFMC.panSX); _IFMC.panY = _IFMC.panOY + (e.clientY - _IFMC.panSY); _ifmApplyCanvasTransform(); };
     const onUp = () => { if (!_IFMC.panning) return; _IFMC.panning = false; wrap.style.cursor = 'grab'; };
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
-
-    wrap.addEventListener('dblclick', () => {
-        _IFMC.zoom = 1; _IFMC.panX = 0; _IFMC.panY = 0;
-        _ifmCanvasFitToView();
-    });
+    wrap.addEventListener('dblclick', () => { _IFMC.zoom = 1; _IFMC.panX = 0; _IFMC.panY = 0; _ifmCanvasFitToView(); });
 }
 
 function _ifmRenderStep6() {
@@ -1503,22 +1554,26 @@ function _ifmRenderStep6() {
     _ifmSaveHistory();
     _ifmUpdateHistCount();
 
-    // Reset canvas state
     _IFMC.zoom = 1; _IFMC.panX = 0; _IFMC.panY = 0;
     _IFMC.maximised = false; _IFMC.origStyle = null;
 
     const srv = IFM_SERVERS.find(s => s.id === _IFM.modelServer) || IFM_SERVERS[0];
     const body = document.getElementById('ifm-body');
+
+    // For the HTML header we use srv.icon (img tag or emoji span).
+    // The SVG canvas uses a text glyph mapped from server id (SVG can't embed external images).
+    const srvCanvasGlyph = _ifmServerCanvasGlyph(srv.id);
+
     body.innerHTML = `
 <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;">
   <div>
     <div style="font-size:13px;font-weight:700;color:var(--text0);">Generated Inference Pipeline SQL</div>
-    <div style="font-size:10px;color:var(--text3);font-family:var(--mono);margin-top:2px;">
+    <div style="font-size:10px;color:var(--text3);font-family:var(--mono);margin-top:2px;display:flex;align-items:center;gap:6px;">
       <span style="color:var(--blue);">${_escIfm(_IFM.sourceTable)}</span>
-      → <span style="color:var(--yellow);">${srv.icon} ${srv.name}</span>
+      → <span style="display:inline-flex;align-items:center;gap:4px;color:var(--yellow);">${srv.icon} ${srv.name}</span>
       → <span style="color:var(--blue);">${_escIfm(_IFM.inferenceConfig.outputAlias)}</span>
       → <span style="color:var(--accent);">${_escIfm(_IFM.outputTable)}</span>
-      <span style="margin-left:6px;background:rgba(79,163,224,0.1);color:var(--blue);padding:1px 7px;border-radius:10px;font-size:9px;font-weight:700;">SAVED TO HISTORY</span>
+      <span style="background:rgba(79,163,224,0.1);color:var(--blue);padding:1px 7px;border-radius:10px;font-size:9px;font-weight:700;">SAVED TO HISTORY</span>
     </div>
   </div>
   <div style="margin-left:auto;">
@@ -1531,7 +1586,6 @@ function _ifmRenderStep6() {
 
   <!-- ── Canvas panel ── -->
   <div id="ifm-canvas-container" style="display:flex;flex-direction:column;overflow:hidden;background:var(--bg0);border:1px solid rgba(79,163,224,0.25);border-radius:5px;">
-    <!-- Toolbar -->
     <div style="display:flex;align-items:center;gap:4px;padding:5px 8px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;">
       <span style="font-size:9px;font-weight:700;color:var(--text3);letter-spacing:1.2px;text-transform:uppercase;flex:1;">Inference Pipeline Canvas</span>
       <button onclick="_ifmCanvasZoom(-0.15)" title="Zoom out"
@@ -1544,15 +1598,13 @@ function _ifmRenderStep6() {
       <button id="ifm-canvas-max-btn" onclick="_ifmToggleCanvasMaximise()" title="Maximise canvas"
         style="font-size:12px;line-height:1;padding:2px 7px;border-radius:3px;border:1px solid var(--border);background:var(--bg3);color:var(--text3);cursor:pointer;">⊞</button>
     </div>
-    <!-- Viewport -->
     <div id="ifm-canvas-wrap" style="flex:1;overflow:hidden;position:relative;cursor:grab;background:var(--bg0);">
       <svg id="ifm-canvas-svg" style="transform-origin:0 0;will-change:transform;display:block;overflow:visible;"></svg>
     </div>
-    <!-- Legend -->
     <div style="display:flex;gap:10px;padding:4px 10px;border-top:1px solid var(--border);flex-shrink:0;background:var(--bg2);flex-wrap:wrap;">
       <span style="font-size:9px;color:#4e9de8;font-family:var(--mono);">◉ Source cols</span>
       <span style="font-size:9px;color:#b080e0;font-family:var(--mono);">⨍ Pre-process</span>
-      <span style="font-size:9px;color:#4fa3e0;font-family:var(--mono);">${srv.icon} Model</span>
+      <span style="font-size:9px;color:#4fa3e0;font-family:var(--mono);display:inline-flex;align-items:center;gap:3px;"><span style="display:inline-flex;align-items:center;width:14px;height:14px;overflow:hidden;">${srv.icon.replace(/width="22"/g,'width="14"').replace(/height="22"/g,'height="14"').replace(/width="20"/g,'width="14"').replace(/height="20"/g,'height="14"')}</span> Model</span>
       <span style="font-size:9px;color:#00d4aa;font-family:var(--mono);">▣ Output</span>
       <span style="font-size:9px;color:var(--text3);font-family:var(--mono);margin-left:auto;">scroll=zoom · drag=pan · dblclick=fit</span>
     </div>
@@ -1575,24 +1627,63 @@ function _ifmRenderStep6() {
     setTimeout(() => { _ifmDrawCanvasSvg(); _ifmWireCanvasInteraction(); }, 80);
 }
 
+// ── Canvas glyph mapping: SVG can't embed external <img> tags, so we map
+//    each server id to a short Unicode glyph used inside the SVG canvas only.
+function _ifmServerCanvasGlyph(id) {
+    const map = {
+        mlflow:'🔬', mlflow_serve:'🔬',
+        sagemaker:'☁', bedrock:'☁',
+        azureml:'🔷', vertexai:'⬡',
+        databricks:'🧱', bentoml:'🍱',
+        triton:'⚡', torchserve:'🔥',
+        tfserving:'🧠', ray:'🌞',
+        seldon:'🚀', kserve:'🎯',
+        minio:'🗄', huggingface:'🤗',
+        openai:'✦', anthropic:'✧',
+        cohere:'🔵', mistral:'💨',
+        together:'🌐', openai_compat:'🔌',
+        custom_http:'⚙', custom_grpc:'⚡',
+        custom_udf:'⨍',
+    };
+    return map[id] || '🔬';
+}
+
+// Renders the actual srv.icon HTML into the SVG canvas via <foreignObject>.
+// x, y = top-left corner of the icon box; size = width & height in px.
+// Returns an SVG <foreignObject> string containing the real icon HTML.
+function _ifmServerIconSvg(srv, cx, cy, size) {
+    size = size || 40;
+    const x = cx - size / 2;
+    const y = cy - size / 2;
+    // Wrap the icon in a centered flex div so both <img> and <svg> icons
+    // render at the right size regardless of their natural dimensions.
+    return `<foreignObject x="${x}" y="${y}" width="${size}" height="${size}">`
+        + `<div xmlns="http://www.w3.org/1999/xhtml" style="width:${size}px;height:${size}px;`
+        + `display:flex;align-items:center;justify-content:center;overflow:hidden;">`
+        + `<div style="width:${size}px;height:${size}px;display:flex;align-items:center;`
+        + `justify-content:center;filter:drop-shadow(0 0 4px rgba(79,163,224,0.5));">`
+        + srv.icon
+        + `</div></div></foreignObject>`;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
-// Inference Canvas — SVG-based, fully zoomable / pannable
+// Inference Canvas SVG (unchanged — uses text glyphs, not img tags)
 // ─────────────────────────────────────────────────────────────────────────────
 function _ifmDrawCanvasSvg() {
     const svgEl = document.getElementById('ifm-canvas-svg');
     const wrap  = document.getElementById('ifm-canvas-wrap');
     if (!svgEl || !wrap) return;
 
-    const srv   = IFM_SERVERS.find(s => s.id === _IFM.modelServer) || IFM_SERVERS[0];
-    const cols  = (_IFM.selectedInputCols.length ? _IFM.selectedInputCols : _IFM.inputColumns.map(c=>c.name));
-    const ic    = _IFM.inferenceConfig;
-    const alias = ic.outputAlias || 'prediction';
+    const srv      = IFM_SERVERS.find(s => s.id === _IFM.modelServer) || IFM_SERVERS[0];
+    const srvGlyph = _ifmServerCanvasGlyph(srv.id);
+    const cols     = (_IFM.selectedInputCols.length ? _IFM.selectedInputCols : _IFM.inputColumns.map(c=>c.name));
+    const ic       = _IFM.inferenceConfig;
+    const alias    = ic.outputAlias || 'prediction';
     const outTable = _IFM.outputTable || 'output';
-    const hasPre  = !!ic.preProcessExpr?.trim();
-    const hasPost = !!ic.postProcessExpr?.trim();
-    const ptCols  = (ic.passthroughCols || '').split(',').map(c=>c.trim()).filter(Boolean);
+    const hasPre   = !!ic.preProcessExpr?.trim();
+    const hasPost  = !!ic.postProcessExpr?.trim();
+    const ptCols   = (ic.passthroughCols || '').split(',').map(c=>c.trim()).filter(Boolean);
 
-    // ── Layout
     const PAD    = 28;
     const NODE_W = 155;
     const COL_H  = 22;
@@ -1600,32 +1691,26 @@ function _ifmDrawCanvasSvg() {
     const MODEL_H = 90;
     const HGAP   = 75;
 
-    // Column count drives height
     const displayCols = cols.slice(0, 20);
     const colsH = displayCols.length * (COL_H + COL_GAP) - COL_GAP;
     const srcH  = 44;
 
-    // X positions: source | [pre-process] | model | [post] | output
-    const colCount = 2 + (hasPre ? 1 : 0) + (hasPost ? 1 : 0);
-    const X0 = PAD;
-    const X1 = X0 + NODE_W + HGAP;
-    const X2 = X1 + (hasPre ? NODE_W + HGAP : 0);
-    const X3 = X2 + NODE_W + HGAP;
-    const X4 = X3 + (hasPost ? NODE_W + HGAP : 0);
-    const X_OUT = hasPost ? X4 : X3 + NODE_W + HGAP;
+    const X0  = PAD;
+    const X1  = X0 + NODE_W + HGAP;
+    const X2  = X1 + (hasPre ? NODE_W + HGAP : 0);
+    const X3  = X2 + NODE_W + HGAP;
+    const X_OUT = hasPost ? X3 + NODE_W + HGAP : X3 + NODE_W + HGAP;
 
-    const totalW = X_OUT + NODE_W + PAD;
+    const totalW  = X_OUT + NODE_W + PAD;
     const contentH = Math.max(srcH + 16 + colsH, MODEL_H + 60, 200) + PAD * 2;
-    const midY = contentH / 2;
-    const totalH = contentH;
+    const midY    = contentH / 2;
+    const totalH  = contentH;
 
     _IFMC.svgW = totalW;
     _IFMC.svgH = totalH;
 
-    // ── Colours
     const C = {
-        bg:    '#060a12',
-        grid:  'rgba(79,163,224,0.04)',
+        bg:'#060a12', grid:'rgba(79,163,224,0.04)',
         src:   { fill:'rgba(26,111,168,0.16)',  stroke:'#4e9de8', text:'#a8d4f5', sub:'#4a7a9a' },
         col:   { fill:'rgba(26,111,168,0.09)',  stroke:'rgba(78,157,232,0.4)', text:'#7aafd4', type:'#3a6080' },
         pre:   { fill:'rgba(90,42,138,0.16)',   stroke:'#b080e0', text:'#d4b0ff', sub:'#8060b0' },
@@ -1638,19 +1723,9 @@ function _ifmDrawCanvasSvg() {
 
     const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     const tr  = (s, n) => (s||'').length > n ? (s||'').slice(0,n)+'…' : (s||'');
-
-    const rr = (x,y,w,h,r,fill,stroke,sw) =>
-        `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}" fill="${fill}" stroke="${stroke}" stroke-width="${sw||1.5}"/>`;
-
-    const txt = (s,x,y,fill,size,weight,anchor) =>
-        `<text x="${x}" y="${y}" fill="${fill}" font-size="${size||10}" font-weight="${weight||'400'}"
-      font-family="var(--mono,monospace)" text-anchor="${anchor||'start'}" dominant-baseline="middle">${esc(s)}</text>`;
-
-    const bezier = (x1,y1,x2,y2,color,sw) => {
-        const cp = Math.abs(x2-x1)*0.42;
-        return `<path d="M${x1},${y1} C${x1+cp},${y1} ${x2-cp},${y2} ${x2},${y2}"
-      stroke="${color}" stroke-width="${sw||1.4}" fill="none" opacity="0.9" marker-end="url(#ifm-arr)"/>`;
-    };
+    const rr  = (x,y,w,h,r,fill,stroke,sw) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}" fill="${fill}" stroke="${stroke}" stroke-width="${sw||1.5}"/>`;
+    const txt = (s,x,y,fill,size,weight,anchor) => `<text x="${x}" y="${y}" fill="${fill}" font-size="${size||10}" font-weight="${weight||'400'}" font-family="var(--mono,monospace)" text-anchor="${anchor||'start'}" dominant-baseline="middle">${esc(s)}</text>`;
+    const bezier = (x1,y1,x2,y2,color,sw) => { const cp=Math.abs(x2-x1)*0.42; return `<path d="M${x1},${y1} C${x1+cp},${y1} ${x2-cp},${y2} ${x2},${y2}" stroke="${color}" stroke-width="${sw||1.4}" fill="none" opacity="0.9" marker-end="url(#ifm-arr)"/>`; };
 
     let s = `<defs>
     <marker id="ifm-arr" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
@@ -1663,22 +1738,21 @@ function _ifmDrawCanvasSvg() {
     </radialGradient>
   </defs>`;
 
-    // Background + grid
     s += `<rect width="${totalW}" height="${totalH}" fill="${C.bg}"/>`;
     for (let x=0;x<=totalW;x+=22) s += `<line x1="${x}" y1="0" x2="${x}" y2="${totalH}" stroke="${C.grid}" stroke-width="0.5"/>`;
     for (let y=0;y<=totalH;y+=22) s += `<line x1="0" y1="${y}" x2="${totalW}" y2="${y}" stroke="${C.grid}" stroke-width="0.5"/>`;
 
-    // Column headers
+    // Headers
     const headers = [
-        { x:X0,   l:'SOURCE FEATURES' },
-        hasPre  ? { x:X1, l:'PRE-PROCESS' } : null,
+        { x:X0, l:'SOURCE FEATURES' },
+        hasPre ? { x:X1, l:'PRE-PROCESS' } : null,
         { x:hasPre?X2:X1, l:`MODEL · ${srv.name.toUpperCase()}` },
         hasPost ? { x:X3+NODE_W+HGAP, l:'POST-PROCESS' } : null,
         { x:X_OUT, l:'OUTPUT' },
     ].filter(Boolean);
     headers.forEach(h => { s += txt(h.l, h.x, PAD-10, 'rgba(100,150,200,0.4)', 8, '700'); });
 
-    // ── Source node
+    // Source node
     const srcY = PAD;
     const srcMid = srcY + srcH/2;
     s += rr(X0, srcY, NODE_W, srcH, 6, C.src.fill, C.src.stroke, 2);
@@ -1686,7 +1760,7 @@ function _ifmDrawCanvasSvg() {
     s += txt(tr(_IFM.sourceTable||'source',14), X0+26, srcMid-7, C.src.text, 11, '700');
     s += txt(`${cols.length} input features`, X0+26, srcMid+7, C.src.sub, 9);
 
-    // ── Feature column nodes
+    // Column nodes
     const colY0 = srcY + srcH + 14;
     const colRx = X0 + NODE_W;
     const colMids = [];
@@ -1701,64 +1775,70 @@ function _ifmDrawCanvasSvg() {
         const colObj = _IFM.inputColumns.find(col=>col.name===c);
         s += txt(tr(c,14), X0+7, mid, isInput?'#00d4aa':isPT?'#6090c0':C.col.text, 10, isInput?'700':'400');
         if (colObj) s += txt(colObj.type, X0+NODE_W-6, mid, C.col.type, 8, '400', 'end');
-        if (isInput) s += txt('→ model input', X0+7, mid+COL_H/2+3, 'rgba(0,212,170,0.5)', 7, '400');
-        // Fan from source
         s += `<line x1="${colRx}" y1="${srcY+srcH}" x2="${colRx}" y2="${mid}" stroke="${C.edge.src}" stroke-width="0.8" opacity="0.3"/>`;
         colMids.push(mid);
     });
-    // Trunk
-    if (colMids.length > 1) {
-        s += `<line x1="${colRx}" y1="${srcY+srcH}" x2="${colRx}" y2="${colMids[colMids.length-1]}" stroke="${C.edge.src}" stroke-width="0.8" opacity="0.2"/>`;
-    }
+    if (colMids.length > 1) s += `<line x1="${colRx}" y1="${srcY+srcH}" x2="${colRx}" y2="${colMids[colMids.length-1]}" stroke="${C.edge.src}" stroke-width="0.8" opacity="0.2"/>`;
 
-    // ── Pre-process node
+    // Pre-process node
     let preRightX = colRx, preRightY = midY;
     if (hasPre) {
-        const ppH = 44, ppY = midY - ppH/2;
-        const ppMid = midY;
+        const ppH = 44, ppY = midY - ppH/2, ppMid = midY;
         s += rr(X1, ppY, NODE_W, ppH, 6, C.pre.fill, C.pre.stroke, 1.8);
         s += txt('⨍', X1+8, ppMid, C.pre.stroke, 15);
         s += txt('Pre-process', X1+26, ppMid-8, C.pre.text, 11, '600');
         s += txt(tr(ic.preProcessExpr||'transform',16), X1+26, ppMid+6, C.pre.sub, 8);
-        // Edges from all cols
         colMids.forEach(cy => s += bezier(colRx, cy, X1, ppMid, C.edge.pre, 1.1));
         preRightX = X1+NODE_W; preRightY = ppMid;
     } else {
-        // Direct edges from input col to model
-        const inputIdx = displayCols.indexOf(ic.inputCol);
-        const targetMids = inputIdx >= 0 ? [colMids[inputIdx]] : colMids.slice(0,3);
-        targetMids.forEach(cy => {
-            const edgeMidY = (cy + midY)/2;
-            s += bezier(colRx, cy, hasPre?X2:X1, midY, C.edge.pre, 1.2);
-        });
-        preRightX = colRx; preRightY = colMids[0] || midY;
+        // Draw lines from ALL columns to the model node.
+        // To avoid visual clutter with many columns, bundle them into a
+        // single convergence point at the mid-right edge of the column panel,
+        // then draw one thicker line from there to the model.
+        const modelTargetX = hasPre ? X2 : X1;
+        if (colMids.length <= 6) {
+            // Few columns — draw individual lines
+            colMids.forEach(cy => s += bezier(colRx, cy, modelTargetX, midY, C.edge.pre, 1.2));
+        } else {
+            // Many columns — draw individual thin lines to a funnel point,
+            // then one thicker line from funnel to model
+            const funnelX = colRx + HGAP * 0.4;
+            const funnelY = midY;
+            colMids.forEach(cy => {
+                s += `<line x1="${colRx}" y1="${cy}" x2="${funnelX}" y2="${funnelY}"
+                    stroke="${C.edge.pre}" stroke-width="0.7" opacity="0.35"/>`;
+            });
+            // Funnel convergence dot
+            s += `<circle cx="${funnelX}" cy="${funnelY}" r="4"
+                fill="${C.edge.pre}" opacity="0.5"/>`;
+            // One thick line from funnel to model
+            s += bezier(funnelX, funnelY, modelTargetX, midY, C.edge.model, 2.2);
+            // Label showing count
+            s += txt(`${colMids.length} features`, funnelX + 6, funnelY - 10,
+                C.edge.pre, 8, '600');
+        }
     }
 
-    // ── Model server node (hero node, larger)
+    // Model server node (hero)
     const modelX = hasPre ? X2 : X1;
     const modelY = midY - MODEL_H/2;
     const modelMidY = midY;
-    // Outer glow ring
     s += `<circle cx="${modelX+NODE_W/2}" cy="${modelMidY}" r="${MODEL_H*0.62}" fill="url(#ifm-model-grad)" stroke="${C.model.stroke}" stroke-width="1" opacity="0.5"/>`;
     s += `<circle cx="${modelX+NODE_W/2}" cy="${modelMidY}" r="${MODEL_H*0.62}" fill="none" stroke="${C.model.stroke}" stroke-width="1.5" stroke-dasharray="5 5" opacity="0.2"/>`;
-    // Main box
     s += rr(modelX, modelY, NODE_W, MODEL_H, 10, C.model.fill, C.model.stroke, 2.5);
-    // Glow effect
     s += `<rect x="${modelX}" y="${modelY}" width="${NODE_W}" height="${MODEL_H}" rx="10" fill="none" stroke="${C.model.stroke}" stroke-width="1" opacity="0.15" filter="url(#ifm-glow)"/>`;
-    // Icon
-    s += `<text x="${modelX+NODE_W/2}" y="${modelMidY-16}" font-size="22" text-anchor="middle" dominant-baseline="middle" font-family="serif">${esc(srv.icon)}</text>`;
-    s += txt(tr(srv.name,16), modelX+NODE_W/2, modelMidY+4, C.model.text, 11, '700', 'center');
-    s += txt(_IFM.modelServer, modelX+NODE_W/2, modelMidY+17, C.model.sub, 8, '400', 'center');
+    // Use text glyph in SVG (img tags not supported inside SVG)
+    s += _ifmServerIconSvg(srv, modelX + NODE_W / 2, modelMidY - 14, 36);
+    s += txt(tr(srv.name,16), modelX+NODE_W/2, modelMidY+14, C.model.text, 11, '700', 'center');
+    s += txt(_IFM.modelServer, modelX+NODE_W/2, modelMidY+26, C.model.sub, 8, '400', 'center');
     s += txt('async UDF', modelX+NODE_W/2, modelY-12, 'rgba(79,163,224,0.4)', 8, '400', 'center');
-    // Edge from pre/cols
     if (hasPre) s += bezier(preRightX, preRightY, modelX, modelMidY, C.edge.model, 1.6);
 
-    // ── Post-process node
+    // Post-process node
     const modelRx = modelX + NODE_W;
     let outLeftX = modelRx, outLeftY = modelMidY;
     if (hasPost) {
-        const ppH = 40, ppY = modelMidY - ppH/2;
-        const ppMid = modelMidY;
+        const ppH = 40, ppY = modelMidY - ppH/2, ppMid = modelMidY;
         s += rr(X3+NODE_W+HGAP, ppY, NODE_W, ppH, 5, C.post.fill, C.post.stroke, 1.5);
         s += txt('⨍', X3+NODE_W+HGAP+8, ppMid, C.post.stroke, 13);
         s += txt('Post-process', X3+NODE_W+HGAP+24, ppMid-7, C.post.text, 10, '600');
@@ -1767,7 +1847,7 @@ function _ifmDrawCanvasSvg() {
         outLeftX = X3+NODE_W+HGAP+NODE_W; outLeftY = ppMid;
     }
 
-    // ── Output node
+    // Output node
     const outH = 52, outY = midY - outH/2, outMid = midY;
     s += rr(X_OUT, outY, NODE_W, outH, 7, C.out.fill, C.out.stroke, 2.5);
     s += `<rect x="${X_OUT}" y="${outY}" width="${NODE_W}" height="${outH}" rx="7" fill="none" stroke="${C.out.stroke}" stroke-width="1" opacity="0.18" filter="url(#ifm-glow)"/>`;
@@ -1775,22 +1855,19 @@ function _ifmDrawCanvasSvg() {
     s += txt(tr(alias,14), X_OUT+26, outMid-9, C.out.text, 11, '700');
     s += txt(`${ic.outputType||'DOUBLE'}`, X_OUT+26, outMid+3, 'rgba(0,212,170,0.6)', 9);
     s += txt(`→ ${tr(outTable,12)}`, X_OUT+26, outMid+15, C.out.sub, 8);
-    // Edge from model or post
     if (!hasPost) s += bezier(modelRx, modelMidY, X_OUT, outMid, C.edge.out, 1.6);
     else s += bezier(outLeftX, outLeftY, X_OUT, outMid, C.edge.out, 1.6);
 
-    // ── Passthrough annotation
+    // Passthrough annotation
     if (ptCols.length) {
         const ptY = outY + outH + 8;
         const ptH = 16 + ptCols.length * 14;
         s += rr(X_OUT, ptY, NODE_W, ptH, 4, C.pt.fill, C.pt.stroke, 1);
         s += txt('passthrough', X_OUT+8, ptY+10, C.pt.text, 8, '700');
-        ptCols.slice(0,5).forEach((c,i) => {
-            s += txt(`· ${c}`, X_OUT+10, ptY+22+i*13, '#6090c0', 9);
-        });
+        ptCols.slice(0,5).forEach((c,i) => { s += txt(`· ${c}`, X_OUT+10, ptY+22+i*13, '#6090c0', 9); });
     }
 
-    // ── Async parallelism badge on model
+    // Async parallelism badge
     if (ic.asyncParallelism) {
         s += `<rect x="${modelX+NODE_W-28}" y="${modelY+2}" width="26" height="14" rx="3" fill="rgba(79,163,224,0.15)" stroke="${C.model.stroke}" stroke-width="0.8"/>`;
         s += txt(`p${ic.asyncParallelism}`, modelX+NODE_W-15, modelY+9, C.model.stroke, 8, '700', 'middle');
@@ -1800,46 +1877,45 @@ function _ifmDrawCanvasSvg() {
     svgEl.setAttribute('height', totalH);
     svgEl.setAttribute('viewBox', `0 0 ${totalW} ${totalH}`);
     svgEl.innerHTML = s;
-
     setTimeout(_ifmCanvasFitToView, 30);
 }
 
-// Legacy stub — keep for any existing setTimeout references
 function _ifmDrawCanvas() { _ifmDrawCanvasSvg(); }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SQL Generation
+// SQL Generation (unchanged from original)
 // ─────────────────────────────────────────────────────────────────────────────
 function _ifmGenerateSql() {
-    // Ensure latest sink fields are collected before generating
     _ifmCollectSinkConfig();
+    const src          = _IFM.sourceTable || 'source_table';
+    const out          = _IFM.outputTable || (src + '_scored');
+    const ic           = _IFM.inferenceConfig;
+    const srv          = IFM_SERVERS.find(s => s.id === _IFM.modelServer) || IFM_SERVERS[0];
+    const mc           = _IFM.modelConfig;
+    const ac           = _IFM.authConfig;
+    const sc           = _IFM.sinkConfig || {};
+    const mthCfg       = _IFM.inferenceMethodConfig || {};
+    const method       = _IFM.inferenceMethod || 'async_udf';
+    const cols         = _IFM.inputColumns;
+    const ptCols       = (ic.passthroughCols || '').split(',').map(c=>c.trim()).filter(Boolean);
+    const inputCol     = ic.inputCol    || (cols[0]?.name || 'feature_col');
+    const outputAlias  = ic.outputAlias || 'prediction';
+    const outputType   = ic.outputType  || 'DOUBLE';
+    const selCols      = _IFM.selectedInputCols.length ? _IFM.selectedInputCols : cols.map(c=>c.name);
 
-    const src   = _IFM.sourceTable || 'source_table';
-    const out   = _IFM.outputTable || (src + '_scored');
-    const ic    = _IFM.inferenceConfig;
-    const srv   = IFM_SERVERS.find(s => s.id === _IFM.modelServer) || IFM_SERVERS[0];
-    const mc    = _IFM.modelConfig;
-    const ac    = _IFM.authConfig;
-    const sc    = _IFM.sinkConfig || {};
-    const cols  = _IFM.inputColumns;
-    const ptCols = (ic.passthroughCols || '').split(',').map(c=>c.trim()).filter(Boolean);
-    const inputCol    = ic.inputCol    || (cols[0]?.name || 'feature_col');
-    const outputAlias = ic.outputAlias || 'prediction';
-    const outputType  = ic.outputType  || 'DOUBLE';
-
-    // ── helpers
-    const q   = v => v ? `'${v}'` : "'<REQUIRED>'";         // single-quote value
-    const pad = (k, width) => k.padEnd(width || 36);         // key alignment
+    const q   = v => v ? `'${v}'` : "'<REQUIRED>'";
+    const pad = (k, width) => k.padEnd(width || 36);
 
     const lines = [];
     lines.push('-- ═══════════════════════════════════════════════════════════════════════════');
     lines.push('-- Real-time ML Inference Pipeline');
-    lines.push(`-- Model Server  : ${srv.icon} ${srv.name}`);
-    lines.push(`-- Auth          : ${_IFM.authType}`);
-    lines.push(`-- Source Table  : ${src}`);
-    lines.push(`-- Output Sink   : ${_IFM.sinkType} → ${out}`);
-    lines.push(`-- Prediction    : ${outputAlias} (${outputType})`);
-    lines.push(`-- Generated     : ${new Date().toISOString()}`);
+    lines.push(`-- Model Server     : ${srv.name}`);
+    lines.push(`-- Inference Method : ${IFM_INFERENCE_METHODS.find(m=>m.id===method)?.label || method}`);
+    lines.push(`-- Auth             : ${_IFM.authType}`);
+    lines.push(`-- Source Table     : ${src}`);
+    lines.push(`-- Output Sink      : ${_IFM.sinkType} → ${out}`);
+    lines.push(`-- Prediction       : ${outputAlias} (${outputType})`);
+    lines.push(`-- Generated        : ${new Date().toISOString()}`);
     lines.push('-- Str:::lab Studio — Inference Manager');
     lines.push('-- ═══════════════════════════════════════════════════════════════════════════\n');
 
@@ -1847,31 +1923,247 @@ function _ifmGenerateSql() {
     lines.push(`SET 'parallelism.default' = '${ic.parallelism || 4}';`);
     lines.push(`SET 'execution.checkpointing.interval' = '${ic.checkpointInterval || 10000}';\n`);
 
-    // ── Source table reference (commented — it already exists in the session)
+    // Source schema reference comment
     lines.push(`-- Source table schema reference (table already created in your session)`);
     lines.push(`-- CREATE TEMPORARY TABLE IF NOT EXISTS ${src} (`);
     cols.forEach(c => lines.push(`--   ${c.name.padEnd(30)} ${c.type},`));
     lines.push(`-- ) WITH ( ... );\n`);
 
-    // ── Output / scored-results sink DDL — fully populated from user config
-    lines.push(`-- ── Output table: ${out} (${_IFM.sinkType} sink) ──────────────────────────────`);
-    lines.push(`CREATE TEMPORARY TABLE IF NOT EXISTS ${out} (`);
+    // ── Output sink DDL ──────────────────────────────────────────────────────
+    // Skip sink DDL for Flink ML (uses ML_PREDICT which returns its own output)
+    // and for udf_view when insert=no
+    const skipSinkDDL = method === 'flink_ml'
+        || (method === 'udf_view' && mthCfg['ifm-mth-view-insert'] === 'no');
 
-    // All passthrough cols
-    ptCols.forEach(c => {
-        const colDef = cols.find(col => col.name === c);
-        lines.push(`  ${c.padEnd(30)} ${colDef?.type || 'STRING'},`);
-    });
-    // Primary input col (if not already a passthrough)
-    if (!ptCols.includes(inputCol)) {
-        const inputType = cols.find(c => c.name === inputCol)?.type || 'DOUBLE';
-        lines.push(`  ${inputCol.padEnd(30)} ${inputType},`);
+    if (!skipSinkDDL) {
+        lines.push(`-- ── Output table: ${out} (${_IFM.sinkType} sink) ──────────────────────────────`);
+        lines.push(`CREATE TEMPORARY TABLE IF NOT EXISTS ${out} (`);
+        ptCols.forEach(c => {
+            const colDef = cols.find(col => col.name === c);
+            lines.push(`  ${c.padEnd(30)} ${colDef?.type || 'STRING'},`);
+        });
+        if (!ptCols.includes(inputCol)) {
+            const inputType = cols.find(c => c.name === inputCol)?.type || 'DOUBLE';
+            lines.push(`  ${inputCol.padEnd(30)} ${inputType},`);
+        }
+        lines.push(`  ${outputAlias.padEnd(30)} ${outputType}`);
+        lines.push(`) WITH (`);
+        _ifmBuildSinkWith(lines, sc, out, _IFM.sinkType, pad, q);
+        lines.push(`);\n`);
     }
-    // Model output
-    lines.push(`  ${outputAlias.padEnd(30)} ${outputType}`);
-    lines.push(`) WITH (`);
 
-    switch (_IFM.sinkType) {
+    // ── Method-specific SQL ──────────────────────────────────────────────────
+    lines.push(`-- ── Model Server Configuration ─────────────────────────────────────────────`);
+    lines.push(`-- Server   : ${srv.name} (${_IFM.modelServer})`);
+    const endpoint = mc['ifm-mc-endpoint'] || '';
+    if (endpoint) lines.push(`-- Endpoint : ${endpoint}`);
+    const modelName = mc['ifm-mc-model-name'] || '';
+    if (modelName) lines.push(`-- Model    : ${modelName}`);
+    _ifmServerConfigComment(lines, mc);
+    lines.push('');
+
+    switch (method) {
+
+        // ── 1. Async Scalar UDF ───────────────────────────────────────────────
+        case 'async_udf': {
+            const udfName  = mthCfg['ifm-mth-udf-name']  || 'CALL_MODEL_UDF';
+            const udfClass = mthCfg['ifm-mth-udf-class'] || `com.yourcompany.flink.udf.${_ifmUdfClassName(srv.name)}AsyncUDF`;
+            const udfLang  = mthCfg['ifm-mth-udf-lang']  || 'JAVA';
+            const udfJar   = mthCfg['ifm-mth-udf-jar']   || '';
+
+            lines.push(`-- ── Async UDF settings ─────────────────────────────────────────────────────`);
+            lines.push(`--   Timeout          : ${ic.timeoutMs || 5000}ms`);
+            lines.push(`--   Retries          : ${ic.retries || 2}`);
+            lines.push(`--   On error         : ${ic.onError || '-1.0'}`);
+            lines.push(`--   Async parallelism: ${ic.asyncParallelism || 4}`);
+            if (udfJar) lines.push(`--   JAR              : ${udfJar}`);
+            lines.push(`-- ─────────────────────────────────────────────────────────────────────────\n`);
+
+            lines.push(`-- Register the async inference UDF`);
+            lines.push(`CREATE TEMPORARY FUNCTION IF NOT EXISTS ${udfName}`);
+            lines.push(`  AS '${udfClass}'`);
+            lines.push(`  LANGUAGE ${udfLang};\n`);
+
+            const udfArgs = _ifmBuildUdfArgs(srv, mc, inputCol, ic);
+            const selectItems = _ifmBuildSelectItems(ptCols, inputCol, ic, `${udfName}(${udfArgs}) AS ${outputAlias}`);
+
+            lines.push(`-- ── Streaming inference pipeline ───────────────────────────────────────────`);
+            lines.push(`-- Score each incoming record from ${src} using ${srv.name} (Async UDF)`);
+            lines.push(`INSERT INTO ${out}`);
+            lines.push(`SELECT`);
+            lines.push(`  ` + selectItems.join(',\n  '));
+            lines.push(`FROM ${src};\n`);
+            break;
+        }
+
+        // ── 2. Flink ML Predict ───────────────────────────────────────────────
+        case 'flink_ml': {
+            const mlModelName = mthCfg['ifm-mth-flinkml-name'] || 'inference_model';
+            const mlPath      = mthCfg['ifm-mth-flinkml-path'] || '/opt/flink/models/model.onnx';
+            const mlFmt       = mthCfg['ifm-mth-flinkml-fmt']  || 'ONNX';
+            const mlInputs    = mthCfg['ifm-mth-flinkml-input'] || selCols.join(', ');
+            const mlOutput    = mthCfg['ifm-mth-flinkml-output']|| outputAlias;
+            const flinkVer    = mthCfg['ifm-mth-flinkml-ver']  || '1.18';
+
+            lines.push(`-- ── Flink ML Predict (native, Flink ${flinkVer}+) ─────────────────────────────`);
+            lines.push(`-- Model format : ${mlFmt}`);
+            lines.push(`-- Model path   : ${mlPath}`);
+            lines.push(`-- Flink docs   : https://nightlies.apache.org/flink/flink-ml-docs-stable/\n`);
+
+            lines.push(`-- Step 1: Register the model`);
+            lines.push(`CREATE MODEL IF NOT EXISTS ${mlModelName}`);
+            lines.push(`INPUT (${mlInputs})`);
+            lines.push(`OUTPUT (${mlOutput} ${outputType})`);
+            lines.push(`WITH (`);
+            lines.push(`  'provider' = 'local',`);
+            lines.push(`  'format'   = '${mlFmt}',`);
+            lines.push(`  'path'     = '${mlPath}'`);
+            lines.push(`);\n`);
+
+            lines.push(`-- Step 2: Create output sink`);
+            lines.push(`CREATE TEMPORARY TABLE IF NOT EXISTS ${out} (`);
+            ptCols.forEach(c => {
+                const colDef = cols.find(col => col.name === c);
+                lines.push(`  ${c.padEnd(30)} ${colDef?.type || 'STRING'},`);
+            });
+            lines.push(`  ${mlOutput.padEnd(30)} ${outputType}`);
+            lines.push(`) WITH (`);
+            _ifmBuildSinkWith(lines, sc, out, _IFM.sinkType, pad, q);
+            lines.push(`);\n`);
+
+            lines.push(`-- Step 3: Run inference using ML_PREDICT`);
+            lines.push(`-- Score each incoming record from ${src} using Flink ML (${mlFmt})`);
+            lines.push(`INSERT INTO ${out}`);
+            lines.push(`SELECT ${ptCols.length ? ptCols.join(', ') + ', ' : ''}${mlOutput}`);
+            lines.push(`FROM ML_PREDICT(`);
+            lines.push(`  TABLE ${src},`);
+            lines.push(`  MODEL ${mlModelName}`);
+            lines.push(`);\n`);
+            break;
+        }
+
+        // ── 3. Otter-Streams Connector ─────────────────────────────────────────
+        case 'otter_streams': {
+            const otterFn    = mthCfg['ifm-mth-otter-fn']    || 'OTTER_ML_PREDICT';
+            const otterEp    = mthCfg['ifm-mth-otter-ep']    || endpoint;
+            const otterVer   = mthCfg['ifm-mth-otter-ver']   || 'latest';
+            const otterReg   = mthCfg['ifm-mth-otter-reg']   || 'yes';
+            const otterClass = mthCfg['ifm-mth-otter-class'] || 'com.otterstreams.flink.udf.OtterMLPredict';
+            const otterJar   = mthCfg['ifm-mth-otter-jar']   || '/opt/flink/lib/otter-streams-connector.jar';
+
+            lines.push(`-- ── Otter-Streams ML Inference Connector ───────────────────────────────────`);
+            lines.push(`-- Function     : ${otterFn}`);
+            lines.push(`-- Endpoint     : ${otterEp || '(from model config)'}`);
+            lines.push(`-- Model version: ${otterVer}`);
+            lines.push(`-- ─────────────────────────────────────────────────────────────────────────\n`);
+
+            if (otterReg === 'no') {
+                lines.push(`-- Register Otter-Streams ML function`);
+                lines.push(`-- Add the connector JAR to your Flink classpath: ${otterJar}`);
+                lines.push(`CREATE TEMPORARY FUNCTION IF NOT EXISTS ${otterFn}`);
+                lines.push(`  AS '${otterClass}'`);
+                lines.push(`  LANGUAGE JAVA;\n`);
+            } else {
+                lines.push(`-- ${otterFn} already registered in session — skipping CREATE FUNCTION\n`);
+            }
+
+            const endpointArg = otterEp ? `, '${otterEp}'` : ``;
+            const selectItems = _ifmBuildSelectItems(
+                ptCols, inputCol, ic,
+                `${otterFn}(ARRAY[${selCols.join(', ')}], '${modelName}'${endpointArg}, '${otterVer}') AS ${outputAlias}`
+            );
+
+            lines.push(`-- ── Streaming inference pipeline (Otter-Streams) ────────────────────────────`);
+            lines.push(`INSERT INTO ${out}`);
+            lines.push(`SELECT`);
+            lines.push(`  ` + selectItems.join(',\n  '));
+            lines.push(`FROM ${src};\n`);
+            break;
+        }
+
+        // ── 4. UDF View Pattern ────────────────────────────────────────────────
+        case 'udf_view': {
+            const viewName   = mthCfg['ifm-mth-view-name']   || (src + '_scored_v');
+            const viewUdf    = mthCfg['ifm-mth-view-udf']    || 'CALL_MODEL_UDF';
+            const viewClass  = mthCfg['ifm-mth-view-class']  || `com.yourcompany.flink.udf.${_ifmUdfClassName(srv.name)}AsyncUDF`;
+            const withInsert = (mthCfg['ifm-mth-view-insert'] || 'yes') === 'yes';
+
+            lines.push(`-- ── UDF View Pattern ────────────────────────────────────────────────────────`);
+            lines.push(`-- View        : ${viewName}`);
+            lines.push(`-- Underlying  : ${viewUdf}`);
+            lines.push(`-- ─────────────────────────────────────────────────────────────────────────\n`);
+
+            if (viewClass) {
+                lines.push(`-- Register underlying UDF`);
+                lines.push(`CREATE TEMPORARY FUNCTION IF NOT EXISTS ${viewUdf}`);
+                lines.push(`  AS '${viewClass}'`);
+                lines.push(`  LANGUAGE JAVA;\n`);
+            }
+
+            const udfArgs    = _ifmBuildUdfArgs(srv, mc, inputCol, ic);
+            const viewCols   = [...(ptCols.length ? ptCols : cols.map(c=>c.name)),
+                ...(ptCols.includes(inputCol)?[]:[inputCol])];
+            const viewSelect = [...viewCols, `${viewUdf}(${udfArgs}) AS ${outputAlias}`];
+
+            lines.push(`-- Create reusable scored view`);
+            lines.push(`CREATE TEMPORARY VIEW IF NOT EXISTS ${viewName} AS`);
+            lines.push(`SELECT`);
+            lines.push(`  ` + viewSelect.join(',\n  '));
+            lines.push(`FROM ${src};\n`);
+
+            lines.push(`-- ── Query the view directly for ad-hoc analysis ────────────────────────────`);
+            lines.push(`-- SELECT * FROM ${viewName} WHERE ${outputAlias} > 0.85;\n`);
+
+            if (withInsert) {
+                lines.push(`-- ── Stream view into sink ───────────────────────────────────────────────────`);
+                lines.push(`INSERT INTO ${out}`);
+                lines.push(`SELECT ${ptCols.length ? ptCols.join(', ') + ', ' : ''}${outputAlias}`);
+                lines.push(`FROM ${viewName};\n`);
+            }
+            break;
+        }
+
+        // ── 5. Custom Function ─────────────────────────────────────────────────
+        case 'custom_function': {
+            const customFn      = mthCfg['ifm-mth-custom-fn']       || 'MY_PREDICT_FUNCTION';
+            const customReg     = mthCfg['ifm-mth-custom-reg']      || 'yes';
+            const customPre     = mthCfg['ifm-mth-custom-preamble'] || '';
+
+            lines.push(`-- ── Custom Function ─────────────────────────────────────────────────────────\n`);
+
+            if (customPre.trim()) {
+                lines.push(`-- Custom preamble SQL`);
+                lines.push(customPre.trim() + '\n');
+            } else if (customReg === 'no') {
+                lines.push(`-- Register custom function (fill in class name)`);
+                lines.push(`CREATE TEMPORARY FUNCTION IF NOT EXISTS ${customFn}`);
+                lines.push(`  AS 'com.yourcompany.YourUDFClass'`);
+                lines.push(`  LANGUAGE JAVA;\n`);
+            }
+
+            const selectItems = _ifmBuildSelectItems(
+                ptCols, inputCol, ic,
+                `${customFn}(${selCols.join(', ')}) AS ${outputAlias}`
+            );
+
+            lines.push(`-- ── Streaming inference pipeline ───────────────────────────────────────────`);
+            lines.push(`INSERT INTO ${out}`);
+            lines.push(`SELECT`);
+            lines.push(`  ` + selectItems.join(',\n  '));
+            lines.push(`FROM ${src};\n`);
+            break;
+        }
+
+        default:
+            lines.push(`-- Unknown inference method: ${method}`);
+    }
+
+    return lines.join('\n');
+}
+
+// Helper: build sink WITH clause lines (extracted to avoid duplication)
+function _ifmBuildSinkWith(lines, sc, out, sinkType, pad, q) {
+    switch (sinkType) {
         case 'kafka': {
             const bootstrap = sc['ifm-sk-bootstrap'] || '<bootstrap.servers>';
             const topic     = sc['ifm-sk-topic']     || '<output_topic>';
@@ -1882,20 +2174,14 @@ function _ifmGenerateSql() {
             lines.push(`  ${pad("'properties.bootstrap.servers'")} = ${q(bootstrap)},`);
             lines.push(`  ${pad("'format'")}             = '${format}'`);
             if (security && security !== 'PLAINTEXT') {
-                lines[lines.length - 1] += ',';
+                lines[lines.length-1] += ',';
                 lines.push(`  ${pad("'properties.security.protocol'")} = '${security}'`);
-                const user = sc['ifm-sk-sasl-user'];
-                const pass = sc['ifm-sk-sasl-pass'];
+                const user = sc['ifm-sk-sasl-user'], pass = sc['ifm-sk-sasl-pass'];
                 if (user && pass) {
-                    lines[lines.length - 1] += ',';
+                    lines[lines.length-1] += ',';
                     lines.push(`  ${pad("'properties.sasl.mechanism'")} = 'PLAIN',`);
                     lines.push(`  ${pad("'properties.sasl.jaas.config'")} = 'org.apache.kafka.common.security.plain.PlainLoginModule required username="${user}" password="${pass}";'`);
                 }
-            }
-            const srUrl = sc['ifm-sk-sr-url'];
-            if (format === 'avro-confluent' && srUrl) {
-                lines[lines.length - 1] += ',';
-                lines.push(`  ${pad("'avro-confluent.url'")} = ${q(srUrl)}`);
             }
             break;
         }
@@ -1930,19 +2216,17 @@ function _ifmGenerateSql() {
             const path   = sc['ifm-sk-fs-path']   || '<path>';
             const format = sc['ifm-sk-fs-format'] || 'parquet';
             const roll   = sc['ifm-sk-fs-roll']   || '';
-            const part   = sc['ifm-sk-fs-part']   || '';
             lines.push(`  ${pad("'connector'")} = 'filesystem',`);
             lines.push(`  ${pad("'path'")}      = ${q(path)},`);
             lines.push(`  ${pad("'format'")}    = '${format}'`);
             if (roll) { lines[lines.length-1] += ','; lines.push(`  ${pad("'sink.rolling-policy.rollover-interval'")} = '${roll}'`); }
-            if (part) { lines[lines.length-1] += ','; lines.push(`  ${pad("'partition.fields'")} = ${q(part)}`); }
             break;
         }
         case 'iceberg': {
-            const cat  = sc['ifm-sk-ice-cat']     || 'iceberg_catalog';
-            const tbl  = sc['ifm-sk-ice-tbl']     || out;
-            const type = sc['ifm-sk-ice-cattype'] || 'hive';
-            const wh   = sc['ifm-sk-ice-wh']      || '';
+            const cat  = sc['ifm-sk-ice-cat']    || 'iceberg_catalog';
+            const tbl  = sc['ifm-sk-ice-tbl']    || out;
+            const type = sc['ifm-sk-ice-cattype']|| 'hive';
+            const wh   = sc['ifm-sk-ice-wh']     || '';
             const [db, tblName] = tbl.includes('.') ? tbl.split('.') : ['default', tbl];
             lines.push(`  ${pad("'connector'")}         = 'iceberg',`);
             lines.push(`  ${pad("'catalog-name'")}      = ${q(cat)},`);
@@ -1952,279 +2236,63 @@ function _ifmGenerateSql() {
             if (wh) { lines[lines.length-1] += ','; lines.push(`  ${pad("'warehouse'")} = ${q(wh)}`); }
             break;
         }
-        case 'print':
-            lines.push(`  'connector' = 'print'`);
-            break;
-        case 'blackhole':
-            lines.push(`  'connector' = 'blackhole'`);
-            break;
-        default:
-            lines.push(`  'connector' = '${_IFM.sinkType}'`);
+        case 'print':     lines.push(`  'connector' = 'print'`);     break;
+        case 'blackhole': lines.push(`  'connector' = 'blackhole'`); break;
+        default:          lines.push(`  'connector' = '${sinkType}'`);
     }
-    lines.push(`);\n`);
+}
 
-    // ── Model server config block — UDF registration + endpoint/auth details
-    if (_IFM.modelServer === 'custom_udf') {
-        const udfName  = mc['ifm-mc-udf-name']   || 'predict_score';
-        const udfClass = mc['ifm-mc-udf-class']  || 'com.example.flink.udf.ModelUDF';
-        const udfKind  = mc['ifm-mc-udf-kind']   || 'Scalar Function';
-        lines.push(`-- ── UDF Registration ────────────────────────────────────────────────────────`);
-        lines.push(`-- Kind: ${udfKind}   Class: ${udfClass}`);
-        lines.push(`CREATE TEMPORARY FUNCTION IF NOT EXISTS ${udfName}`);
-        lines.push(`  AS '${udfClass}'`);
-        lines.push(`  LANGUAGE JAVA;\n`);
-    } else {
-        const endpoint = mc['ifm-mc-endpoint'] || '';
-        const modelName = mc['ifm-mc-model-name'] || '';
-        const modelVer  = mc['ifm-mc-model-version'] || '';
-
-        lines.push(`-- ── Model Server Configuration ─────────────────────────────────────────────`);
-        lines.push(`-- Server   : ${srv.name} (${_IFM.modelServer})`);
-        if (endpoint)  lines.push(`-- Endpoint : ${endpoint}`);
-        if (modelName) lines.push(`-- Model    : ${modelName}${modelVer ? ' @ ' + modelVer : ''}`);
-
-        // Auth details — actual values from user config
-        lines.push(`-- Auth     : ${_IFM.authType}`);
-        switch (_IFM.authType) {
-            case 'bearer':
-                lines.push(`--   Header : Authorization: Bearer ${ac['ifm-ac-token'] ? ac['ifm-ac-token'].slice(0,8) + '…[TOKEN]' : '<TOKEN>'}`);
-                break;
-            case 'api_key': {
-                const hdr = ac['ifm-ac-header-name'] || 'Authorization';
-                const key = ac['ifm-ac-apikey']      || '';
-                lines.push(`--   Header : ${hdr}: ${key ? key.slice(0,8) + '…[KEY]' : '<API_KEY>'}`);
-                break;
-            }
-            case 'x_api_key': {
-                const key = ac['ifm-ac-xapikey'] || '';
-                lines.push(`--   Header : x-api-key: ${key ? key.slice(0,8) + '…[KEY]' : '<KEY>'}`);
-                break;
-            }
-            case 'basic': {
-                const u = ac['ifm-ac-user'] || '<username>';
-                lines.push(`--   Basic Auth user: ${u}`);
-                break;
-            }
-            case 'aws_sigv4':
-                lines.push(`--   AWS SigV4 region: ${ac['ifm-ac-aws-region'] || mc['ifm-mc-aws-region'] || 'us-east-1'}`);
-                lines.push(`--   AWS service    : ${ac['ifm-ac-aws-service'] || 'sagemaker'}`);
-                break;
-            case 'aws_keys': {
-                const kid = ac['ifm-ac-aws-kid'] || '';
-                lines.push(`--   AWS Key ID: ${kid ? kid.slice(0,8) + '…' : '<ACCESS_KEY_ID>'}`);
-                lines.push(`--   AWS Region: ${ac['ifm-ac-aws-region'] || 'us-east-1'}`);
-                break;
-            }
-            case 'minio_keys': {
-                const mk = ac['ifm-ac-minio-key'] || '';
-                lines.push(`--   MinIO Access Key: ${mk || '<ACCESS_KEY>'}`);
-                break;
-            }
-            case 'azure_ad':
-                lines.push(`--   Azure Tenant  : ${ac['ifm-ac-az-tenant'] || '<tenant_id>'}`);
-                lines.push(`--   Azure Client  : ${ac['ifm-ac-az-client'] || '<client_id>'}`);
-                break;
-            case 'google_sa':
-                lines.push(`--   SA Key path   : ${ac['ifm-ac-gsa-path'] || '/etc/gcp/sa-key.json'}`);
-                break;
-        }
-
-        // Server-specific extra settings as comments
-        _ifmServerConfigComment(lines, mc);
-
-        lines.push(`--`);
-        lines.push(`-- Async UDF connection settings (embed in your UDF implementation):`);
-        lines.push(`--   Timeout  : ${ic.timeoutMs || 5000}ms`);
-        lines.push(`--   Retries  : ${ic.retries || 2}`);
-        lines.push(`--   On error : ${ic.onError || '-1.0'}`);
-        lines.push(`--   Async parallelism : ${ic.asyncParallelism || 4}`);
-        lines.push(`-- ─────────────────────────────────────────────────────────────────────────\n`);
-
-        lines.push(`-- Register the async inference UDF (adapt class path to your JAR):`);
-        lines.push(`CREATE TEMPORARY FUNCTION IF NOT EXISTS CALL_MODEL_UDF`);
-        lines.push(`  AS 'com.yourcompany.flink.udf.${_ifmUdfClassName(srv.name)}AsyncUDF'`);
-        lines.push(`  LANGUAGE JAVA;\n`);
-    }
-
-    // ── INSERT INTO — the actual streaming inference query
-    const udfFn = _IFM.modelServer === 'custom_udf'
-        ? (mc['ifm-mc-udf-name'] || 'predict_score')
-        : 'CALL_MODEL_UDF';
-
-    const udfArgs = _IFM.modelServer === 'custom_udf'
-        ? (mc['ifm-mc-udf-args'] || inputCol)
-        : _ifmBuildUdfArgs(srv, mc, inputCol, ic);
-
-    const selectItems = [];
-    ptCols.forEach(c => selectItems.push(c));
-
+// Helper: build SELECT item list with passthrough + pre/post processing
+function _ifmBuildSelectItems(ptCols, inputCol, ic, inferenceExpr) {
+    const items = [];
+    ptCols.forEach(c => items.push(c));
     if (ic.preProcessExpr?.trim()) {
-        selectItems.push(`${ic.preProcessExpr.trim()} AS ${inputCol}_processed`);
+        items.push(`${ic.preProcessExpr.trim()} AS ${inputCol}_processed`);
     } else if (!ptCols.includes(inputCol)) {
-        selectItems.push(inputCol);
+        items.push(inputCol);
     }
-
     if (ic.postProcessExpr?.trim()) {
-        selectItems.push(ic.postProcessExpr.trim());
+        items.push(ic.postProcessExpr.trim());
     } else {
-        selectItems.push(`${udfFn}(${udfArgs}) AS ${outputAlias}`);
+        items.push(inferenceExpr);
     }
-
-    lines.push(`-- ── Streaming inference pipeline ───────────────────────────────────────────`);
-    lines.push(`-- Score each incoming record from ${src} using ${srv.name}`);
-    lines.push(`INSERT INTO ${out}`);
-    lines.push(`SELECT`);
-    lines.push('  ' + selectItems.join(',\n  '));
-    lines.push(`FROM ${src};\n`);
-
-    return lines.join('\n');
+    return items;
 }
 
-// Server-specific model config emitted as comments for UDF implementation reference
 function _ifmServerConfigComment(lines, mc) {
-    const srv = _IFM.modelServer;
-    const ep  = mc['ifm-mc-endpoint'] || '';
-    switch (srv) {
-        case 'mlflow':
-        case 'mlflow_serve':
-            if (ep) lines.push(`--   MLflow URI  : ${ep}`);
-            if (mc['ifm-mc-model-uri']) lines.push(`--   Model URI   : ${mc['ifm-mc-model-uri']}`);
-            if (mc['ifm-mc-mlflow-flavour']) lines.push(`--   Flavour     : ${mc['ifm-mc-mlflow-flavour']}`);
-            break;
-        case 'sagemaker':
-            lines.push(`--   Endpoint    : ${mc['ifm-mc-endpoint'] || ''}`);
-            lines.push(`--   Region      : ${mc['ifm-mc-aws-region'] || ''}`);
-            if (mc['ifm-mc-content-type']) lines.push(`--   Content-Type: ${mc['ifm-mc-content-type']}`);
-            break;
-        case 'azureml':
-            if (ep) lines.push(`--   AzureML URL : ${ep}`);
-            if (mc['ifm-mc-deployment']) lines.push(`--   Deployment  : ${mc['ifm-mc-deployment']}`);
-            break;
-        case 'vertexai':
-            lines.push(`--   GCP Project  : ${mc['ifm-mc-gcp-project'] || ''}`);
-            lines.push(`--   Region       : ${mc['ifm-mc-gcp-region']  || ''}`);
-            lines.push(`--   Endpoint ID  : ${mc['ifm-mc-endpoint']    || ''}`);
-            break;
-        case 'openai':
-        case 'openai_compat':
-        case 'mistral':
-        case 'together':
-            if (ep) lines.push(`--   Base URL    : ${ep}`);
-            lines.push(`--   Model       : ${mc['ifm-mc-model-name'] || ''}`);
-            if (mc['ifm-mc-max-tokens'])  lines.push(`--   Max tokens  : ${mc['ifm-mc-max-tokens']}`);
-            if (mc['ifm-mc-temperature']) lines.push(`--   Temperature : ${mc['ifm-mc-temperature']}`);
-            break;
-        case 'anthropic':
-            lines.push(`--   Model       : ${mc['ifm-mc-model-name'] || 'claude-sonnet-4-6'}`);
-            if (mc['ifm-mc-max-tokens'])      lines.push(`--   Max tokens  : ${mc['ifm-mc-max-tokens']}`);
-            if (mc['ifm-mc-anthropic-ver'])   lines.push(`--   API version : ${mc['ifm-mc-anthropic-ver']}`);
-            break;
-        case 'cohere':
-            if (ep) lines.push(`--   API URL     : ${ep}`);
-            lines.push(`--   Endpoint    : ${mc['ifm-mc-cohere-ep'] || '/v2/classify'}`);
-            if (mc['ifm-mc-model-name']) lines.push(`--   Model       : ${mc['ifm-mc-model-name']}`);
-            break;
-        case 'bedrock':
-            lines.push(`--   Region      : ${mc['ifm-mc-aws-region'] || ''}`);
-            lines.push(`--   Model ID    : ${mc['ifm-mc-model-name'] || ''}`);
-            break;
-        case 'triton':
-            if (ep) lines.push(`--   Triton URL  : ${ep}`);
-            lines.push(`--   Model name  : ${mc['ifm-mc-model-name'] || ''}`);
-            lines.push(`--   Version     : ${mc['ifm-mc-model-version'] || '1'}`);
-            if (mc['ifm-mc-triton-dtype']) lines.push(`--   DType       : ${mc['ifm-mc-triton-dtype']}`);
-            break;
-        case 'torchserve':
-            if (ep) lines.push(`--   TorchServe  : ${ep}`);
-            lines.push(`--   Model name  : ${mc['ifm-mc-model-name'] || ''}`);
-            break;
-        case 'tfserving':
-            if (ep) lines.push(`--   TF Serving  : ${ep}`);
-            lines.push(`--   Model name  : ${mc['ifm-mc-model-name'] || ''}`);
-            if (mc['ifm-mc-tf-sig']) lines.push(`--   Signature   : ${mc['ifm-mc-tf-sig']}`);
-            break;
-        case 'minio': {
-            if (ep)  lines.push(`--   MinIO URL   : ${ep}`);
-            const bkt  = mc['ifm-mc-minio-bucket'] || '';
-            const path = mc['ifm-mc-minio-path']   || '';
-            const fmt  = mc['ifm-mc-minio-fmt']    || '';
-            if (bkt)  lines.push(`--   Bucket      : ${bkt}`);
-            if (path) lines.push(`--   Object path : ${path}`);
-            if (fmt)  lines.push(`--   Format      : ${fmt}`);
-            if (mc['ifm-mc-cache-ttl']) lines.push(`--   Cache TTL   : ${mc['ifm-mc-cache-ttl']}s`);
-            break;
-        }
-        case 'huggingface':
-            if (ep) lines.push(`--   HF Endpoint : ${ep}`);
-            if (mc['ifm-mc-hf-task']) lines.push(`--   Task        : ${mc['ifm-mc-hf-task']}`);
-            break;
-        case 'custom_http':
-            if (ep) lines.push(`--   URL         : ${ep}`);
-            if (mc['ifm-mc-http-method'])   lines.push(`--   Method      : ${mc['ifm-mc-http-method']}`);
-            if (mc['ifm-mc-json-path'])     lines.push(`--   JSON path   : ${mc['ifm-mc-json-path']}`);
-            if (mc['ifm-mc-req-template'])  lines.push(`--   Body tmpl   : ${mc['ifm-mc-req-template']}`);
-            if (mc['ifm-mc-custom-headers']) {
-                mc['ifm-mc-custom-headers'].split('\n').filter(Boolean).forEach(h => lines.push(`--   Header      : ${h}`));
-            }
-            break;
-        case 'custom_grpc':
-            if (ep) lines.push(`--   gRPC target : ${ep}`);
-            if (mc['ifm-mc-grpc-method']) lines.push(`--   Method      : ${mc['ifm-mc-grpc-method']}`);
-            if (mc['ifm-mc-grpc-tls'])    lines.push(`--   TLS mode    : ${mc['ifm-mc-grpc-tls']}`);
-            break;
-        default:
-            if (ep) lines.push(`--   Endpoint    : ${ep}`);
-    }
-}
-
-function _ifmAuthComment(lines, srv, ac, mc) {
-    lines.push(`-- Auth: ${_IFM.authType}`);
-    switch (_IFM.authType) {
-        case 'bearer':    lines.push(`--   Authorization: Bearer <TOKEN>`); break;
-        case 'api_key':   lines.push(`--   ${ac['ifm-ac-header-name']||'Authorization'}: Bearer <API_KEY>`); break;
-        case 'x_api_key': lines.push(`--   x-api-key: <API_KEY>`); break;
-        case 'aws_sigv4': lines.push(`--   AWS SigV4 (region: ${ac['ifm-ac-aws-region']||mc['ifm-mc-aws-region']||'us-east-1'})`); break;
-        case 'aws_keys':  lines.push(`--   AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY env vars`); break;
-        case 'minio_keys':lines.push(`--   MinIO AccessKey / SecretKey`); break;
-        case 'azure_ad':  lines.push(`--   Azure AD OAuth2 (tenant: ${ac['ifm-ac-az-tenant']||'<tenant>'})`); break;
-        case 'google_sa': lines.push(`--   Google SA JSON: ${ac['ifm-ac-gsa-path']||'/etc/gcp/sa-key.json'}`); break;
+    const ep = mc['ifm-mc-endpoint'] || '';
+    switch (_IFM.modelServer) {
+        case 'mlflow': case 'mlflow_serve': if(ep)lines.push(`--   MLflow URI  : ${ep}`); if(mc['ifm-mc-model-uri'])lines.push(`--   Model URI   : ${mc['ifm-mc-model-uri']}`); if(mc['ifm-mc-mlflow-flavour'])lines.push(`--   Flavour     : ${mc['ifm-mc-mlflow-flavour']}`); break;
+        case 'sagemaker': lines.push(`--   Endpoint    : ${ep}`); lines.push(`--   Region      : ${mc['ifm-mc-aws-region']||''}`); if(mc['ifm-mc-content-type'])lines.push(`--   Content-Type: ${mc['ifm-mc-content-type']}`); break;
+        case 'azureml': if(ep)lines.push(`--   AzureML URL : ${ep}`); if(mc['ifm-mc-deployment'])lines.push(`--   Deployment  : ${mc['ifm-mc-deployment']}`); break;
+        case 'vertexai': lines.push(`--   GCP Project  : ${mc['ifm-mc-gcp-project']||''}`); lines.push(`--   Region       : ${mc['ifm-mc-gcp-region']||''}`); lines.push(`--   Endpoint ID  : ${ep}`); break;
+        case 'openai': case 'openai_compat': case 'mistral': case 'together': if(ep)lines.push(`--   Base URL    : ${ep}`); lines.push(`--   Model       : ${mc['ifm-mc-model-name']||''}`); if(mc['ifm-mc-max-tokens'])lines.push(`--   Max tokens  : ${mc['ifm-mc-max-tokens']}`); if(mc['ifm-mc-temperature'])lines.push(`--   Temperature : ${mc['ifm-mc-temperature']}`); break;
+        case 'anthropic': lines.push(`--   Model       : ${mc['ifm-mc-model-name']||'claude-sonnet-4-6'}`); if(mc['ifm-mc-max-tokens'])lines.push(`--   Max tokens  : ${mc['ifm-mc-max-tokens']}`); if(mc['ifm-mc-anthropic-ver'])lines.push(`--   API version : ${mc['ifm-mc-anthropic-ver']}`); break;
+        case 'cohere': if(ep)lines.push(`--   API URL     : ${ep}`); lines.push(`--   Endpoint    : ${mc['ifm-mc-cohere-ep']||'/v2/classify'}`); if(mc['ifm-mc-model-name'])lines.push(`--   Model       : ${mc['ifm-mc-model-name']}`); break;
+        case 'bedrock': lines.push(`--   Region      : ${mc['ifm-mc-aws-region']||''}`); lines.push(`--   Model ID    : ${mc['ifm-mc-model-name']||''}`); break;
+        case 'triton': if(ep)lines.push(`--   Triton URL  : ${ep}`); lines.push(`--   Model name  : ${mc['ifm-mc-model-name']||''}`); lines.push(`--   Version     : ${mc['ifm-mc-model-version']||'1'}`); if(mc['ifm-mc-triton-dtype'])lines.push(`--   DType       : ${mc['ifm-mc-triton-dtype']}`); break;
+        case 'torchserve': if(ep)lines.push(`--   TorchServe  : ${ep}`); lines.push(`--   Model name  : ${mc['ifm-mc-model-name']||''}`); break;
+        case 'tfserving': if(ep)lines.push(`--   TF Serving  : ${ep}`); lines.push(`--   Model name  : ${mc['ifm-mc-model-name']||''}`); if(mc['ifm-mc-tf-sig'])lines.push(`--   Signature   : ${mc['ifm-mc-tf-sig']}`); break;
+        case 'minio': if(ep)lines.push(`--   MinIO URL   : ${ep}`); if(mc['ifm-mc-minio-bucket'])lines.push(`--   Bucket      : ${mc['ifm-mc-minio-bucket']}`); if(mc['ifm-mc-minio-path'])lines.push(`--   Object path : ${mc['ifm-mc-minio-path']}`); if(mc['ifm-mc-minio-fmt'])lines.push(`--   Format      : ${mc['ifm-mc-minio-fmt']}`); if(mc['ifm-mc-cache-ttl'])lines.push(`--   Cache TTL   : ${mc['ifm-mc-cache-ttl']}s`); break;
+        case 'huggingface': if(ep)lines.push(`--   HF Endpoint : ${ep}`); if(mc['ifm-mc-hf-task'])lines.push(`--   Task        : ${mc['ifm-mc-hf-task']}`); break;
+        case 'custom_http': if(ep)lines.push(`--   URL         : ${ep}`); if(mc['ifm-mc-http-method'])lines.push(`--   Method      : ${mc['ifm-mc-http-method']}`); if(mc['ifm-mc-json-path'])lines.push(`--   JSON path   : ${mc['ifm-mc-json-path']}`); if(mc['ifm-mc-req-template'])lines.push(`--   Body tmpl   : ${mc['ifm-mc-req-template']}`); if(mc['ifm-mc-custom-headers'])mc['ifm-mc-custom-headers'].split('\n').filter(Boolean).forEach(h=>lines.push(`--   Header      : ${h}`)); break;
+        case 'custom_grpc': if(ep)lines.push(`--   gRPC target : ${ep}`); if(mc['ifm-mc-grpc-method'])lines.push(`--   Method      : ${mc['ifm-mc-grpc-method']}`); if(mc['ifm-mc-grpc-tls'])lines.push(`--   TLS mode    : ${mc['ifm-mc-grpc-tls']}`); break;
+        default: if(ep)lines.push(`--   Endpoint    : ${ep}`);
     }
 }
 
 function _ifmBuildUdfArgs(srv, mc, inputCol, ic) {
     const selCols = _IFM.selectedInputCols.length ? _IFM.selectedInputCols.join(', ') : inputCol;
     switch (srv.id) {
-        case 'openai':
-        case 'anthropic':
-        case 'cohere':
-        case 'mistral':
-        case 'together':
-        case 'openai_compat': {
-            const model   = mc['ifm-mc-model-name'] || 'model';
-            const prompt  = mc['ifm-mc-system-prompt'] || '';
-            const tokens  = mc['ifm-mc-max-tokens'] || '64';
-            return `CAST(${inputCol} AS STRING), '${model}', '${prompt.replace(/'/g,"\\'")}', ${tokens}`;
-        }
-        case 'bedrock': {
-            const region = mc['ifm-mc-aws-region'] || 'us-east-1';
-            const model  = mc['ifm-mc-model-name'] || 'anthropic.claude-sonnet-4-6';
-            return `CAST(${inputCol} AS STRING), '${model}', '${region}'`;
-        }
-        case 'sagemaker': {
-            const ep = mc['ifm-mc-endpoint'] || '<endpoint>';
-            return `${selCols}, '${ep}'`;
-        }
-        case 'triton': {
-            return `ARRAY[${selCols}], '${mc['ifm-mc-model-name']||'model'}', '${mc['ifm-mc-model-version']||'1'}'`;
-        }
-        default:
-            return selCols;
+        case 'openai': case 'anthropic': case 'cohere': case 'mistral': case 'together': case 'openai_compat': { const model=mc['ifm-mc-model-name']||'model',prompt=mc['ifm-mc-system-prompt']||'',tokens=mc['ifm-mc-max-tokens']||'64'; return `CAST(${inputCol} AS STRING), '${model}', '${prompt.replace(/'/g,"\\'")}', ${tokens}`; }
+        case 'bedrock': { const region=mc['ifm-mc-aws-region']||'us-east-1',model=mc['ifm-mc-model-name']||'anthropic.claude-sonnet-4-6'; return `CAST(${inputCol} AS STRING), '${model}', '${region}'`; }
+        case 'sagemaker': { const ep=mc['ifm-mc-endpoint']||'<endpoint>'; return `${selCols}, '${ep}'`; }
+        case 'triton': return `ARRAY[${selCols}], '${mc['ifm-mc-model-name']||'model'}', '${mc['ifm-mc-model-version']||'1'}'`;
+        default: return selCols;
     }
 }
 
-function _ifmUdfClassName(name) {
-    return (name || 'Model').replace(/[^a-zA-Z0-9]/g, '');
-}
+function _ifmUdfClassName(name) { return (name || 'Model').replace(/[^a-zA-Z0-9]/g, ''); }
 
 function _ifmInsertSql() {
     const sql = _IFM.generatedSql || _ifmGenerateSql();
@@ -2239,13 +2307,12 @@ function _ifmInsertSql() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// History
+// History (unchanged)
 // ─────────────────────────────────────────────────────────────────────────────
 function _ifmShowHistory() {
     const old = document.getElementById('ifm-hist-modal');
     if (old) { old.remove(); return; }
     if (!_IFM.history.length) { if (typeof toast === 'function') toast('No history yet', 'info'); return; }
-
     const m = document.createElement('div');
     m.id = 'ifm-hist-modal';
     m.style.cssText = 'position:fixed;z-index:10003;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--bg2);border:1px solid var(--border2);border-radius:8px;box-shadow:0 12px 48px rgba(0,0,0,0.7);width:620px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;';
@@ -2258,12 +2325,11 @@ function _ifmShowHistory() {
 <div style="flex:1;overflow-y:auto;padding:12px;">
   ${_IFM.history.map((h, i) => {
         const srv = IFM_SERVERS.find(s => s.id === h.modelServer);
+        const glyph = _ifmServerCanvasGlyph(h.modelServer);
         return `
   <div class="ifm-hist-item" onclick="_ifmLoadFromHistory(${i})">
     <div style="flex:1;min-width:0;">
-      <div style="font-size:11px;font-weight:700;color:var(--text0);font-family:var(--mono);">
-        ${srv?.icon||'🔬'} ${h.sourceTable} → ${h.outputTable}
-      </div>
+      <div style="font-size:11px;font-weight:700;color:var(--text0);font-family:var(--mono);">${glyph} ${h.sourceTable} → ${h.outputTable}</div>
       <div style="font-size:10px;color:var(--text3);margin-top:2px;display:flex;gap:10px;flex-wrap:wrap;">
         <span>${srv?.name||h.modelServer}</span>
         <span style="color:var(--blue);">→ ${h.outputAlias}</span>
@@ -2276,7 +2342,7 @@ function _ifmShowHistory() {
       <button onclick="event.stopPropagation();_IFM.history.splice(${i},1);try{localStorage.setItem('strlabstudio_ifm_history',JSON.stringify(_IFM.history));}catch(_){};_ifmUpdateHistCount();document.getElementById('ifm-hist-modal').remove();"
         style="font-size:10px;padding:3px 7px;border-radius:3px;background:rgba(255,77,109,0.07);border:1px solid rgba(255,77,109,0.3);color:var(--red);cursor:pointer;">×</button>
     </div>
-  </div>`;}).join('')}
+  </div>`; }).join('')}
 </div>
 <div style="padding:10px 16px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;background:var(--bg1);flex-shrink:0;">
   <button onclick="if(confirm('Clear all inference history?')){_IFM.history=[];try{localStorage.removeItem('strlabstudio_ifm_history');}catch(_){}; _ifmUpdateHistCount();document.getElementById('ifm-hist-modal').remove();}"
