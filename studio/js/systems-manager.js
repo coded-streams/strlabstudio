@@ -17,6 +17,16 @@
  * ═══════════════════════════════════════════════════════════════════════
  */
 
+// ── Simple Icons helper (same pattern as Inference Manager) ───────────────────
+function _sysSimpleIcon(slug, hex, size) {
+    size = size || 20;
+    const src = hex
+        ? `https://cdn.simpleicons.org/${slug}/${hex}`
+        : `https://cdn.simpleicons.org/${slug}`;
+    return `<img src="${src}" width="${size}" height="${size}"
+    style="display:inline-block;vertical-align:middle;flex-shrink:0;" />`;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // CONNECTOR DEFINITIONS
 // ─────────────────────────────────────────────────────────────────────────────
@@ -25,7 +35,7 @@ const CONNECTOR_DEFS = [
     {
         id: 'kafka',
         label: 'Apache Kafka',
-        icon: `<svg width="20" height="20" viewBox="0 0 32 32" fill="none"><rect x="13" y="2" width="6" height="6" rx="3" fill="#4e9de8"/><rect x="13" y="24" width="6" height="6" rx="3" fill="#4e9de8"/><rect x="2" y="13" width="6" height="6" rx="3" fill="#57c764"/><rect x="24" y="13" width="6" height="6" rx="3" fill="#f75464"/><line x1="16" y1="8" x2="5" y2="16" stroke="#6e7274" stroke-width="1.5"/><line x1="16" y1="8" x2="27" y2="16" stroke="#6e7274" stroke-width="1.5"/><line x1="16" y1="24" x2="5" y2="16" stroke="#6e7274" stroke-width="1.5"/><line x1="16" y1="24" x2="27" y2="16" stroke="#6e7274" stroke-width="1.5"/></svg>`,
+        icon: _sysSimpleIcon('apachekafka', '4e9de8', 20),
         color: '#4e9de8', category: 'messaging',
         jarNames: ['flink-sql-connector-kafka', 'flink-connector-kafka'],
         versionNote: 'Match to your Flink version: e.g. 3.3.0-1.19 or 3.4.0-2.0',
@@ -108,7 +118,7 @@ CREATE TEMPORARY TABLE pg_cdc_events (
     {
         id: 'jdbc',
         label: 'JDBC (Postgres / MySQL)',
-        icon: `<svg width="20" height="20" viewBox="0 0 32 32" fill="none"><ellipse cx="16" cy="8" rx="10" ry="4" stroke="#56c4c4" stroke-width="1.5" fill="none"/><path d="M6 8v16c0 2.2 4.5 4 10 4s10-1.8 10-4V8" stroke="#56c4c4" stroke-width="1.5" fill="none"/><line x1="6" y1="16" x2="26" y2="16" stroke="#56c4c4" stroke-width="1" stroke-dasharray="3 2"/></svg>`,
+        icon: _sysSimpleIcon('postgresql', '56c4c4', 20),
         color: '#56c4c4', category: 'database',
         jarNames: ['flink-connector-jdbc', 'flink-connector-jdbc-core', 'postgresql', 'mysql-connector'],
         versionNote: 'Also requires the DB driver JAR (postgresql-42.x.x.jar or mysql-connector-j-8.x.x.jar)',
@@ -132,7 +142,7 @@ CREATE TEMPORARY TABLE pg_cdc_events (
     {
         id: 'mongodb',
         label: 'MongoDB',
-        icon: `<svg width="20" height="20" viewBox="0 0 32 32" fill="none"><path d="M16 4 C16 4 10 12 10 18 A6 6 0 0 0 22 18 C22 12 16 4 16 4Z" stroke="#57a23e" stroke-width="1.5" fill="none"/><line x1="16" y1="24" x2="16" y2="30" stroke="#57a23e" stroke-width="1.5"/></svg>`,
+        icon: _sysSimpleIcon('mongodb', '57a23e', 20),
         color: '#57a23e', category: 'database',
         jarNames: ['flink-connector-mongodb'],
         versionNote: '1.2.0-1.19 — match to your Flink version',
@@ -155,7 +165,7 @@ CREATE TEMPORARY TABLE pg_cdc_events (
     {
         id: 'filesystem_s3',
         label: 'Filesystem / S3 / MinIO',
-        icon: `<svg width="20" height="20" viewBox="0 0 32 32" fill="none"><path d="M4 22 Q4 8 16 8 Q28 8 28 22" stroke="#f5a623" stroke-width="1.5" fill="none"/><rect x="2" y="22" width="28" height="6" rx="2" fill="none" stroke="#f5a623" stroke-width="1.5"/><line x1="16" y1="8" x2="16" y2="22" stroke="#f5a623" stroke-width="1.5" stroke-dasharray="3 2"/></svg>`,
+        icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="3" fill="#FF9900"/><path d="M12 5l-5 3v4l5 3 5-3V8z" stroke="white" stroke-width="1.2" fill="none"/><path d="M7 8l5 3 5-3M12 11v6" stroke="white" stroke-width="1.2"/></svg>`,
         color: '#f5a623', category: 'storage',
         jarNames: ['flink-s3-fs-hadoop', 'flink-s3-fs-presto'],
         versionNote: 'Copy from /opt/flink/plugins/s3-fs-hadoop/ to /opt/flink/lib/',
@@ -177,7 +187,7 @@ WITH (
     {
         id: 'elasticsearch',
         label: 'Elasticsearch / OpenSearch',
-        icon: `<svg width="20" height="20" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="10" stroke="#f75464" stroke-width="1.5" fill="none"/><line x1="6" y1="13" x2="26" y2="13" stroke="#f75464" stroke-width="1.5"/><line x1="6" y1="19" x2="26" y2="19" stroke="#f75464" stroke-width="1.5"/></svg>`,
+        icon: _sysSimpleIcon('elasticsearch', 'f75464', 20),
         color: '#f75464', category: 'search',
         jarNames: ['flink-sql-connector-elasticsearch', 'flink-connector-elasticsearch'],
         versionNote: 'Use elasticsearch7 for ES 7.x and OpenSearch. Use elasticsearch8 for ES 8.x.',
@@ -335,7 +345,7 @@ const SYSTEM_DEFS = [
     {
         id: 'kafka',
         label: 'Apache Kafka',
-        icon: `<svg width="22" height="22" viewBox="0 0 32 32" fill="none"><rect x="13" y="2" width="6" height="6" rx="3" fill="#4e9de8"/><rect x="13" y="24" width="6" height="6" rx="3" fill="#4e9de8"/><rect x="2" y="13" width="6" height="6" rx="3" fill="#57c764"/><rect x="24" y="13" width="6" height="6" rx="3" fill="#f75464"/><line x1="16" y1="8" x2="5" y2="16" stroke="#6e7274" stroke-width="1.5"/><line x1="16" y1="8" x2="27" y2="16" stroke="#6e7274" stroke-width="1.5"/><line x1="16" y1="24" x2="5" y2="16" stroke="#6e7274" stroke-width="1.5"/><line x1="16" y1="24" x2="27" y2="16" stroke="#6e7274" stroke-width="1.5"/></svg>`,
+        icon: _sysSimpleIcon('apachekafka', '4e9de8', 22),
         color: '#4e9de8', category: 'messaging',
         requiresConnectorJar: true, connectorJarId: 'kafka',
         authModes: ['none', 'sasl_plain', 'sasl_ssl'],
@@ -468,7 +478,7 @@ const SYSTEM_DEFS = [
     {
         id: 'postgres',
         label: 'PostgreSQL',
-        icon: `<svg width="22" height="22" viewBox="0 0 32 32" fill="none"><ellipse cx="16" cy="8" rx="10" ry="4" stroke="#56c4c4" stroke-width="1.5" fill="none"/><path d="M6 8v16c0 2.2 4.5 4 10 4s10-1.8 10-4V8" stroke="#56c4c4" stroke-width="1.5" fill="none"/></svg>`,
+        icon: _sysSimpleIcon('postgresql', '56c4c4', 22),
         color: '#56c4c4', category: 'database',
         requiresConnectorJar: true, connectorJarId: 'jdbc',
         authModes: ['userpass'],
@@ -491,7 +501,7 @@ const SYSTEM_DEFS = [
     {
         id: 'elasticsearch',
         label: 'Elasticsearch / OpenSearch',
-        icon: `<svg width="22" height="22" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="10" stroke="#f75464" stroke-width="1.5" fill="none"/><line x1="6" y1="13" x2="26" y2="13" stroke="#f75464" stroke-width="1.5"/><line x1="6" y1="19" x2="26" y2="19" stroke="#f75464" stroke-width="1.5"/></svg>`,
+        icon: _sysSimpleIcon('elasticsearch', 'f75464', 22),
         color: '#f75464', category: 'search',
         requiresConnectorJar: true, connectorJarId: 'elasticsearch',
         authModes: ['none', 'userpass'],
@@ -513,7 +523,7 @@ const SYSTEM_DEFS = [
     {
         id: 'minio',
         label: 'MinIO / S3',
-        icon: `<svg width="22" height="22" viewBox="0 0 32 32" fill="none"><path d="M4 22 Q4 8 16 8 Q28 8 28 22" stroke="#f5a623" stroke-width="1.5" fill="none"/><rect x="2" y="22" width="28" height="6" rx="2" fill="none" stroke="#f5a623" stroke-width="1.5"/></svg>`,
+        icon: _sysSimpleIcon('minio', 'C72E49', 22),
         color: '#f5a623', category: 'storage',
         requiresConnectorJar: false, authModes: ['access_keys'],
         testFn: async (fields) => {

@@ -1,7 +1,17 @@
 /* Str:::lab Studio — Catalog Manager v1.3.0
  */
 
-// ── JAR availability helpers 
+// ── Simple Icons helper ───────────────────────────────────────────────────────
+function _catSimpleIcon(slug, hex, size) {
+    size = size || 20;
+    const src = hex
+        ? `https://cdn.simpleicons.org/${slug}/${hex}`
+        : `https://cdn.simpleicons.org/${slug}`;
+    return `<img src="${src}" width="${size}" height="${size}"
+    style="display:inline-block;vertical-align:middle;flex-shrink:0;" />`;
+}
+
+// ── JAR availability helpers
 function _catGetUploadedJarNames() {
     try {
         const reg = JSON.parse(localStorage.getItem('strlabstudio_connector_jars') || '[]');
@@ -54,7 +64,7 @@ const CATALOG_TYPES = [
     {
         id: 'jdbc_postgresql',
         label: 'PostgreSQL (JDBC)',
-        icon: '🐘',
+        icon: _catSimpleIcon('postgresql', '4fa3e0', 20),
         color: '#4fa3e0',
         requiresJar: true,
         jarNote: 'Requires <strong>flink-connector-jdbc</strong> JAR + <strong>postgresql-42.x.x.jar</strong> in <code>/opt/flink/lib/</code>.',
@@ -103,7 +113,7 @@ const CATALOG_TYPES = [
     {
         id: 'jdbc_mysql',
         label: 'MySQL / MariaDB (JDBC)',
-        icon: '🐬',
+        icon: _catSimpleIcon('mysql', 'f5a623', 20),
         color: '#f5a623',
         requiresJar: true,
         jarNote: 'Requires <strong>flink-connector-jdbc</strong> JAR + <strong>mysql-connector-j-8.x.x.jar</strong> in <code>/opt/flink/lib/</code>.',
@@ -148,7 +158,7 @@ const CATALOG_TYPES = [
     {
         id: 'hive',
         label: 'Apache Hive',
-        icon: '🐝',
+        icon: `<svg width="20" height="20" viewBox="0 0 32 32" fill="none"><path d="M16 4 L28 12 L28 20 L16 28 L4 20 L4 12 Z" stroke="#f7b731" stroke-width="1.5" fill="none"/><circle cx="16" cy="16" r="4" fill="#f7b731" opacity="0.5"/></svg>`,
         color: '#f7b731',
         requiresJar: true,
         jarNote: 'Requires <strong>flink-connector-hive</strong> JAR matching your Flink and Hive versions in <code>/opt/flink/lib/</code>.',
@@ -181,7 +191,7 @@ const CATALOG_TYPES = [
     {
         id: 'iceberg_hive',
         label: 'Apache Iceberg (Hive)',
-        icon: '🧊',
+        icon: `<svg width="20" height="20" viewBox="0 0 32 32" fill="none"><polygon points="16,4 28,26 4,26" stroke="#4bcffa" stroke-width="1.5" fill="rgba(75,207,250,0.1)"/><polygon points="16,11 23,24 9,24" fill="rgba(75,207,250,0.2)" stroke="#4bcffa" stroke-width="1"/></svg>`,
         color: '#4bcffa',
         requiresJar: true,
         jarNote: 'Requires <strong>iceberg-flink-runtime</strong> JAR in <code>/opt/flink/lib/</code>.',
@@ -211,7 +221,7 @@ const CATALOG_TYPES = [
     {
         id: 'iceberg_rest',
         label: 'Apache Iceberg (REST)',
-        icon: '🧊',
+        icon: `<svg width="20" height="20" viewBox="0 0 32 32" fill="none"><polygon points="16,4 28,26 4,26" stroke="#0be881" stroke-width="1.5" fill="rgba(11,232,129,0.1)"/><polygon points="16,11 23,24 9,24" fill="rgba(11,232,129,0.2)" stroke="#0be881" stroke-width="1"/></svg>`,
         color: '#0be881',
         requiresJar: true,
         jarNote: 'Requires <strong>iceberg-flink-runtime</strong> JAR in <code>/opt/flink/lib/</code>.',
@@ -241,7 +251,7 @@ const CATALOG_TYPES = [
     {
         id: 'iceberg_glue',
         label: 'AWS Glue (Iceberg)',
-        icon: '☁️',
+        icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="3" fill="#FF9900"/><path d="M12 4l-7 4v8l7 4 7-4V8z" fill="none" stroke="white" stroke-width="1.3"/><path d="M5 8l7 4 7-4M12 12v8" stroke="white" stroke-width="1.3"/></svg>`,
         color: '#ff9f43',
         requiresJar: true,
         jarNote: 'Requires <strong>iceberg-flink-runtime</strong> + <strong>iceberg-aws-bundle</strong> JARs in <code>/opt/flink/lib/</code>.',
@@ -268,7 +278,7 @@ const CATALOG_TYPES = [
     {
         id: 'delta',
         label: 'Delta Lake',
-        icon: '∆',
+        icon: `<svg width="20" height="20" viewBox="0 0 32 32" fill="none"><polygon points="16,4 30,27 2,27" stroke="#b06dff" stroke-width="1.8" fill="rgba(176,109,255,0.12)"/><text x="16" y="23" font-size="11" font-weight="700" text-anchor="middle" fill="#b06dff" font-family="serif">∆</text></svg>`,
         color: '#b06dff',
         requiresJar: true,
         jarNote: 'Requires <strong>delta-flink</strong> + <strong>delta-standalone</strong> JARs in <code>/opt/flink/lib/</code>.',

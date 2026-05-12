@@ -249,11 +249,14 @@ function _femBuildModal() {
       Feature Engineering Manager
       <span style="font-size:9px;font-weight:400;color:var(--text3);font-family:var(--mono);">Real-time Flink SQL Feature Pipeline Builder</span>
     </span>
-    <div style="display:flex;align-items:center;gap:8px;margin-left:auto;">
+   <div style="display:flex;align-items:center;gap:8px;margin-left:auto;">
       <button onclick="_femShowHistory()" style="font-size:10px;padding:3px 9px;border-radius:3px;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);cursor:pointer;font-family:var(--mono);">
         🕓 History <span id="fem-hist-count" style="color:var(--accent);"></span>
       </button>
+      <button onclick="_femExportPipeline()" style="font-size:10px;padding:3px 9px;border-radius:3px;border:1px solid rgba(0,212,170,0.35);background:rgba(0,212,170,0.07);color:var(--accent);cursor:pointer;font-family:var(--mono);">⬆ Export</button>
+      <label style="font-size:10px;padding:3px 9px;border-radius:3px;border:1px solid rgba(245,166,35,0.35);background:rgba(245,166,35,0.07);color:var(--yellow,#f5a623);cursor:pointer;font-family:var(--mono);" title="Import a previously exported pipeline JSON">⬇ Import<input type="file" accept=".json" style="display:none;" onchange="_femImportPipeline(this)"/></label>
       <button onclick="_femResetAll()" style="font-size:10px;padding:3px 9px;border-radius:3px;border:1px solid rgba(255,77,109,0.3);background:rgba(255,77,109,0.07);color:var(--red);cursor:pointer;font-family:var(--mono);">↺ Reset</button>
+      <button id="fem-modal-expand-btn" onclick="_femToggleModalExpand()" title="Expand to fit screen" style="background:none;border:1px solid var(--border);color:var(--text2);cursor:pointer;font-size:13px;padding:1px 8px;border-radius:3px;margin-right:2px;">⤢</button>
       <button onclick="modalMinimize('fem-modal','Feature Engineering')" style="background:none;border:1px solid var(--border);color:var(--text2);cursor:pointer;font-size:13px;padding:1px 8px;border-radius:3px;margin-right:4px;" title="Minimise to statusbar">⊟</button><button class="modal-close" onclick="closeModal('fem-modal')">×</button>
     </div>
   </div>
@@ -1761,6 +1764,104 @@ function _femLoadFromHistory(i) {
     if (hm) hm.remove();
     closeModal('fem-modal');
     if (typeof toast === 'function') toast(`Historical pipeline SQL loaded: ${h.sourceTable} → ${h.outputTable}`, 'ok');
+}
+
+// ── Export / Import Pipeline ─────────────────────────────────────────────────
+function _femExportPipeline() {
+    _femCollectCurrentStep();
+    const payload = {
+        _version: 1,
+        _exported: new Date().toISOString(),
+        _tool: 'Str:::lab Studio — Feature Engineering Manager',
+        schemaMode:       _FEM.schemaMode,
+        sourceTable:      _FEM.sourceTable,
+        sourceFormat:     _FEM.sourceFormat,
+        rawColumns:       _FEM.rawColumns,
+        selectedFeatures: _FEM.selectedFeatures,
+        transformations:  _FEM.transformations,
+        windows:          _FEM.windows,
+        noWinGroupBy:     _FEM.noWinGroupBy,
+        noWinHaving:      _FEM.noWinHaving,
+        noWinAggs:        _FEM.noWinAggs,
+        timeCol:          _FEM.timeCol,
+        watermarkDelay:   _FEM.watermarkDelay,
+        outputTable:      _FEM.outputTable,
+        sinkType:         _FEM.sinkType,
+        generatedSql:     _FEM.generatedSql,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    const safeName = (_FEM.sourceTable || 'pipeline').replace(/[^a-zA-Z0-9_-]/g, '_');
+    a.href     = url;
+    a.download = `fem_${safeName}_${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    if (typeof toast === 'function') toast('Pipeline exported as JSON', 'ok');
+}
+
+function _femImportPipeline(input) {
+    const file = input.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+        try {
+            const data = JSON.parse(e.target.result);
+            if (!data._version || !data.sourceTable) throw new Error('Invalid pipeline file');
+            const FIELDS = [
+                'schemaMode','sourceTable','sourceFormat','rawColumns',
+                'selectedFeatures','transformations','windows',
+                'noWinGroupBy','noWinHaving','noWinAggs',
+                'timeCol','watermarkDelay','outputTable','sinkType','generatedSql',
+            ];
+            FIELDS.forEach(k => { if (data[k] !== undefined) _FEM[k] = data[k]; });
+            input.value = '';
+            _femGoStep(0);
+            if (typeof toast === 'function') toast(`Pipeline imported: ${data.sourceTable} → ${data.outputTable || '?'}`, 'ok');
+        } catch (err) {
+            if (typeof toast === 'function') toast('Import failed: ' + err.message, 'error');
+            console.error('FEM import error:', err);
+        }
+    };
+    reader.readAsText(file);
+}
+
+// ── Modal Expand / Restore ───────────────────────────────────────────────────
+const _FEMX = { expanded: false, origModalCss: '', origOverlayCss: '' };
+
+function _femToggleModalExpand() {
+    const overlay = document.getElementById('fem-modal');
+    const modal   = overlay?.querySelector('.modal');
+    const btn     = document.getElementById('fem-modal-expand-btn');
+    if (!overlay || !modal || !btn) return;
+
+    if (!_FEMX.expanded) {
+        _FEMX.origModalCss   = modal.getAttribute('style')   || '';
+        _FEMX.origOverlayCss = overlay.getAttribute('style') || '';
+        _FEMX.expanded = true;
+        overlay.style.cssText = (
+            _FEMX.origOverlayCss +
+            ';padding:0!important;align-items:stretch!important;justify-content:stretch!important;'
+        );
+        modal.style.cssText = (
+            _FEMX.origModalCss +
+            ';width:100vw!important;max-width:100vw!important;' +
+            'height:100vh!important;max-height:100vh!important;' +
+            'border-radius:0!important;margin:0!important;'
+        );
+        btn.textContent = '⤡';
+        btn.title = 'Restore window size';
+        setTimeout(() => { if (typeof _femCanvasFitToView === 'function') _femCanvasFitToView(); }, 80);
+    } else {
+        _FEMX.expanded = false;
+        if (_FEMX.origModalCss)   modal.setAttribute('style', _FEMX.origModalCss);
+        else                       modal.removeAttribute('style');
+        if (_FEMX.origOverlayCss) overlay.setAttribute('style', _FEMX.origOverlayCss);
+        else                       overlay.removeAttribute('style');
+        btn.textContent = '⤢';
+        btn.title = 'Expand to fit screen';
+        setTimeout(() => { if (typeof _femCanvasFitToView === 'function') _femCanvasFitToView(); }, 80);
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -714,9 +714,11 @@ function _ifmBuildModal() {
       <button onclick="_ifmShowHistory()" style="font-size:10px;padding:3px 9px;border-radius:3px;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);cursor:pointer;font-family:var(--mono);">
         🕓 History <span id="ifm-hist-count" style="color:var(--blue,#4fa3e0);"></span>
       </button>
+      <button onclick="_ifmExportPipeline()" style="font-size:10px;padding:3px 9px;border-radius:3px;border:1px solid rgba(0,212,170,0.35);background:rgba(0,212,170,0.07);color:var(--accent,#00d4aa);cursor:pointer;font-family:var(--mono);">⬆ Export</button>
+      <label style="font-size:10px;padding:3px 9px;border-radius:3px;border:1px solid rgba(245,166,35,0.35);background:rgba(245,166,35,0.07);color:var(--yellow,#f5a623);cursor:pointer;font-family:var(--mono);" title="Import a previously exported pipeline JSON">⬇ Import<input type="file" accept=".json" style="display:none;" onchange="_ifmImportPipeline(this)"/></label>
       <button onclick="_ifmResetAll()" style="font-size:10px;padding:3px 9px;border-radius:3px;border:1px solid rgba(255,77,109,0.3);background:rgba(255,77,109,0.07);color:var(--red);cursor:pointer;font-family:var(--mono);">↺ Reset</button>
-      <button onclick="modalMinimize('ifm-modal','Inference Manager')" style="background:none;border:1px solid var(--border);color:var(--text2);cursor:pointer;font-size:13px;padding:1px 8px;border-radius:3px;margin-right:4px;" title="Minimise to statusbar">⊟</button><button class="modal-close" onclick="closeModal('ifm-modal')">×</button>
-    </div>
+       <button id="ifm-modal-expand-btn" onclick="_ifmToggleModalExpand()" title="Expand to fit screen" style="background:none;border:1px solid var(--border);color:var(--text2);cursor:pointer;font-size:13px;padding:1px 8px;border-radius:3px;margin-right:2px;">⤢</button>
+      <button onclick="modalMinimize('ifm-modal','Inference Manager')" style="background:none;border:1px solid var(--border);color:var(--text2);cursor:pointer;font-size:13px;padding:1px 8px;border-radius:3px;margin-right:4px;" title="Minimise to statusbar">⊟</button><button class="modal-close" onclick="closeModal('ifm-modal')">×</button>    </div>
   </div>
   <div id="ifm-wizard-wrap">
     <div id="ifm-step-bar">${stepBar}</div>
@@ -1695,11 +1697,12 @@ function _ifmDrawCanvasSvg() {
     const colsH = displayCols.length * (COL_H + COL_GAP) - COL_GAP;
     const srcH  = 44;
 
-    const X0  = PAD;
-    const X1  = X0 + NODE_W + HGAP;
-    const X2  = X1 + (hasPre ? NODE_W + HGAP : 0);
-    const X3  = X2 + NODE_W + HGAP;
-    const X_OUT = hasPost ? X3 + NODE_W + HGAP : X3 + NODE_W + HGAP;
+    const X0    = PAD;
+    const X1    = X0 + NODE_W + HGAP;
+    const X2    = X1 + (hasPre ? NODE_W + HGAP : 0);
+    const X3    = X2 + NODE_W + HGAP;
+    const X4    = X3 + (hasPost ? NODE_W + HGAP : 0);
+    const X_OUT = X4;
 
     const totalW  = X_OUT + NODE_W + PAD;
     const contentH = Math.max(srcH + 16 + colsH, MODEL_H + 60, 200) + PAD * 2;
@@ -1747,7 +1750,7 @@ function _ifmDrawCanvasSvg() {
         { x:X0, l:'SOURCE FEATURES' },
         hasPre ? { x:X1, l:'PRE-PROCESS' } : null,
         { x:hasPre?X2:X1, l:`MODEL · ${srv.name.toUpperCase()}` },
-        hasPost ? { x:X3+NODE_W+HGAP, l:'POST-PROCESS' } : null,
+        hasPost ? { x:X3, l:'POST-PROCESS' } : null,
         { x:X_OUT, l:'OUTPUT' },
     ].filter(Boolean);
     headers.forEach(h => { s += txt(h.l, h.x, PAD-10, 'rgba(100,150,200,0.4)', 8, '700'); });
@@ -1838,13 +1841,13 @@ function _ifmDrawCanvasSvg() {
     const modelRx = modelX + NODE_W;
     let outLeftX = modelRx, outLeftY = modelMidY;
     if (hasPost) {
-        const ppH = 40, ppY = modelMidY - ppH/2, ppMid = modelMidY;
-        s += rr(X3+NODE_W+HGAP, ppY, NODE_W, ppH, 5, C.post.fill, C.post.stroke, 1.5);
-        s += txt('⨍', X3+NODE_W+HGAP+8, ppMid, C.post.stroke, 13);
-        s += txt('Post-process', X3+NODE_W+HGAP+24, ppMid-7, C.post.text, 10, '600');
-        s += txt(tr(ic.postProcessExpr||'transform',14), X3+NODE_W+HGAP+24, ppMid+6, C.post.sub, 8);
-        s += bezier(modelRx, modelMidY, X3+NODE_W+HGAP, ppMid, C.edge.pre, 1.4);
-        outLeftX = X3+NODE_W+HGAP+NODE_W; outLeftY = ppMid;
+        const ppX = X3, ppH = 40, ppY = modelMidY - ppH/2, ppMid = modelMidY;
+        s += rr(ppX, ppY, NODE_W, ppH, 5, C.post.fill, C.post.stroke, 1.5);
+        s += txt('⨍', ppX+8, ppMid, C.post.stroke, 13);
+        s += txt('Post-process', ppX+24, ppMid-7, C.post.text, 10, '600');
+        s += txt(tr(ic.postProcessExpr||'transform',14), ppX+24, ppMid+6, C.post.sub, 8);
+        s += bezier(modelRx, modelMidY, ppX, ppMid, C.edge.pre, 1.4);
+        outLeftX = ppX + NODE_W; outLeftY = ppMid;
     }
 
     // Output node
@@ -2365,6 +2368,113 @@ function _ifmLoadFromHistory(i) {
     if (hm) hm.remove();
     closeModal('ifm-modal');
     if (typeof toast === 'function') toast(`Inference SQL loaded: ${h.sourceTable} → ${h.outputTable}`, 'ok');
+}
+
+// ── Modal Expand / Fit to Screen ─────────────────────────────────────────────
+const _IFMX = { expanded: false, origModalCss: '', origOverlayCss: '' };
+
+function _ifmToggleModalExpand() {
+    const overlay = document.getElementById('ifm-modal');
+    const modal   = overlay?.querySelector('.modal');
+    const btn     = document.getElementById('ifm-modal-expand-btn');
+    if (!overlay || !modal || !btn) return;
+
+    if (!_IFMX.expanded) {
+        // Save current inline styles
+        _IFMX.origModalCss   = modal.getAttribute('style')   || '';
+        _IFMX.origOverlayCss = overlay.getAttribute('style') || '';
+        _IFMX.expanded = true;
+
+        // Expand the overlay to fill the viewport
+        overlay.style.cssText = (
+            _IFMX.origOverlayCss +
+            ';padding:0!important;align-items:stretch!important;justify-content:stretch!important;'
+        );
+        // Expand the modal inner box to fill all available space
+        modal.style.cssText = (
+            _IFMX.origModalCss +
+            ';width:100vw!important;max-width:100vw!important;' +
+            'height:100vh!important;max-height:100vh!important;' +
+            'border-radius:0!important;margin:0!important;'
+        );
+        btn.textContent = '⤡';
+        btn.title = 'Restore window size';
+
+        // Re-fit canvas if on the review step
+        setTimeout(() => { if (typeof _ifmCanvasFitToView === 'function') _ifmCanvasFitToView(); }, 80);
+    } else {
+        _IFMX.expanded = false;
+
+        // Restore original styles
+        if (_IFMX.origModalCss)   modal.setAttribute('style', _IFMX.origModalCss);
+        else                       modal.removeAttribute('style');
+        if (_IFMX.origOverlayCss) overlay.setAttribute('style', _IFMX.origOverlayCss);
+        else                       overlay.removeAttribute('style');
+
+        btn.textContent = '⤢';
+        btn.title = 'Expand to fit screen';
+
+        setTimeout(() => { if (typeof _ifmCanvasFitToView === 'function') _ifmCanvasFitToView(); }, 80);
+    }
+}
+
+// ── Export / Import Pipeline ─────────────────────────────────────────────────
+function _ifmExportPipeline() {
+    _ifmCollectCurrentStep();
+    const payload = {
+        _version: 1,
+        _exported: new Date().toISOString(),
+        _tool: 'Str:::lab Studio — Inference Manager',
+        sourceTable:          _IFM.sourceTable,
+        inputColumns:         _IFM.inputColumns,
+        selectedInputCols:    _IFM.selectedInputCols,
+        modelServer:          _IFM.modelServer,
+        modelConfig:          _IFM.modelConfig,
+        authType:             _IFM.authType,
+        authConfig:           _IFM.authConfig,
+        inferenceConfig:      _IFM.inferenceConfig,
+        inferenceMethod:      _IFM.inferenceMethod,
+        inferenceMethodConfig:_IFM.inferenceMethodConfig,
+        outputTable:          _IFM.outputTable,
+        sinkType:             _IFM.sinkType,
+        sinkConfig:           _IFM.sinkConfig || {},
+        generatedSql:         _IFM.generatedSql,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    const safeName = (_IFM.sourceTable || 'pipeline').replace(/[^a-zA-Z0-9_-]/g, '_');
+    a.href     = url;
+    a.download = `ifm_${safeName}_${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    if (typeof toast === 'function') toast('Pipeline exported as JSON', 'ok');
+}
+
+function _ifmImportPipeline(input) {
+    const file = input.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+        try {
+            const data = JSON.parse(e.target.result);
+            if (!data._version || !data.sourceTable) throw new Error('Invalid pipeline file');
+            const FIELDS = [
+                'sourceTable','inputColumns','selectedInputCols','modelServer',
+                'modelConfig','authType','authConfig','inferenceConfig',
+                'inferenceMethod','inferenceMethodConfig','outputTable',
+                'sinkType','sinkConfig','generatedSql',
+            ];
+            FIELDS.forEach(k => { if (data[k] !== undefined) _IFM[k] = data[k]; });
+            input.value = '';
+            _ifmGoStep(0);
+            if (typeof toast === 'function') toast(`Pipeline imported: ${data.sourceTable} → ${data.outputTable || '?'}`, 'ok');
+        } catch (err) {
+            if (typeof toast === 'function') toast('Import failed: ' + err.message, 'error');
+            console.error('IFM import error:', err);
+        }
+    };
+    reader.readAsText(file);
 }
 
 function _escIfm(s) {
