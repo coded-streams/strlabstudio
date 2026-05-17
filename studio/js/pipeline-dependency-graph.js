@@ -67,7 +67,7 @@ async function _pdgLoad() {
     try {
         const overview = await jmApi('/jobs/overview');
         const allJobs  = (overview && overview.jobs) ? overview.jobs : [];
-        const active   = allJobs.filter(j => ['RUNNING','FINISHED','RESTARTING'].includes(j.state));
+        const active   = allJobs.filter(j => ['RUNNING','FINISHED','RESTARTING','FAILED','CANCELED','CANCELLING','SUSPENDED'].includes(j.state));
 
         if (!active.length) {
             _pdgShowPane('empty');
@@ -318,7 +318,7 @@ function _pdgRenderGraph() {
     const vbH  = maxY - minY;
 
     const kindColor  = { kafka:'#4fa3e0', jdbc:'#34d399', elastic:'#fb923c', filesystem:'#a78bfa', datagen:'#f472b6', print:'#6b7280' };
-    const stateColor = { RUNNING:'#39d353', FINISHED:'#6b7280', RESTARTING:'#f59e0b', FAILED:'#ef4444' };
+    const stateColor = { RUNNING:'#39d353', FINISHED:'#6b7280', RESTARTING:'#f59e0b', FAILED:'#ef4444', CANCELED:'#f59e0b', CANCELLING:'#f59e0b', SUSPENDED:'#a78bfa' };
 
     // Build a map from pipeline graph-node id → jid for color lookup
     const idToJid = {};
@@ -385,14 +385,14 @@ function _pdgRenderGraph() {
 
         svg += `<g class="pdg-node-g" data-nid="${n.id}" style="cursor:pointer;">
       <rect x="${p.x}" y="${p.y}" width="${NW}" height="${h}" rx="5"
-        fill="${bg}" stroke="${sc}" stroke-width="${isPipeline?2:1.5}"/>
+       fill="${bg}" stroke="${isPipeline&&n.state==='FAILED'?'#ef4444':isPipeline&&(n.state==='CANCELED'||n.state==='CANCELLING')?'#f59e0b':isPipeline&&n.state==='SUSPENDED'?'#a78bfa':sc}" stroke-width="${isPipeline?2:1.5}" stroke-dasharray="${isPipeline&&(n.state==='FAILED'||n.state==='CANCELED'||n.state==='CANCELLING')?'5 3':''}"/>
       <text x="${p.x+10}" y="${p.y+15}" font-family="monospace" font-size="11"
         fill="${sc}">${icon}</text>
       <text x="${p.x+26}" y="${p.y+15}" font-family="monospace" font-size="10"
         font-weight="${isPipeline?'700':'400'}" fill="${isPipeline?'#e8f0f8':'#9ca3af'}">${_escPdg(label)}</text>
       ${isPipeline
             ? `<text x="${p.x+10}" y="${p.y+30}" font-family="monospace" font-size="9"
-            fill="${sc}">${n.state}</text>
+            fill="${stateColor[n.state]||sc}">${n.state||'UNKNOWN'}</text>
             <text x="${p.x+NW-8}" y="${p.y+15}" text-anchor="end" font-family="monospace" font-size="8"
               fill="#4b5563">${n.jid?n.jid.slice(0,8):''}</text>`
             : `<text x="${p.x+10}" y="${p.y+29}" font-family="monospace" font-size="9"
@@ -551,6 +551,7 @@ function _pdgStartAnimation() {
     const runningIds = new Set(
         nodes.filter(n => n.type === 'pipeline' && n.state === 'RUNNING').map(n => n.id)
     );
+// Still draw static (non-animated) edges for non-running pipelines — animation only for RUNNING
     if (!runningIds.size) return;
 
     // Build a map: pipeline node id → jid, so we can look up the pipeline color
@@ -640,7 +641,7 @@ function _pdgRenderJobList() {
 
     el.innerHTML = _PDG.jobs.map(j => {
         const sc = _pdgPipelineColor(j.jid);
-        const stateLabel = { RUNNING:'var(--green)', FINISHED:'var(--text3)', RESTARTING:'var(--yellow)', FAILED:'var(--red)' }[j.state] || 'var(--text3)';
+        const stateLabel = { RUNNING:'var(--green)', FINISHED:'#6b7280', RESTARTING:'var(--yellow)', FAILED:'var(--red)', CANCELED:'#f59e0b', CANCELLING:'#f59e0b', SUSPENDED:'#a78bfa' }[j.state] || 'var(--text3)';
         const srcNames = j.sources.map(s=>s.label).join(', ') || '—';
         const snkNames = j.sinks.map(s=>s.label).join(', ')   || '—';
         return `<div class="pdg-job-item" data-jid="${_escPdg(j.jid)}"

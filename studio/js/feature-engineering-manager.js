@@ -293,7 +293,8 @@ function _femResetAll() {
         step: 0, schemaMode: 'manual', srConnected: false, srSubjects: [], srSchemaCache: {},
         sourceTable: '', sourceFormat: 'kafka', rawColumns: [], selectedFeatures: [],
         transformations: [], windows: [], noWinGroupBy: '', noWinHaving: '', noWinAggs: '',
-        timeCol: '', watermarkDelay: '5 SECOND', outputTable: '', sinkType: 'kafka', generatedSql: '',
+        timeCol: '', watermarkDelay: '5 SECOND', outputTable: '', sinkType: 'kafka', generatedSql: '',  srcParams: {},
+        sinkParams: {},
     });
     _femGoStep(0);
 }
@@ -368,8 +369,17 @@ function _femTryGoStep(n) {
 function _femCollectCurrentStep() {
     switch (_FEM.step) {
         case 0:
-            _FEM.sourceTable = document.getElementById('fem-src-table')?.value?.trim() || _FEM.sourceTable;
-            _FEM.sourceFormat = document.getElementById('fem-src-format')?.value || _FEM.sourceFormat;
+            _FEM.sourceTable  = document.getElementById('fem-src-table')?.value?.trim()  || _FEM.sourceTable;
+            _FEM.sourceFormat = document.getElementById('fem-src-format')?.value          || _FEM.sourceFormat;
+            // Collect source Kafka connection params if entered manually
+            _FEM.srcParams = {
+                bootstrap: document.getElementById('fem-src-bootstrap')?.value?.trim() || '',
+                topic:     document.getElementById('fem-src-topic')?.value?.trim()     || '',
+                srUrl:     _FEM.srUrl   || '',
+                srSubject: document.getElementById('fem-src-sr-subject')?.value?.trim()
+                    || (_FEM.srSchemaCache ? Object.keys(_FEM.srSchemaCache)[0] : '')
+                    || '',
+            };
             if (_FEM.schemaMode === 'manual') {
                 const ta = document.getElementById('fem-manual-cols');
                 if (ta) _femParseManualCols(ta.value);
@@ -388,7 +398,66 @@ function _femCollectCurrentStep() {
         case 4:
             _FEM.outputTable = document.getElementById('fem-out-table')?.value?.trim() || _FEM.outputTable;
             _FEM.sinkType = document.getElementById('fem-sink-type')?.value || _FEM.sinkType;
+            _femCollectSinkParams(_FEM.sinkType);
             break;
+    }
+}
+
+function _femCollectSinkParams(type) {
+    const g = id => document.getElementById(id)?.value?.trim() || '';
+    _FEM.sinkParams = {};
+    if (type === 'kafka') {
+        _FEM.sinkParams.bootstrap  = g('fem-sk-bootstrap');
+        _FEM.sinkParams.topic      = g('fem-sk-topic');
+        _FEM.sinkParams.format     = g('fem-sk-format') || 'json';
+        _FEM.sinkParams.security   = g('fem-sk-security') || 'PLAINTEXT (none)';
+        _FEM.sinkParams.saslUser   = g('fem-sk-sasl-user');
+        _FEM.sinkParams.saslPass   = g('fem-sk-sasl-pass');
+    } else if (type === 'jdbc') {
+        _FEM.sinkParams.jdbcUrl    = g('fem-sk-jdbc-url');
+        _FEM.sinkParams.table      = g('fem-sk-jdbc-table');
+        _FEM.sinkParams.user       = g('fem-sk-jdbc-user');
+        _FEM.sinkParams.pass       = g('fem-sk-jdbc-pass');
+        _FEM.sinkParams.driver     = g('fem-sk-jdbc-driver') || 'org.postgresql.Driver';
+        _FEM.sinkParams.parallelism= g('fem-sk-jdbc-par') || '4';
+    } else if (type === 'filesystem') {
+        _FEM.sinkParams.path       = g('fem-sk-fs-path');
+        _FEM.sinkParams.format     = g('fem-sk-fs-format') || 'parquet';
+        _FEM.sinkParams.rolling    = g('fem-sk-fs-roll') || '10 min';
+        _FEM.sinkParams.partition  = g('fem-sk-fs-part');
+    } else if (type === 'elasticsearch') {
+        _FEM.sinkParams.hosts      = g('fem-sk-es-hosts');
+        _FEM.sinkParams.index      = g('fem-sk-es-index');
+        _FEM.sinkParams.version    = g('fem-sk-es-ver') || '7';
+        _FEM.sinkParams.user       = g('fem-sk-es-user');
+        _FEM.sinkParams.pass       = g('fem-sk-es-pass');
+        _FEM.sinkParams.docId      = g('fem-sk-es-docid');
+    } else if (type === 'iceberg') {
+        _FEM.sinkParams.catalog    = g('fem-sk-ice-cat');
+        _FEM.sinkParams.table      = g('fem-sk-ice-tbl');
+        _FEM.sinkParams.catType    = g('fem-sk-ice-cattype') || 'hive';
+        _FEM.sinkParams.warehouse  = g('fem-sk-ice-wh');
+        _FEM.sinkParams.sort       = g('fem-sk-ice-sort');
+        _FEM.sinkParams.mode       = g('fem-sk-ice-mode') || 'append';
+    } else if (type === 'hudi') {
+        _FEM.sinkParams.path       = g('fem-sk-hudi-path');
+        _FEM.sinkParams.tableType  = g('fem-sk-hudi-type') || 'COPY_ON_WRITE';
+        _FEM.sinkParams.recordKey  = g('fem-sk-hudi-rkey');
+        _FEM.sinkParams.precombine = g('fem-sk-hudi-pre');
+        _FEM.sinkParams.partition  = g('fem-sk-hudi-part');
+        _FEM.sinkParams.syncClass  = g('fem-sk-hudi-sync');
+    } else if (type === 'redis') {
+        _FEM.sinkParams.host       = g('fem-sk-redis-host');
+        _FEM.sinkParams.pass       = g('fem-sk-redis-pass');
+        _FEM.sinkParams.keyCol     = g('fem-sk-redis-key');
+        _FEM.sinkParams.ttl        = g('fem-sk-redis-ttl') || '3600';
+        _FEM.sinkParams.mode       = g('fem-sk-redis-mode') || 'standalone';
+        _FEM.sinkParams.master     = g('fem-sk-redis-master');
+    } else if (type === 'feast') {
+        _FEM.sinkParams.url        = g('fem-sk-feast-url');
+        _FEM.sinkParams.view       = g('fem-sk-feast-view');
+        _FEM.sinkParams.project    = g('fem-sk-feast-proj');
+        _FEM.sinkParams.entity     = g('fem-sk-feast-entity');
     }
 }
 
@@ -435,6 +504,8 @@ function _femBack() {
     _femCollectCurrentStep();
     if (_FEM.step > 0) _femGoStep(_FEM.step - 1);
 }
+
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // STEP 0 — Data Source
@@ -1575,12 +1646,26 @@ function _femGenerateSql() {
     lines.push(schemaCols.join(',\n'));
     lines.push(`) WITH (`);
     if (_FEM.sourceFormat === 'kafka') {
+        const sp      = _FEM.srcParams   || {};
+        const srUrl   = sp.srUrl         || _FEM.srUrl || '<REPLACE_ME:schema_registry_url>';
+        const srSubj  = sp.srSubject     || (src + '-value');
+        const boot    = sp.bootstrap     || '<REPLACE_ME:bootstrap.servers>';
+        const topic   = sp.topic         || '<REPLACE_ME:topic>';
+        const useSr   = !!_FEM.srUrl;    // true when schema registry was connected
         lines.push(`  'connector'                    = 'kafka',`);
-        lines.push(`  'topic'                        = '<REPLACE_ME:topic>',`);
-        lines.push(`  'properties.bootstrap.servers' = '<REPLACE_ME:bootstrap.servers>',`);
+        lines.push(`  'topic'                        = '${topic}',`);
+        lines.push(`  'properties.bootstrap.servers' = '${boot}',`);
         lines.push(`  'properties.group.id'          = 'feature-pipeline-group',`);
-        lines.push(`  'scan.startup.mode'            = 'latest-offset',`);
-        lines.push(`  'format'                       = 'json'`);
+        lines.push(`  'scan.startup.mode'            = 'earliest-offset',`);
+        if (useSr) {
+            lines.push(`  'format'                       = 'avro-confluent',`);
+            lines.push(`  'avro-confluent.url'           = '${srUrl}',`);
+            lines.push(`  'avro-confluent.subject'       = '${srSubj}'`);
+        } else {
+            lines.push(`  'format'                       = 'json',`);
+            lines.push(`  'json.ignore-parse-errors'     = 'true',`);
+            lines.push(`  'json.fail-on-missing-field'   = 'false'`);
+        }
     } else if (_FEM.sourceFormat === 'datagen') {
         lines.push(`  'connector'       = 'datagen',`);
         lines.push(`  'rows-per-second' = '100'`);
@@ -1592,22 +1677,36 @@ function _femGenerateSql() {
     // Sink DDL
     lines.push(`-- Sink: ${out} (${_FEM.sinkType})`);
     if (_FEM.sinkType === 'kafka') {
+        const sp      = _FEM.sinkParams || {};
+        const boot    = sp.bootstrap    || '<REPLACE_ME:bootstrap.servers>';
+        const topic   = sp.topic        || '<REPLACE_ME:output_topic>';
+        const fmt     = sp.format       || 'json';
+        const sec     = sp.security     || 'PLAINTEXT (none)';
+        const isSasl  = sec.startsWith('SASL');
         lines.push(`CREATE TEMPORARY TABLE IF NOT EXISTS ${out} WITH (`);
         lines.push(`  'connector'                    = 'kafka',`);
-        lines.push(`  'topic'                        = '<REPLACE_ME:output_topic>',`);
-        lines.push(`  'properties.bootstrap.servers' = '<REPLACE_ME:bootstrap.servers>',`);
-        lines.push(`  'format'                       = 'json'`);
+        lines.push(`  'topic'                        = '${topic}',`);
+        lines.push(`  'properties.bootstrap.servers' = '${boot}',`);
+        if (isSasl && sp.saslUser) {
+            lines.push(`  'properties.security.protocol'               = '${sec}',`);
+            lines.push(`  'properties.sasl.mechanism'                  = 'PLAIN',`);
+            lines.push(`  'properties.sasl.jaas.config'                = 'org.apache.kafka.common.security.plain.PlainLoginModule required username="${sp.saslUser}" password="${sp.saslPass}";',`);
+        }
+        lines.push(`  'format'                       = '${fmt}'`);
         lines.push(`) LIKE ${src} (EXCLUDING ALL);\n`);
     } else if (_FEM.sinkType === 'jdbc') {
+        const sp = _FEM.sinkParams || {};
         lines.push(`CREATE TEMPORARY TABLE IF NOT EXISTS ${out} (`);
         cols.slice(0, 4).forEach(c => lines.push(`  ${c.name.padEnd(30)} ${c.type},`));
         lines.push(`  PRIMARY KEY (${cols[0]?.name || 'id'}) NOT ENFORCED`);
         lines.push(`) WITH (`);
-        lines.push(`  'connector'  = 'jdbc',`);
-        lines.push(`  'url'        = '<REPLACE_ME:jdbc_url>',`);
-        lines.push(`  'table-name' = '${out}',`);
-        lines.push(`  'username'   = '<REPLACE_ME>',`);
-        lines.push(`  'password'   = '<REPLACE_ME>'`);
+        lines.push(`  'connector'   = 'jdbc',`);
+        lines.push(`  'url'         = '${sp.jdbcUrl  || '<REPLACE_ME:jdbc_url>'}',`);
+        lines.push(`  'table-name'  = '${sp.table    || out}',`);
+        lines.push(`  'username'    = '${sp.user     || '<REPLACE_ME>'}',`);
+        lines.push(`  'password'    = '${sp.pass     || '<REPLACE_ME>'}',`);
+        lines.push(`  'driver'      = '${sp.driver   || 'org.postgresql.Driver'}',`);
+        lines.push(`  'sink.parallelism' = '${sp.parallelism || '4'}'`);
         lines.push(`);\n`);
     } else if (_FEM.sinkType === 'iceberg') {
         lines.push(`CREATE TEMPORARY TABLE IF NOT EXISTS ${out} (`);

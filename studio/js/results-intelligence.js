@@ -246,8 +246,13 @@ function _cdBuildModal() {
   .cd-legend-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
   @media print{*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;} #cd-legend{display:flex!important;}}
   .result-table td{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
-  /* v5: ensure highlighted rows keep their colour even inside striped tables */
-  .result-table tbody tr[data-cd-rule] td { background: inherit !important; }
+  /* v5: highlighted rows — td must not override tr background */
+  .result-table tbody tr[data-cd-rule] td {
+    background: transparent !important;
+  }
+  .result-table tbody tr[data-cd-rule]:hover td {
+    background: transparent !important;
+  }
   `;
     document.head.appendChild(s);
     _cdPickSwatch('#ff4d6d', document.querySelector('.cd-swatch'));
@@ -488,11 +493,11 @@ function _cdStyleString(rule) {
         : '0,212,170';
     switch (rule.styleMode) {
         case 'bg':
-            return `background:rgba(${rgb},0.18)!important;`;
+            return `background:rgba(${rgb},0.22);`;
         case 'border':
-            return `border-left:4px solid ${hex}!important;background:rgba(${rgb},0.06)!important;`;
+            return `border-left:4px solid ${hex};background:rgba(${rgb},0.08);`;
         case 'text':
-            return `color:${hex}!important;`;
+            return `color:${hex};font-weight:600;`;
         default:
             return '';
     }
@@ -530,16 +535,8 @@ function _cdReapplyExistingFromDOM() {
     });
 
     table.querySelectorAll('tbody tr').forEach(rowEl => {
-        // Reset any previous highlight
         rowEl.removeAttribute('data-cd-rule');
-        // Remove only our highlight properties, keep other styles intact
-        const existingStyle = rowEl.getAttribute('style') || '';
-        const cleaned = existingStyle
-            .replace(/background[^;]*;?/gi, '')
-            .replace(/border-left[^;]*;?/gi, '')
-            .replace(/color[^;]*;?/gi, '')
-            .trim();
-        rowEl.setAttribute('style', cleaned);
+        rowEl.removeAttribute('style');
 
         const cells = Array.from(rowEl.querySelectorAll('td'));
         for (const rule of window.colorDescribeRules) {
@@ -549,11 +546,24 @@ function _cdReapplyExistingFromDOM() {
             if (!cell) continue;
             const cellVal = cell.textContent.trim().replace(/^NULL$/, '');
             if (_cdMatch(cellVal, rule)) {
-                // Use setAttribute so the style is set atomically and survives reflow
-                const baseStyle = cleaned ? cleaned + ';' : '';
-                rowEl.setAttribute('style', baseStyle + _cdStyleString(rule));
+                const styleStr = _cdStyleString(rule);
+                rowEl.setAttribute('style', styleStr);
                 rowEl.setAttribute('data-cd-rule', rule.id);
-                break; // first match wins
+                // Also directly set via style object for browsers that need it
+                const hex = rule.color;
+                const rgb = hex.length === 7
+                    ? `${parseInt(hex.slice(1,3),16)},${parseInt(hex.slice(3,5),16)},${parseInt(hex.slice(5,7),16)}`
+                    : '0,212,170';
+                if (rule.styleMode === 'bg') {
+                    rowEl.style.backgroundColor = `rgba(${rgb},0.22)`;
+                } else if (rule.styleMode === 'border') {
+                    rowEl.style.borderLeft = `4px solid ${hex}`;
+                    rowEl.style.backgroundColor = `rgba(${rgb},0.08)`;
+                } else if (rule.styleMode === 'text') {
+                    rowEl.style.color = hex;
+                    rowEl.style.fontWeight = '600';
+                }
+                break;
             }
         }
     });
@@ -690,9 +700,10 @@ function _injectColorDescribeBtn() {
     function _scheduleReapply() {
         if (!window.colorDescribeActive) return;
         clearTimeout(_cdObserverTimer);
+        // Use 80ms — long enough for innerHTML to settle but short enough to feel instant
         _cdObserverTimer = setTimeout(() => {
-            _cdReapplyExistingFromDOM();
-        }, 30);
+            requestAnimationFrame(() => _cdReapplyExistingFromDOM());
+        }, 80);
     }
 
     function _tryAttach() {

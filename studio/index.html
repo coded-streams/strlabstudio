@@ -426,6 +426,22 @@
       display: flex !important;
       gap: 8px !important;
     }
+
+    /* ── Status bar execution spinner ─────────────────────────────── */
+    .spinner {
+      width: 10px;
+      height: 10px;
+      border: 2px solid rgba(0, 212, 170, 0.2);
+      border-top-color: var(--accent, #00d4aa);
+      border-radius: 50%;
+      animation: _spin 0.75s linear infinite;
+      flex-shrink: 0;
+      display: inline-block;
+    }
+
+    @keyframes _spin {
+      to { transform: rotate(360deg); }
+    }
   </style>
 </head>
 <body>

@@ -34,11 +34,10 @@ function renderResults() {
   html += '</tr></thead><tbody>';
 
   pageRows.forEach((row, ri) => {
-    // Show original row number (account for reversed display)
     const origIdx = state.resultNewestFirst
-      ? (rows.length - 1 - (start + ri))
-      : (start + ri);
-    html += `<tr><td class="row-index">${origIdx + 1}</td>`;
+        ? (rows.length - 1 - (start + ri))
+        : (start + ri);
+    html += `<tr data-row-idx="${origIdx}"><td class="row-index">${origIdx + 1}</td>`;
     const rawFields = (row && row.fields !== undefined) ? row.fields : row;
     const fieldArr = Array.isArray(rawFields) ? rawFields : Object.values(rawFields || {});
     fieldArr.forEach((val, ci) => {
@@ -48,16 +47,14 @@ function renderResults() {
       else if (['INT','BIGINT','DOUBLE','FLOAT','DECIMAL','INTEGER','TINYINT','SMALLINT'].some(t => colType.includes(t))) cls = 'num-val';
       else if (colType.includes('BOOL')) cls = 'bool-val';
       else if (colType.includes('TIMESTAMP') || colType.includes('TIME') || colType.includes('DATE')) cls = 'ts-val';
-      // Pretty-print JSON values (common from Kafka JSON format)
       let display = val === null ? 'NULL' : String(val);
       if (display.startsWith('{') || display.startsWith('[')) {
         try {
           const parsed = JSON.parse(display);
-          // Flatten one level for readability in the cell
           if (typeof parsed === 'object' && !Array.isArray(parsed)) {
             display = Object.entries(parsed)
-              .map(([k,v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`)
-              .join('  |  ');
+                .map(([k,v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`)
+                .join('  |  ');
             cls += ' json-val';
           }
         } catch(_) {}
@@ -68,6 +65,14 @@ function renderResults() {
   });
   html += '</tbody></table>';
   wrap.innerHTML = html;
+
+  // ── Apply Colour Describe highlighting after DOM is built ──────────────
+  if (window.colorDescribeActive && window.colorDescribeRules && window.colorDescribeRules.length) {
+    // Small defer so the browser has committed the new DOM nodes
+    requestAnimationFrame(() => {
+      _cdReapplyExistingFromDOM();
+    });
+  }
 
   // Pagination
   const totalPages = Math.ceil(displayRows.length / state.pageSize);
