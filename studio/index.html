@@ -442,6 +442,108 @@
     @keyframes _spin {
       to { transform: rotate(360deg); }
     }
+
+    /* ── Connect screen responsive ────────────────────────────────── */
+    @media (max-width: 860px) {
+      .cs-layout {
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: flex-start !important;
+        overflow-y: auto !important;
+        padding: 16px !important;
+        gap: 20px !important;
+      }
+      .cs-showcase {
+        max-width: 100% !important;
+        width: 100% !important;
+        padding: 0 !important;
+      }
+      .cs-slides {
+        min-height: 280px !important;
+      }
+      .connect-panel {
+        width: 100% !important;
+        max-width: 480px !important;
+        max-height: none !important;
+        flex-shrink: 0 !important;
+      }
+      .cs-tips {
+        font-size: 10px !important;
+        line-height: 1.7 !important;
+      }
+      .cs-logo-title {
+        font-size: 28px !important;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .connect-panel {
+        max-width: 100% !important;
+      }
+      #mode-proxy, #mode-direct, #mode-confluent,
+      #mode-ververica, #mode-aws {
+        min-width: 70px !important;
+        font-size: 10px !important;
+      }
+    }
+
+    /* ── Sidebar responsive ───────────────────────────────────────── */
+    @media (max-width: 1024px) {
+      #sidebar {
+        position: fixed !important;
+        top: 42px !important; /* below topbar */
+        left: 0 !important;
+        bottom: 24px !important; /* above statusbar */
+        z-index: 150 !important;
+        transform: translateX(-100%) !important;
+        transition: transform 0.22s ease !important;
+        box-shadow: 4px 0 24px rgba(0,0,0,0.5) !important;
+        width: 220px !important;
+      }
+      #sidebar.sidebar-open {
+        transform: translateX(0) !important;
+      }
+      #editor-area {
+        margin-left: 0 !important;
+        width: 100% !important;
+      }
+      #sidebar-toggle-btn {
+        display: flex !important;
+      }
+      /* Overlay behind open sidebar */
+      #sidebar-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 140;
+        background: rgba(0,0,0,0.45);
+      }
+      #sidebar-overlay.active {
+        display: block;
+      }
+    }
+
+    /* ── Topbar responsive ────────────────────────────────────────── */
+    @media (max-width: 1100px) {
+      #tb-snippets, #tb-tips, #tb-about { display: none !important; }
+      #tb-more-wrap { display: block !important; }
+      /* Also hide workspace button — it's in the More menu */
+      .topbar-actions button[onclick*="modal-workspace"] { display: none !important; }
+    }
+
+    @media (max-width: 820px) {
+      /* Hide Projects button too, add to More menu if needed */
+      .topbar-actions button[onclick*="openProjectManager"] { display: none !important; }
+      .topbar-session { max-width: 90px !important; }
+      #topbar-conn-info { display: none !important; }
+    }
+
+    @media (max-width: 600px) {
+      .topbar-actions button[onclick*="openNewSessionModal"] { display: none !important; }
+      .logo-text .logo-ver { display: none !important; }
+    }
+
+    #tb-more-menu.open { display: flex !important; }
   </style>
 </head>
 <body>
@@ -662,7 +764,33 @@
               <span style="font-size:10px;color:var(--text3);display:block;margin-top:2px;">KinesisAnalyticsV2</span>
             </button>
 
+            <button class="mode-btn" id="mode-beam" onclick="setMode('beam')" style="flex:1;min-width:90px;">
 
+              <!-- Only the hexagon logo icon is red -->
+
+              <span style="display:inline-flex;align-items:center;justify-content:center;
+
+                           width:16px;height:16px;margin-right:5px;vertical-align:middle;flex-shrink:0;
+
+                           background:rgba(232,51,74,0.12);border:1px solid rgba(232,51,74,0.45);
+
+                           clip-path:polygon(0 0,80% 0,100% 20%,100% 100%,20% 100%,0 80%);">
+
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none"
+
+                     stroke="#e8334a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+
+                  <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+
+                </svg>
+
+              </span>
+
+              Str:::Beam
+
+              <span style="font-size:10px;color:var(--text3);display:block;margin-top:2px;">Managed Engine</span>
+
+            </button>
 
           </div>
 
@@ -872,7 +1000,281 @@
             </div>
           </div>
 
+          <!-- ═══ STR:::BEAM AUTH PANEL — paste entire block here ═══ -->
 
+          <div id="mode-beam-info" style="display:none;margin-top:8px;">
+
+
+            <!-- Header card with red logo -->
+
+            <div style="background:rgba(232,51,74,0.05);border:1px solid rgba(232,51,74,0.18);
+
+                        padding:12px 14px;border-radius:3px;margin-bottom:12px;
+
+                        display:flex;align-items:center;gap:12px;">
+
+              <div style="width:38px;height:38px;flex-shrink:0;
+
+                          background:rgba(232,51,74,0.08);border:1.5px solid rgba(232,51,74,0.4);
+
+                          clip-path:polygon(0 0,80% 0,100% 20%,100% 100%,20% 100%,0 80%);
+
+                          display:flex;align-items:center;justify-content:center;">
+
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+
+                     stroke="#e8334a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+
+                  <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+
+                </svg>
+
+              </div>
+
+              <div>
+
+                <div style="font-size:13px;font-weight:700;color:var(--text0);">
+
+                  Str<span style="color:#e8334a">:::</span>Beam Engine
+
+                </div>
+
+                <div style="font-size:10px;color:var(--text2);margin-top:2px;line-height:1.6;">
+
+                  Managed Apache Flink® platform · Sign in to access your tenant cluster
+
+                </div>
+
+                <div style="display:flex;gap:5px;margin-top:5px;flex-wrap:wrap;">
+
+                  <span style="font-size:9px;padding:1px 7px;border-radius:20px;
+
+                               background:rgba(232,51,74,0.08);border:1px solid rgba(232,51,74,0.25);color:#e8334a;">Cloud Native</span>
+
+                  <span style="font-size:9px;padding:1px 7px;border-radius:20px;
+
+                               background:rgba(99,201,150,0.08);border:1px solid rgba(99,201,150,0.25);color:var(--green,#63c996);">Auto-scaling</span>
+
+                  <span style="font-size:9px;padding:1px 7px;border-radius:20px;
+
+                               background:rgba(79,163,224,0.08);border:1px solid rgba(79,163,224,0.25);color:var(--blue,#4fa3e0);">Multi-tenant</span>
+
+                </div>
+
+              </div>
+
+            </div>
+
+
+            <!-- Engine URL input -->
+
+            <div style="margin-bottom:10px;">
+
+              <label class="field-label">Str:::Beam Engine URL <span style="color:var(--red,#ff4d6d)">*</span></label>
+
+              <input class="field-input" id="inp-beam-url" type="text"
+
+                     value="http://localhost:8090"
+
+                     placeholder="https://your-beam-engine.example.com"
+
+                     style="font-size:11px;" oninput="beamUpdateEndpointPreview()" />
+
+              <div style="font-size:9px;color:var(--text3);margin-top:3px;">Base URL of your Str:::Beam control plane (no trailing slash)</div>
+
+            </div>
+
+
+            <!-- Sign-in-with divider -->
+
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+
+              <div style="flex:1;height:1px;background:rgba(232,51,74,0.12);"></div>
+
+              <span style="font-size:9px;color:var(--text3);letter-spacing:1px;text-transform:uppercase;">Sign in with</span>
+
+              <div style="flex:1;height:1px;background:rgba(232,51,74,0.12);"></div>
+
+            </div>
+
+
+            <!-- SSO buttons -->
+
+            <div id="beam-sso-btn-area" style="display:flex;flex-direction:column;gap:7px;">
+
+
+              <!-- Google → GET /api/v1/auth/google -->
+
+              <button onclick="beamInitiateSSO('google')"
+
+                      style="display:flex;align-items:center;gap:11px;padding:10px 13px;
+
+                             background:transparent;border:1px solid rgba(255,255,255,0.1);
+
+                             border-radius:3px;color:var(--text1);font-family:var(--mono);
+
+                             font-size:12px;cursor:pointer;width:100%;text-align:left;"
+
+                      onmouseover="this.style.background='rgba(255,255,255,0.04)'"
+
+                      onmouseout="this.style.background='transparent'">
+
+                <svg viewBox="0 0 24 24" width="18" height="18" style="flex-shrink:0">
+
+                  <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+
+                  <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+
+                  <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+
+                  <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+
+                </svg>
+
+                <span style="display:flex;flex-direction:column;gap:2px;">
+
+                  <span>Continue with Google</span>
+
+                  <span style="font-size:9px;color:var(--text3);">OAuth2 SSO · auto-provisions new accounts</span>
+
+                </span>
+
+              </button>
+
+
+              <!-- GitHub → GET /api/v1/auth/github -->
+
+              <button onclick="beamInitiateSSO('github')"
+
+                      style="display:flex;align-items:center;gap:11px;padding:10px 13px;
+
+                             background:transparent;border:1px solid rgba(255,255,255,0.1);
+
+                             border-radius:3px;color:var(--text1);font-family:var(--mono);
+
+                             font-size:12px;cursor:pointer;width:100%;text-align:left;"
+
+                      onmouseover="this.style.background='rgba(255,255,255,0.04)'"
+
+                      onmouseout="this.style.background='transparent'">
+
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="var(--text1)" style="flex-shrink:0">
+
+                  <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+
+                </svg>
+
+                <span style="display:flex;flex-direction:column;gap:2px;">
+
+                  <span>Continue with GitHub</span>
+
+                  <span style="font-size:9px;color:var(--text3);">OAuth2 SSO · auto-provisions new accounts</span>
+
+                </span>
+
+              </button>
+
+
+              <!-- API Key toggle + inline form → GET /api/v1/tenants/{key} -->
+
+              <button id="beam-apikey-toggle" onclick="beamToggleApiKeyForm()"
+
+                      style="display:flex;align-items:center;gap:11px;padding:10px 13px;
+
+                             background:transparent;border:1px solid rgba(232,51,74,0.2);
+
+                             border-radius:3px;color:var(--text2);font-family:var(--mono);
+
+                             font-size:12px;cursor:pointer;width:100%;text-align:left;"
+
+                      onmouseover="this.style.background='rgba(232,51,74,0.05)'"
+
+                      onmouseout="this.style.background='transparent'">
+
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="var(--text3)"
+
+                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0">
+
+                  <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>
+
+                </svg>
+
+                <span style="display:flex;flex-direction:column;gap:2px;">
+
+                  <span>Use Tenant API Key</span>
+
+                  <span style="font-size:9px;color:var(--text3);">Service accounts · CI/CD pipelines</span>
+
+                </span>
+
+                <span id="beam-apikey-arrow" style="margin-left:auto;font-size:10px;color:var(--text3);">▼</span>
+
+              </button>
+
+
+              <!-- Inline API key form (hidden by default) -->
+
+              <div id="beam-apikey-form" style="display:none;flex-direction:column;gap:6px;
+
+                                             background:rgba(232,51,74,0.03);
+
+                                             border:1px solid rgba(232,51,74,0.12);
+
+                                             border-radius:3px;padding:12px;">
+
+                <label class="field-label">Tenant Key</label>
+
+                <input class="field-input" id="inp-beam-tenant-key" type="text"
+
+                       placeholder="e.g. my-company" autocomplete="off" style="font-size:11px;"/>
+
+                <label class="field-label" style="margin-top:4px;">API Key</label>
+
+                <input class="field-input" id="inp-beam-apikey" type="password"
+
+                       placeholder="Raw API key (issued on tenant creation)"
+
+                       autocomplete="off" style="font-size:11px;"/>
+
+                <button onclick="beamConnectWithApiKey()"
+
+                        style="margin-top:4px;background:rgba(232,51,74,0.12);
+
+                               border:1px solid rgba(232,51,74,0.4);border-radius:3px;
+
+                               color:var(--text0);font-family:var(--mono);font-size:11px;
+
+                               font-weight:700;padding:8px 14px;cursor:pointer;">
+
+                  Connect to Str:::Beam →
+
+                </button>
+
+              </div>
+
+            </div> <!-- /beam-sso-btn-area -->
+
+
+            <!-- TOS + endpoint preview -->
+
+            <div style="font-size:9px;color:var(--text3);text-align:center;line-height:1.7;margin-top:8px;">
+
+              By signing in you agree to the Terms of Service and Privacy Policy.<br>
+
+              New accounts are automatically provisioned on the <strong style="color:var(--text2);">FREE</strong> tier.
+
+            </div>
+
+            <div style="margin-top:10px;font-size:9px;color:var(--text3);font-family:var(--mono);
+
+                        background:var(--bg0);border:1px solid var(--border);padding:5px 9px;border-radius:3px;">
+
+              Auth endpoint: <span id="beam-endpoint-preview" style="color:#e8334a;">http://localhost:8090/api/v1/auth/…</span>
+
+            </div>
+
+
+          </div>
 
         </div><!-- /field-group Connection Mode -->
 
@@ -936,294 +1338,243 @@
         <button class="btn btn-secondary" onclick="testConnection()">⚡ Test Connection</button>
         <button class="btn btn-primary"   id="connect-btn" onclick="doConnect()">Connect &amp; Open Studio</button>
 
-        <script>
-          // ═══════════════════════════════════════════════════════════════════
-          //  CONNECT SCREEN — Slideshow + Pipeline mini-canvas + Flink version
-          // ═══════════════════════════════════════════════════════════════════
-          (function() {
-            var cur = 0, total = 7, _timer = null, _paused = false;
+      </div><!-- /connect-footer -->
 
-            function csGoTo(n) {
-              var slides = document.querySelectorAll('.cs-slide');
-              var dots   = document.querySelectorAll('.cs-dot');
-              if (!slides.length) return;
-              slides[cur].classList.remove('active');
-              dots[cur].classList.remove('active');
-              cur = ((n % total) + total) % total;
-              slides[cur].classList.add('active');
-              dots[cur].classList.add('active');
-              csRestartProgress();
-              if (cur === 1) setTimeout(csBuildPipeline,  100);
-              if (cur === 6) setTimeout(csBuildPipeline2, 100);
-            }
-            window.csGoTo = csGoTo;
+    </div><!-- /connect-panel -->
+  </div><!-- /cs-layout -->
+</div><!-- /connect-screen -->
 
-            function csRestartProgress() {
-              var fill = document.getElementById('cs-progress-fill');
-              if (!fill) return;
-              fill.style.animation = 'none';
-              fill.offsetHeight;
-              fill.style.animation = 'csProg 6s linear forwards';
-            }
+<script>
+  // ═══════════════════════════════════════════════════════════════════
+  //  CONNECT SCREEN — Slideshow + Pipeline mini-canvas + Flink version
+  // ═══════════════════════════════════════════════════════════════════
+  (function() {
+    var cur = 0, total = 7, _timer = null, _paused = false;
 
-            function csStart() {
-              if (_timer) clearInterval(_timer);
-              _timer = setInterval(function() {
-                if (!_paused) csGoTo(cur + 1);
-              }, 6000);
-            }
+    function csGoTo(n) {
+      var slides = document.querySelectorAll('.cs-slide');
+      var dots   = document.querySelectorAll('.cs-dot');
+      if (!slides.length) return;
+      slides[cur].classList.remove('active');
+      dots[cur].classList.remove('active');
+      cur = ((n % total) + total) % total;
+      slides[cur].classList.add('active');
+      dots[cur].classList.add('active');
+      csRestartProgress();
+      if (cur === 1) setTimeout(csBuildPipeline,  100);
+      if (cur === 6) setTimeout(csBuildPipeline2, 100);
+    }
+    window.csGoTo = csGoTo;
 
-            // Pause on hover over showcase
-            document.addEventListener('DOMContentLoaded', function() {
-              var sc = document.querySelector('.cs-showcase');
-              if (sc) {
-                sc.addEventListener('mouseenter', function() { _paused = true; });
-                sc.addEventListener('mouseleave', function() { _paused = false; csRestartProgress(); });
-              }
-              csStart();
-              csRestartProgress();
-              csFetchFlinkVersion();
-            });
+    function csRestartProgress() {
+      var fill = document.getElementById('cs-progress-fill');
+      if (!fill) return;
+      fill.style.animation = 'none';
+      fill.offsetHeight;
+      fill.style.animation = 'csProg 6s linear forwards';
+    }
 
-            // Keyboard navigation
-            document.addEventListener('keydown', function(e) {
-              if (document.getElementById('connect-screen')?.style.display === 'none') return;
-              if (e.key === 'ArrowLeft')  csGoTo(cur - 1);
-              if (e.key === 'ArrowRight') csGoTo(cur + 1);
-            });
+    function csStart() {
+      if (_timer) clearInterval(_timer);
+      _timer = setInterval(function() {
+        if (!_paused) csGoTo(cur + 1);
+      }, 6000);
+    }
 
-            // ── Fetch Flink version from /v1/info ──────────────────────────
-            function csFetchFlinkVersion() {
-              // Try the proxy path first (Studio mode), then direct
-              var urls = ['/flink-api/v1/info', '/v1/info'];
-              function tryUrl(i) {
-                if (i >= urls.length) return;
-                fetch(urls[i], { headers: { 'Accept': 'application/json' } })
-                        .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
-                        .then(function(data) {
-                          var ver = data.flinkVersion || data.version || '';
-                          if (ver) {
-                            var badge = document.getElementById('cs-flink-ver');
-                            if (badge) {
-                              badge.textContent = 'Apache Flink® ' + ver;
-                              badge.style.display = 'inline-block';
-                            }
-                          }
-                        })
-                        .catch(function() { tryUrl(i + 1); });
-              }
-              tryUrl(0);
-            }
+    document.addEventListener('DOMContentLoaded', function() {
+      var sc = document.querySelector('.cs-showcase');
+      if (sc) {
+        sc.addEventListener('mouseenter', function() { _paused = true; });
+        sc.addEventListener('mouseleave', function() { _paused = false; csRestartProgress(); });
+      }
+      csStart();
+      csRestartProgress();
+      csFetchFlinkVersion();
+    });
 
-            // ── Mini pipeline canvas for slide 1 ──────────────────────────
-            var _pipeAnim = null;
-            var _pipeParticles = [];
+    document.addEventListener('keydown', function(e) {
+      if (document.getElementById('connect-screen')?.style.display === 'none') return;
+      if (e.key === 'ArrowLeft')  csGoTo(cur - 1);
+      if (e.key === 'ArrowRight') csGoTo(cur + 1);
+    });
 
-            function csBuildPipeline() {
-              var canvas = document.getElementById('cs-pipeline-canvas');
-              var svg    = document.getElementById('cs-pipeline-svg');
-              if (!canvas || !svg) return;
+    function csFetchFlinkVersion() {
+      var urls = ['/flink-api/v1/info', '/v1/info'];
+      function tryUrl(i) {
+        if (i >= urls.length) return;
+        fetch(urls[i], { headers: { 'Accept': 'application/json' } })
+                .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
+                .then(function(data) {
+                  var ver = data.flinkVersion || data.version || '';
+                  if (ver) {
+                    var badge = document.getElementById('cs-flink-ver');
+                    if (badge) { badge.textContent = 'Apache Flink® ' + ver; badge.style.display = 'inline-block'; }
+                  }
+                })
+                .catch(function() { tryUrl(i + 1); });
+      }
+      tryUrl(0);
+    }
 
-              // Clear previous nodes (keep SVG)
-              canvas.querySelectorAll('.cs-pnode').forEach(function(n) { n.remove(); });
-              if (_pipeAnim) { cancelAnimationFrame(_pipeAnim); _pipeAnim = null; }
-              _pipeParticles = [];
-              svg.innerHTML = '<defs>'
-                      + '<marker id="csarr" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto">'
-                      + '<path d="M0,0 L0,6 L7,3 z" fill="#4e9de8"/></marker></defs>'
-                      + '<g id="cs-edges-g"></g><g id="cs-particles-g"></g>';
+    var _pipeAnim = null;
+    var _pipeParticles = [];
 
-              // Define nodes
-              var nodes = [
-                { id:'src',  label:'Kafka Source',   sub:'SRC · ready', color:'#1a6fa8', x:20,  y:72 },
-                { id:'flt',  label:'Filter',         sub:'● running',   color:'#5a2a8a', x:170, y:28 },
-                { id:'win',  label:'Tumble 1min',    sub:'S · running', color:'#8a6a00', x:170, y:118 },
-                { id:'snk',  label:'Kafka Sink',     sub:'SINK · ready',color:'#0a3a6a', x:330, y:72 },
-              ];
+    function csBuildPipeline() {
+      var canvas = document.getElementById('cs-pipeline-canvas');
+      var svg    = document.getElementById('cs-pipeline-svg');
+      if (!canvas || !svg) return;
+      canvas.querySelectorAll('.cs-pnode').forEach(function(n) { n.remove(); });
+      if (_pipeAnim) { cancelAnimationFrame(_pipeAnim); _pipeAnim = null; }
+      _pipeParticles = [];
+      svg.innerHTML = '<defs><marker id="csarr" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#4e9de8"/></marker></defs><g id="cs-edges-g"></g><g id="cs-particles-g"></g>';
+      var nodes = [
+        { id:'src', label:'Kafka Source',  sub:'SRC · ready',  color:'#1a6fa8', x:20,  y:72  },
+        { id:'flt', label:'Filter',        sub:'● running',    color:'#5a2a8a', x:170, y:28  },
+        { id:'win', label:'Tumble 1min',   sub:'S · running',  color:'#8a6a00', x:170, y:118 },
+        { id:'snk', label:'Kafka Sink',    sub:'SINK · ready', color:'#0a3a6a', x:330, y:72  },
+      ];
+      nodes.forEach(function(n) {
+        var div = document.createElement('div');
+        div.className = 'cs-pnode';
+        div.style.cssText = 'left:'+n.x+'px;top:'+n.y+'px;background:'+n.color+';color:#fff;min-width:120px;max-width:140px;';
+        div.innerHTML = '<span>'+n.label+'</span><span class="cs-pnode-sub">'+n.sub+'</span>';
+        canvas.appendChild(div);
+        n._el = div;
+      });
+      setTimeout(function() {
+        var edges = [{from:'src',to:'flt'},{from:'src',to:'win'},{from:'flt',to:'snk'},{from:'win',to:'snk'}];
+        var edgesG = svg.querySelector('#cs-edges-g');
+        var edgePaths = [];
+        edges.forEach(function(e) {
+          var fn = nodes.find(function(n){return n.id===e.from;});
+          var tn = nodes.find(function(n){return n.id===e.to;});
+          if (!fn||!tn||!fn._el||!tn._el) return;
+          var x1=fn.x+fn._el.offsetWidth, y1=fn.y+fn._el.offsetHeight/2;
+          var x2=tn.x,                    y2=tn.y+tn._el.offsetHeight/2;
+          var cx1=x1+(x2-x1)*0.4, cy1=y1, cx2=x1+(x2-x1)*0.6, cy2=y2;
+          var path=document.createElementNS('http://www.w3.org/2000/svg','path');
+          path.setAttribute('d','M'+x1+','+y1+' C'+cx1+','+cy1+' '+cx2+','+cy2+' '+x2+','+y2);
+          path.setAttribute('stroke','#4e9de8'); path.setAttribute('stroke-width','1.8');
+          path.setAttribute('fill','none'); path.setAttribute('opacity','0.7');
+          path.setAttribute('marker-end','url(#csarr)');
+          edgesG.appendChild(path);
+          edgePaths.push({path:path,x1:x1,y1:y1,x2:x2,y2:y2,cx1:cx1,cy1:cy1,cx2:cx2,cy2:cy2});
+          _pipeParticles.push({t:Math.random(),      edge:edgePaths[edgePaths.length-1],color:'#4e9de8'});
+          _pipeParticles.push({t:Math.random()*0.5,  edge:edgePaths[edgePaths.length-1],color:'#00d4aa'});
+        });
+        _animatePipeline(edgePaths);
+      }, 60);
+    }
 
-              // Render nodes
-              nodes.forEach(function(n) {
-                var div = document.createElement('div');
-                div.className = 'cs-pnode';
-                div.style.cssText = [
-                  'left:' + n.x + 'px',
-                  'top:' + n.y + 'px',
-                  'background:' + n.color,
-                  'color:#fff',
-                  'min-width:120px',
-                  'max-width:140px',
-                ].join(';');
-                div.innerHTML = '<span>' + n.label + '</span><span class="cs-pnode-sub">' + n.sub + '</span>';
-                canvas.appendChild(div);
-                n._el = div;
-              });
+    function _animatePipeline(edgePaths) {
+      if (_pipeAnim) cancelAnimationFrame(_pipeAnim);
+      function frame() {
+        var pG = document.getElementById('cs-particles-g');
+        if (!pG) return;
+        var html = '';
+        _pipeParticles.forEach(function(p) {
+          p.t += 0.012; if (p.t > 1) p.t -= 1;
+          var e=p.edge,t=p.t,mt=1-t;
+          var px=mt*mt*mt*e.x1+3*mt*mt*t*e.cx1+3*mt*t*t*e.cx2+t*t*t*e.x2;
+          var py=mt*mt*mt*e.y1+3*mt*mt*t*e.cy1+3*mt*t*t*e.cy2+t*t*t*e.y2;
+          var alpha=Math.sin(t*Math.PI);
+          html+='<circle cx="'+px.toFixed(1)+'" cy="'+py.toFixed(1)+'" r="3" fill="'+p.color+'" opacity="'+alpha.toFixed(2)+'"/>';
+        });
+        pG.innerHTML = html;
+        _pipeAnim = requestAnimationFrame(frame);
+      }
+      frame();
+    }
 
-              // Draw edges after brief delay (let nodes render)
-              setTimeout(function() {
-                var edges = [
-                  { from: 'src', to: 'flt' },
-                  { from: 'src', to: 'win' },
-                  { from: 'flt', to: 'snk' },
-                  { from: 'win', to: 'snk' },
-                ];
-                var edgesG = svg.querySelector('#cs-edges-g');
-                var edgePaths = [];
-                edges.forEach(function(e) {
-                  var fn = nodes.find(function(n){return n.id===e.from;});
-                  var tn = nodes.find(function(n){return n.id===e.to;});
-                  if (!fn || !tn || !fn._el || !tn._el) return;
-                  var x1 = fn.x + fn._el.offsetWidth;
-                  var y1 = fn.y + fn._el.offsetHeight/2;
-                  var x2 = tn.x;
-                  var y2 = tn.y + tn._el.offsetHeight/2;
-                  var cx1 = x1 + (x2-x1)*0.4;
-                  var cy1 = y1;
-                  var cx2 = x1 + (x2-x1)*0.6;
-                  var cy2 = y2;
-                  var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                  path.setAttribute('d', 'M'+x1+','+y1+' C'+cx1+','+cy1+' '+cx2+','+cy2+' '+x2+','+y2);
-                  path.setAttribute('stroke', '#4e9de8');
-                  path.setAttribute('stroke-width', '1.8');
-                  path.setAttribute('fill', 'none');
-                  path.setAttribute('opacity', '0.7');
-                  path.setAttribute('marker-end', 'url(#csarr)');
-                  edgesG.appendChild(path);
-                  edgePaths.push({ path: path, x1:x1, y1:y1, x2:x2, y2:y2, cx1:cx1, cy1:cy1, cx2:cx2, cy2:cy2 });
-                  // Seed particles
-                  _pipeParticles.push({ t: Math.random(), edge: edgePaths[edgePaths.length-1], color:'#4e9de8' });
-                  _pipeParticles.push({ t: Math.random()*0.5, edge: edgePaths[edgePaths.length-1], color:'#00d4aa' });
-                });
-                _animatePipeline(edgePaths);
-              }, 60);
-            }
+    var _origGoTo = window.csGoTo;
+    window.csGoTo = function(n) {
+      var leaving = cur;
+      _origGoTo(n);
+      if ((leaving === 1 || leaving === 6) && cur !== leaving) {
+        if (_pipeAnim) { cancelAnimationFrame(_pipeAnim); _pipeAnim = null; }
+      }
+    };
 
-            function _animatePipeline(edgePaths) {
-              if (_pipeAnim) cancelAnimationFrame(_pipeAnim);
-              function frame() {
-                var pG = document.getElementById('cs-particles-g');
-                if (!pG) return;
-                var html = '';
-                _pipeParticles.forEach(function(p) {
-                  p.t += 0.012;
-                  if (p.t > 1) p.t -= 1;
-                  var e = p.edge, t = p.t, mt = 1-t;
-                  var px = mt*mt*mt*e.x1 + 3*mt*mt*t*e.cx1 + 3*mt*t*t*e.cx2 + t*t*t*e.x2;
-                  var py = mt*mt*mt*e.y1 + 3*mt*mt*t*e.cy1 + 3*mt*t*t*e.cy2 + t*t*t*e.y2;
-                  var alpha = Math.sin(t * Math.PI);
-                  html += '<circle cx="' + px.toFixed(1) + '" cy="' + py.toFixed(1) + '" r="3" fill="' + p.color + '" opacity="' + alpha.toFixed(2) + '"/>';
-                });
-                pG.innerHTML = html;
-                _pipeAnim = requestAnimationFrame(frame);
-              }
-              frame();
-            }
+    function csBuildPipeline2() {
+      var canvas = document.getElementById('cs-pipeline-canvas-2');
+      var svg    = document.getElementById('cs-pipeline-svg-2');
+      if (!canvas || !svg) return;
+      canvas.querySelectorAll('.cs-pnode').forEach(function(n) { n.remove(); });
+      if (_pipeAnim) { cancelAnimationFrame(_pipeAnim); _pipeAnim = null; }
+      _pipeParticles = [];
+      svg.innerHTML = '<defs><marker id="csarr2" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#f5a623"/></marker></defs><g id="cs-edges-g2"></g><g id="cs-particles-g2"></g>';
+      var nodes = [
+        { id:'src2', label:'Kafka Source',    sub:'SRC · events',    color:'#1a6fa8', x:8,   y:80  },
+        { id:'cep2', label:'MATCH_RECOGNIZE', sub:'CEP · running',   color:'#3a0a6a', x:148, y:24  },
+        { id:'ai2',  label:'AI Model',        sub:'score · Bedrock', color:'#5a006a', x:148, y:124 },
+        { id:'agg2', label:'Tumble 1min',     sub:'S · agg',         color:'#8a6a00', x:300, y:80  },
+        { id:'snk2', label:'Kafka Sink',      sub:'SINK · alerts',   color:'#0a3a6a', x:420, y:80  },
+      ];
+      nodes.forEach(function(n) {
+        var div = document.createElement('div');
+        div.className = 'cs-pnode';
+        div.style.cssText = 'left:'+n.x+'px;top:'+n.y+'px;background:'+n.color+';color:#fff;min-width:110px;max-width:135px;';
+        div.innerHTML = '<span>'+n.label+'</span><span class="cs-pnode-sub">'+n.sub+'</span>';
+        canvas.appendChild(div);
+        n._el = div;
+      });
+      setTimeout(function() {
+        var edgesG = svg.querySelector('#cs-edges-g2');
+        var edgePaths = [];
+        var edgeDefs = [
+          {from:'src2',to:'cep2',color:'#f5a623'},{from:'src2',to:'ai2',color:'#b080e0'},
+          {from:'cep2',to:'agg2',color:'#f5a623'},{from:'ai2',to:'agg2',color:'#b080e0'},
+          {from:'agg2',to:'snk2',color:'#4e9de8'},
+        ];
+        edgeDefs.forEach(function(ed) {
+          var fn=nodes.find(function(n){return n.id===ed.from;});
+          var tn=nodes.find(function(n){return n.id===ed.to;});
+          if (!fn||!tn||!fn._el||!tn._el) return;
+          var x1=fn.x+fn._el.offsetWidth, y1=fn.y+fn._el.offsetHeight/2;
+          var x2=tn.x,                    y2=tn.y+tn._el.offsetHeight/2;
+          var cx1=x1+(x2-x1)*0.4,cy1=y1,cx2=x1+(x2-x1)*0.6,cy2=y2;
+          var path=document.createElementNS('http://www.w3.org/2000/svg','path');
+          path.setAttribute('d','M'+x1+','+y1+' C'+cx1+','+cy1+' '+cx2+','+cy2+' '+x2+','+y2);
+          path.setAttribute('stroke',ed.color); path.setAttribute('stroke-width','1.8');
+          path.setAttribute('fill','none'); path.setAttribute('opacity','0.75');
+          path.setAttribute('marker-end','url(#csarr2)');
+          edgesG.appendChild(path);
+          var ep={path:path,x1:x1,y1:y1,x2:x2,y2:y2,cx1:cx1,cy1:cy1,cx2:cx2,cy2:cy2};
+          edgePaths.push(ep);
+          _pipeParticles.push({t:Math.random(),         edge:ep,color:ed.color});
+          _pipeParticles.push({t:Math.random()*0.5+0.3, edge:ep,color:'#00d4aa'});
+        });
+        _animatePipeline2(svg.querySelector('#cs-particles-g2'));
+      }, 60);
+    }
 
-            // Stop animation when leaving pipeline slides
-            var _origGoTo = window.csGoTo;
-            window.csGoTo = function(n) {
-              var leaving = cur;
-              _origGoTo(n);
-              if ((leaving === 1 || leaving === 6) && cur !== leaving) {
-                if (_pipeAnim) { cancelAnimationFrame(_pipeAnim); _pipeAnim = null; }
-              }
-            };
+    function _animatePipeline2(pG) {
+      if (_pipeAnim) cancelAnimationFrame(_pipeAnim);
+      function frame() {
+        if (!pG || !pG.isConnected) return;
+        var html = '';
+        _pipeParticles.forEach(function(p) {
+          p.t += 0.013; if (p.t > 1) p.t -= 1;
+          var e=p.edge,t=p.t,mt=1-t;
+          var px=mt*mt*mt*e.x1+3*mt*mt*t*e.cx1+3*mt*t*t*e.cx2+t*t*t*e.x2;
+          var py=mt*mt*mt*e.y1+3*mt*mt*t*e.cy1+3*mt*t*t*e.cy2+t*t*t*e.y2;
+          var alpha=Math.sin(t*Math.PI);
+          html+='<circle cx="'+px.toFixed(1)+'" cy="'+py.toFixed(1)+'" r="3" fill="'+p.color+'" opacity="'+alpha.toFixed(2)+'"/>';
+        });
+        pG.innerHTML = html;
+        _pipeAnim = requestAnimationFrame(frame);
+      }
+      frame();
+    }
 
-            // ── Second pipeline: Fraud Detection (CEP + AI + Sink) ────────
-            function csBuildPipeline2() {
-              var canvas = document.getElementById('cs-pipeline-canvas-2');
-              var svg    = document.getElementById('cs-pipeline-svg-2');
-              if (!canvas || !svg) return;
-              canvas.querySelectorAll('.cs-pnode').forEach(function(n) { n.remove(); });
-              if (_pipeAnim) { cancelAnimationFrame(_pipeAnim); _pipeAnim = null; }
-              _pipeParticles = [];
-              svg.innerHTML = '<defs>'
-                      + '<marker id="csarr2" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto">'
-                      + '<path d="M0,0 L0,6 L7,3 z" fill="#f5a623"/></marker></defs>'
-                      + '<g id="cs-edges-g2"></g><g id="cs-particles-g2"></g>';
-
-              var nodes = [
-                { id:'src2',  label:'Kafka Source',   sub:'SRC · events',   color:'#1a6fa8', x:8,   y:80  },
-                { id:'cep2',  label:'MATCH_RECOGNIZE',sub:'CEP · running',  color:'#3a0a6a', x:148, y:24  },
-                { id:'ai2',   label:'AI Model',       sub:'score · Bedrock',color:'#5a006a', x:148, y:124 },
-                { id:'agg2',  label:'Tumble 1min',    sub:'S · agg',        color:'#8a6a00', x:300, y:80  },
-                { id:'snk2',  label:'Kafka Sink',     sub:'SINK · alerts',  color:'#0a3a6a', x:420, y:80  },
-              ];
-
-              nodes.forEach(function(n) {
-                var div = document.createElement('div');
-                div.className = 'cs-pnode';
-                div.style.cssText = 'left:'+n.x+'px;top:'+n.y+'px;background:'+n.color+';color:#fff;min-width:110px;max-width:135px;';
-                div.innerHTML = '<span>'+n.label+'</span><span class="cs-pnode-sub">'+n.sub+'</span>';
-                canvas.appendChild(div);
-                n._el = div;
-              });
-
-              setTimeout(function() {
-                var edgesG = svg.querySelector('#cs-edges-g2');
-                var edgePaths = [];
-                var edgeDefs = [
-                  {from:'src2', to:'cep2', color:'#f5a623'},
-                  {from:'src2', to:'ai2',  color:'#b080e0'},
-                  {from:'cep2', to:'agg2', color:'#f5a623'},
-                  {from:'ai2',  to:'agg2', color:'#b080e0'},
-                  {from:'agg2', to:'snk2', color:'#4e9de8'},
-                ];
-                edgeDefs.forEach(function(ed) {
-                  var fn = nodes.find(function(n){return n.id===ed.from;});
-                  var tn = nodes.find(function(n){return n.id===ed.to;});
-                  if (!fn||!tn||!fn._el||!tn._el) return;
-                  var x1=fn.x+fn._el.offsetWidth, y1=fn.y+fn._el.offsetHeight/2;
-                  var x2=tn.x,                    y2=tn.y+tn._el.offsetHeight/2;
-                  var cx1=x1+(x2-x1)*0.4, cy1=y1, cx2=x1+(x2-x1)*0.6, cy2=y2;
-                  var path=document.createElementNS('http://www.w3.org/2000/svg','path');
-                  path.setAttribute('d','M'+x1+','+y1+' C'+cx1+','+cy1+' '+cx2+','+cy2+' '+x2+','+y2);
-                  path.setAttribute('stroke', ed.color);
-                  path.setAttribute('stroke-width','1.8');
-                  path.setAttribute('fill','none');
-                  path.setAttribute('opacity','0.75');
-                  path.setAttribute('marker-end','url(#csarr2)');
-                  edgesG.appendChild(path);
-                  var ep={path:path,x1:x1,y1:y1,x2:x2,y2:y2,cx1:cx1,cy1:cy1,cx2:cx2,cy2:cy2};
-                  edgePaths.push(ep);
-                  _pipeParticles.push({t:Math.random(),       edge:ep, color:ed.color});
-                  _pipeParticles.push({t:Math.random()*0.5+0.3, edge:ep, color:'#00d4aa'});
-                });
-                _animatePipeline2(svg.querySelector('#cs-particles-g2'));
-              }, 60);
-            }
-
-            function _animatePipeline2(pG) {
-              if (_pipeAnim) cancelAnimationFrame(_pipeAnim);
-              function frame() {
-                if (!pG || !pG.isConnected) return;
-                var html = '';
-                _pipeParticles.forEach(function(p) {
-                  p.t += 0.013; if (p.t > 1) p.t -= 1;
-                  var e=p.edge, t=p.t, mt=1-t;
-                  var px=mt*mt*mt*e.x1+3*mt*mt*t*e.cx1+3*mt*t*t*e.cx2+t*t*t*e.x2;
-                  var py=mt*mt*mt*e.y1+3*mt*mt*t*e.cy1+3*mt*t*t*e.cy2+t*t*t*e.y2;
-                  var alpha=Math.sin(t*Math.PI);
-                  html+='<circle cx="'+px.toFixed(1)+'" cy="'+py.toFixed(1)+'" r="3" fill="'+p.color+'" opacity="'+alpha.toFixed(2)+'"/>';
-                });
-                pG.innerHTML = html;
-                _pipeAnim = requestAnimationFrame(frame);
-              }
-              frame();
-            }
-
-          })();
-        </script>
-
-      </div><!-- /connect-panel -->
-    </div><!-- /cs-layout -->
-  </div><!-- /connect-screen -->
-</div>
-
+  })();
+</script>
 
   <!-- ═══════════════════════════════════════════════════════════════ -->
   <!--  MAIN APP  — completely unchanged from your original            -->
   <!-- ═══════════════════════════════════════════════════════════════ -->
   <div id="app">
+    <div id="sidebar-overlay" onclick="_toggleSidebar()"></div>
 
     <!-- TOP BAR -->
     <div id="topbar">
@@ -1269,9 +1620,30 @@
           <span style="font-size: 8px; color: var(--text3); pointer-events: none;">▼</span>
         </div>
 
-        <button class="topbar-btn" onclick="openSnippets()"           title="Snippets">✂ Snippets</button>
-        <button class="topbar-btn" onclick="showTipsModal()"          title="Tips &amp; Flink Concepts">💡 Tips</button>
-        <button class="topbar-btn" onclick="openModal('modal-about')" title="About">ℹ About</button>
+        <button class="topbar-btn" onclick="openSnippets()" title="Snippets" id="tb-snippets">✂ Snippets</button>
+        <button class="topbar-btn" onclick="showTipsModal()" title="Tips" id="tb-tips">💡 Tips</button>
+        <button class="topbar-btn" onclick="openModal('modal-about')" title="About" id="tb-about">ℹ About</button>
+
+        <!-- ⋯ More — visible only below 1100px -->
+        <div id="tb-more-wrap" style="position:relative;display:none;">
+          <button class="topbar-btn" id="tb-more-btn" onclick="_tbToggleMore()"
+                  style="font-weight:700;letter-spacing:1px;">⋯</button>
+          <div id="tb-more-menu" style="
+    display:none;position:absolute;top:calc(100% + 6px);right:0;z-index:99999;
+    background:var(--bg2);border:1px solid var(--border2);border-radius:6px;
+    box-shadow:0 8px 32px rgba(0,0,0,0.6);min-width:170px;padding:4px;
+    flex-direction:column;gap:1px;">
+            <button class="topbar-btn" onclick="openSnippets();_tbCloseMore()"
+                    style="width:100%;text-align:left;border-radius:4px;">✂ Snippets</button>
+            <button class="topbar-btn" onclick="showTipsModal();_tbCloseMore()"
+                    style="width:100%;text-align:left;border-radius:4px;">💡 Tips</button>
+            <button class="topbar-btn" onclick="openModal('modal-about');_tbCloseMore()"
+                    style="width:100%;text-align:left;border-radius:4px;">ℹ About</button>
+            <button class="topbar-btn" onclick="openModal('modal-workspace');_tbCloseMore()"
+                    style="width:100%;text-align:left;border-radius:4px;">💾 Workspace</button>
+          </div>
+        </div>
+
         <div class="topbar-theme-wrap" title="Switch theme">
           <span id="theme-icon" style="font-size:12px;pointer-events:none;">🌙</span>
           <select id="theme-select" onchange="selectTheme(this.value)">
@@ -1293,6 +1665,17 @@
 
     <!-- MAIN LAYOUT -->
     <div id="main-layout">
+
+      <button id="sidebar-toggle-btn"
+              onclick="_toggleSidebar()"
+              title="Toggle sidebar"
+              style="display:none;position:fixed;bottom:40px;left:8px;z-index:200;
+    width:32px;height:32px;border-radius:50%;
+    background:var(--bg2);border:1px solid var(--border2);
+    color:var(--accent);font-size:16px;cursor:pointer;
+    box-shadow:0 2px 12px rgba(0,0,0,0.5);align-items:center;justify-content:center;">
+        ☰
+      </button>
 
       <!-- SIDEBAR -->
       <div id="sidebar">
@@ -1772,6 +2155,7 @@ SHOW CATALOGS;"></textarea>
   <script src="js/connection.js"></script>
   <script src="js/connection-confluent.js"></script>
   <script src="js/connection-remote.js"></script>
+<script src="js/connection-beam.js"></script>
   <script src="js/tabs.js"></script>
   <script src="js/editor.js"></script>
   <script src="js/execution.js"></script>
@@ -1936,5 +2320,49 @@ SHOW CATALOGS;"></textarea>
         };
     })();
 </script>
+
+<script>
+  function _toggleSidebar() {
+    const sb      = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+    const btn     = document.getElementById('sidebar-toggle-btn');
+    if (!sb) return;
+    const isOpen = sb.classList.contains('sidebar-open');
+    sb.classList.toggle('sidebar-open', !isOpen);
+    if (overlay) overlay.classList.toggle('active', !isOpen);
+    if (btn) btn.textContent = isOpen ? '☰' : '×';
+  }
+  // Close sidebar when a tab inside it is clicked (on small screens)
+  document.addEventListener('DOMContentLoaded', () => {
+    const sb = document.getElementById('sidebar');
+    if (!sb) return;
+    sb.addEventListener('click', e => {
+      if (window.innerWidth > 1024) return;
+      if (e.target.closest('.sidebar-tab') || e.target.closest('.tree-item')) {
+        setTimeout(() => _toggleSidebar(), 180);
+      }
+    });
+  });
+
+  function _tbToggleMore() {
+    const menu = document.getElementById('tb-more-menu');
+    const btn  = document.getElementById('tb-more-btn');
+    if (!menu) return;
+    const isOpen = menu.classList.contains('open');
+    menu.classList.toggle('open', !isOpen);
+    if (btn) btn.style.background = isOpen ? '' : 'rgba(0,212,170,0.1)';
+  }
+  function _tbCloseMore() {
+    const menu = document.getElementById('tb-more-menu');
+    const btn  = document.getElementById('tb-more-btn');
+    if (menu) menu.classList.remove('open');
+    if (btn)  btn.style.background = '';
+  }
+  // Close More menu on outside click
+  document.addEventListener('click', e => {
+    if (!e.target.closest('#tb-more-wrap')) _tbCloseMore();
+  });
+</script>
+
 </body>
 </html>

@@ -29,12 +29,34 @@ let authMode = 'bearer';
 
 function setMode(mode) {
   connMode = mode;
-  ['proxy','direct','remote'].forEach(m => {
+  ['proxy','direct','remote','confluent','ververica','aws','beam'].forEach(m => {
     const btn = document.getElementById('mode-' + m);
     if (btn) btn.classList.toggle('active', m === mode);
     const info = document.getElementById('mode-' + m + '-info');
     if (info) info.style.display = (m === mode) ? 'block' : 'none';
   });
+
+  // Hide session + props rows for managed modes that handle auth themselves
+  const managedModes = ['confluent', 'ververica', 'aws', 'beam'];
+  const sessionRow = document.getElementById('session-mode-row');
+  if (sessionRow) sessionRow.style.display = managedModes.includes(mode) ? 'none' : '';
+
+  const propsGroup = document.getElementById('props-area') &&
+      document.getElementById('props-area').closest('.field-group');
+  if (propsGroup) propsGroup.style.display = managedModes.includes(mode) ? 'none' : '';
+
+  // Hide footer buttons for beam — beam has its own auth flow
+  const footer = document.querySelector('.connect-footer');
+  if (footer) footer.style.display = mode === 'beam' ? 'none' : '';
+
+  // Reset scroll so the info panel is immediately visible
+  const body = document.querySelector('.connect-body');
+  if (body) body.scrollTop = 0;
+
+  if (mode === 'beam') {
+    const url = (document.getElementById('inp-beam-url')?.value || '').trim();
+    if (url) beamLoadProviders();
+  }
 }
 
 function setAuthMode(mode) {
@@ -180,6 +202,21 @@ async function doConnect() {
   const port      = connMode === 'proxy' ? (window.location.port || '80') : (document.getElementById('inp-port')?.value.trim() || '8084');
   const sessionName = (document.getElementById('inp-session-name')?.value || '').trim();
   const propsRaw  = (document.getElementById('inp-props')?.value || '').trim();
+
+  if (connMode === 'beam') {
+    if (window.state?.beam?.jwt) {
+      // Already authenticated — re-show welcome dashboard
+      beamShowTenantWelcome(
+          window.state.beam.tenant,
+          window.state.beam.jwt,
+          window.state.beam.baseUrl
+      );
+    } else {
+      setConnectStatus('err', 'Sign in with Google, GitHub, or API Key above first.');
+    }
+    document.getElementById('connect-btn').disabled = false;
+    return;
+  }
 
   setConnectStatus('loading', `Connecting via ${baseUrl} …`);
   document.getElementById('connect-btn').disabled = true;

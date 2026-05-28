@@ -1,0 +1,2056 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Str:::Beam — Tenant Dashboard</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23080b0f'/%3E%3Cpolyline points='20 24 28 16 20 8' fill='none' stroke='%23e8334a' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpolyline points='12 8 4 16 12 24' fill='none' stroke='%23e8334a' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════════════════════
+   RESET & ROOT
+   ═══════════════════════════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg0:    #080b0f;
+  --bg1:    #0c1219;
+  --bg2:    #0f1924;
+  --bg3:    #1a2535;
+  --bg4:    #1e2d42;
+  --text0:  #e8f0f8;
+  --text1:  #a8b8cc;
+  --text2:  #5a7a8a;
+  --text3:  #2a4a5a;
+  --accent: #00d4aa;
+  --green:  #63c996;
+  --yellow: #f5a623;
+  --blue:   #4fa3e0;
+  --red:    #ff4d6d;
+  --beam:   #e8334a;
+  --beam2:  #ff4d64;
+  --beam-dim:    rgba(232,51,74,0.10);
+  --beam-border: rgba(232,51,74,0.28);
+  --border:  rgba(255,255,255,0.06);
+  --border2: rgba(255,255,255,0.10);
+  --radius: 4px;
+  --mono: 'IBM Plex Mono', monospace;
+  --sans: 'IBM Plex Sans', sans-serif;
+}
+
+html, body {
+  height: 100%;
+  background: var(--bg0);
+  color: var(--text0);
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   SCROLLBAR
+   ═══════════════════════════════════════════════════════════════════ */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg1); }
+::-webkit-scrollbar-thumb { background: rgba(232,51,74,0.2); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(232,51,74,0.38); }
+
+/* ═══════════════════════════════════════════════════════════════════
+   LOADING SCREEN
+   ═══════════════════════════════════════════════════════════════════ */
+#loading-screen {
+  position: fixed; inset: 0; z-index: 9000;
+  background: var(--bg0);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 20px;
+  transition: opacity 0.4s ease;
+}
+#loading-screen.fade-out { opacity: 0; pointer-events: none; }
+
+.loading-logo {
+  width: 60px; height: 60px;
+  background: var(--beam-dim);
+  border: 2px solid var(--beam-border);
+  clip-path: polygon(0 0, 80% 0, 100% 20%, 100% 100%, 20% 100%, 0 80%);
+  display: flex; align-items: center; justify-content: center;
+  animation: logoPulse 2s ease-in-out infinite;
+}
+@keyframes logoPulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(232,51,74,0); }
+  50%      { box-shadow: 0 0 24px 4px rgba(232,51,74,0.22); }
+}
+.loading-spinner {
+  width: 32px; height: 32px;
+  border: 2.5px solid rgba(232,51,74,0.12);
+  border-top-color: var(--beam);
+  border-radius: 50%;
+  animation: spin 0.75s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text {
+  font-size: 11px; color: var(--text2);
+  letter-spacing: 1.5px; text-transform: uppercase;
+}
+.loading-step {
+  font-size: 10px; color: var(--text3);
+  min-height: 14px; transition: color 0.2s;
+  font-family: var(--mono);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   AUTH SCREEN (shown when no token)
+   ═══════════════════════════════════════════════════════════════════ */
+#auth-screen {
+  position: fixed; inset: 0; z-index: 8000;
+  background: var(--bg0);
+  display: none;
+  align-items: center; justify-content: center;
+  padding: 24px;
+}
+.auth-card {
+  width: 100%; max-width: 420px;
+  background: var(--bg1);
+  border: 1px solid var(--beam-border);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(232,51,74,0.05);
+}
+.auth-header {
+  background: var(--beam-dim);
+  border-bottom: 1px solid var(--beam-border);
+  padding: 28px 28px 22px;
+  display: flex; flex-direction: column; align-items: center; gap: 14px;
+  text-align: center;
+}
+.auth-logo {
+  width: 56px; height: 56px;
+  background: rgba(232,51,74,0.08);
+  border: 2px solid rgba(232,51,74,0.5);
+  clip-path: polygon(0 0, 80% 0, 100% 20%, 100% 100%, 20% 100%, 0 80%);
+  display: flex; align-items: center; justify-content: center;
+  animation: logoPulse 3s ease-in-out infinite;
+}
+.auth-title { font-size: 20px; font-weight: 700; color: var(--text0); }
+.auth-title span { color: var(--beam); }
+.auth-subtitle { font-size: 11px; color: var(--text2); line-height: 1.6; }
+.auth-body { padding: 24px 28px; display: flex; flex-direction: column; gap: 10px; }
+.auth-divider {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 9px; color: var(--text3);
+  letter-spacing: 1.5px; text-transform: uppercase;
+  margin: 4px 0;
+}
+.auth-divider::before, .auth-divider::after {
+  content: ''; flex: 1; height: 1px;
+  background: rgba(232,51,74,0.12);
+}
+
+/* SSO buttons */
+.sso-btn {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 14px; width: 100%;
+  background: transparent;
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  color: var(--text1);
+  font-family: var(--mono); font-size: 12px;
+  cursor: pointer; transition: all 0.12s;
+  text-align: left; position: relative;
+}
+.sso-btn:hover {
+  background: rgba(255,255,255,0.04);
+  border-color: rgba(255,255,255,0.22);
+  color: var(--text0);
+}
+.sso-btn .sso-arrow {
+  position: absolute; right: 14px;
+  font-size: 12px; opacity: 0;
+  transform: translateX(-4px);
+  transition: all 0.12s;
+  color: var(--text2);
+}
+.sso-btn:hover .sso-arrow { opacity: 1; transform: translateX(0); }
+.sso-btn-labels { display: flex; flex-direction: column; gap: 2px; }
+.sso-btn-labels strong { font-size: 12px; font-weight: 500; }
+.sso-btn-labels small { font-size: 9px; color: var(--text3); letter-spacing: 0.5px; }
+
+.sso-btn.apikey-btn {
+  border-color: rgba(232,51,74,0.22);
+  color: var(--text2);
+}
+.sso-btn.apikey-btn:hover {
+  background: rgba(232,51,74,0.05);
+  border-color: rgba(232,51,74,0.42);
+  color: var(--text1);
+}
+
+/* Inline API key form */
+.apikey-form {
+  display: none; flex-direction: column; gap: 8px;
+  background: rgba(232,51,74,0.03);
+  border: 1px solid rgba(232,51,74,0.12);
+  border-radius: var(--radius); padding: 14px;
+}
+.apikey-form.open { display: flex; }
+.form-label {
+  font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase;
+  color: var(--text3); display: block; margin-bottom: 3px;
+}
+.form-input {
+  width: 100%; background: var(--bg2);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: var(--radius);
+  color: var(--text0); font-family: var(--mono); font-size: 11px;
+  padding: 9px 11px; outline: none; transition: border-color 0.12s;
+}
+.form-input:focus { border-color: rgba(232,51,74,0.45); }
+.form-input::placeholder { color: var(--text3); }
+.form-hint { font-size: 9px; color: var(--text3); line-height: 1.6; }
+.form-hint code { color: var(--accent); }
+.submit-btn {
+  background: rgba(232,51,74,0.14);
+  border: 1px solid rgba(232,51,74,0.42);
+  border-radius: var(--radius);
+  color: var(--text0); font-family: var(--mono);
+  font-size: 11px; font-weight: 700;
+  padding: 9px 16px; cursor: pointer;
+  letter-spacing: 0.5px; transition: all 0.12s;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.submit-btn:hover { background: rgba(232,51,74,0.25); border-color: rgba(232,51,74,0.7); }
+.submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.auth-error {
+  display: none; font-size: 10px; color: var(--red);
+  background: rgba(255,77,109,0.08);
+  border: 1px solid rgba(255,77,109,0.25);
+  border-radius: var(--radius); padding: 8px 11px;
+  line-height: 1.6;
+}
+.auth-error.show { display: block; }
+
+.auth-footer {
+  padding: 14px 28px;
+  border-top: 1px solid var(--border);
+  font-size: 9px; color: var(--text3);
+  text-align: center; line-height: 1.7;
+  background: var(--bg2);
+}
+.auth-footer a { color: rgba(232,51,74,0.7); text-decoration: none; }
+.auth-footer a:hover { color: var(--beam); }
+
+/* URL config row */
+.url-row {
+  display: flex; gap: 6px; padding: 12px 28px;
+  border-top: 1px solid var(--border);
+  background: var(--bg2);
+  align-items: center;
+}
+.url-row label { font-size: 9px; color: var(--text3); white-space: nowrap; flex-shrink: 0; }
+.url-row input {
+  flex: 1; background: var(--bg1);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: var(--radius);
+  color: var(--text1); font-family: var(--mono); font-size: 10px;
+  padding: 5px 8px; outline: none;
+}
+.url-row input:focus { border-color: rgba(232,51,74,0.35); }
+
+/* ═══════════════════════════════════════════════════════════════════
+   MAIN DASHBOARD
+   ═══════════════════════════════════════════════════════════════════ */
+#dashboard {
+  display: none;
+  min-height: 100vh;
+  flex-direction: column;
+}
+
+/* ── Top nav ──────────────────────────────────────────────────────── */
+.topnav {
+  position: sticky; top: 0; z-index: 100;
+  height: 48px;
+  background: rgba(8,11,15,0.96);
+  border-bottom: 1px solid rgba(232,51,74,0.12);
+  backdrop-filter: blur(12px);
+  display: flex; align-items: center;
+  padding: 0 28px; gap: 16px;
+}
+.topnav-logo {
+  display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+}
+.topnav-logomark {
+  width: 28px; height: 28px;
+  background: var(--beam-dim);
+  border: 1.5px solid rgba(232,51,74,0.5);
+  clip-path: polygon(0 0, 80% 0, 100% 20%, 100% 100%, 20% 100%, 0 80%);
+  display: flex; align-items: center; justify-content: center;
+}
+.topnav-wordmark {
+  font-size: 14px; font-weight: 700; color: var(--text0);
+  letter-spacing: -0.3px;
+}
+.topnav-wordmark span { color: var(--beam); }
+.topnav-sep { width: 1px; height: 20px; background: var(--border2); }
+.topnav-tenant {
+  font-size: 11px; color: var(--text2);
+  display: flex; align-items: center; gap: 6px;
+}
+.topnav-tenant strong { color: var(--text1); font-weight: 500; }
+.topnav-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.topnav-btn {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 14px;
+  background: transparent;
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  color: var(--text2); font-family: var(--mono); font-size: 11px;
+  cursor: pointer; transition: all 0.12s; white-space: nowrap;
+}
+.topnav-btn:hover { border-color: rgba(255,255,255,0.22); color: var(--text0); }
+.topnav-btn.primary {
+  background: rgba(232,51,74,0.12);
+  border-color: rgba(232,51,74,0.42);
+  color: var(--text0); font-weight: 600;
+}
+.topnav-btn.primary:hover { background: rgba(232,51,74,0.22); border-color: rgba(232,51,74,0.7); }
+.topnav-tier-chip {
+  font-size: 9px; font-weight: 700; padding: 3px 10px;
+  border-radius: 20px; letter-spacing: 1px; flex-shrink: 0;
+}
+
+/* ── Hero welcome banner ──────────────────────────────────────────── */
+.hero {
+  background: linear-gradient(135deg,
+    rgba(232,51,74,0.06) 0%,
+    rgba(8,11,15,0) 50%,
+    rgba(0,212,170,0.03) 100%);
+  border-bottom: 1px solid rgba(232,51,74,0.1);
+  padding: 36px 28px 32px;
+  position: relative; overflow: hidden;
+}
+.hero::before {
+  content: '';
+  position: absolute; top: -60px; right: -60px;
+  width: 300px; height: 300px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(232,51,74,0.06) 0%, transparent 70%);
+  pointer-events: none;
+}
+.hero-inner {
+  max-width: 1200px; margin: 0 auto;
+  display: flex; align-items: flex-start; gap: 32px; flex-wrap: wrap;
+}
+.hero-text { flex: 1; min-width: 280px; }
+.hero-greeting {
+  font-size: 11px; color: var(--text3); letter-spacing: 2px;
+  text-transform: uppercase; margin-bottom: 8px;
+}
+.hero-title {
+  font-size: 28px; font-weight: 700; color: var(--text0);
+  line-height: 1.2; margin-bottom: 8px;
+}
+.hero-title span { color: var(--beam); }
+.hero-subtitle {
+  font-size: 12px; color: var(--text2); line-height: 1.7; max-width: 560px;
+}
+.hero-meta {
+  display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px;
+  align-items: center;
+}
+.hero-badge {
+  font-size: 9px; padding: 2px 9px; border-radius: 20px;
+  letter-spacing: 0.5px; font-weight: 500;
+}
+.hero-badge.status-active {
+  background: rgba(99,201,150,0.1);
+  border: 1px solid rgba(99,201,150,0.28);
+  color: var(--green);
+}
+.hero-badge.status-suspended {
+  background: rgba(245,166,35,0.1);
+  border: 1px solid rgba(245,166,35,0.28);
+  color: var(--yellow);
+}
+.hero-badge.catalog {
+  background: rgba(0,212,170,0.07);
+  border: 1px solid rgba(0,212,170,0.2);
+  color: var(--accent);
+}
+.hero-badge.date {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text2);
+}
+.hero-cta {
+  display: flex; flex-direction: column; gap: 10px; flex-shrink: 0;
+}
+.cta-primary {
+  display: flex; align-items: center; gap: 10px;
+  padding: 13px 28px;
+  background: rgba(232,51,74,0.12);
+  border: 1.5px solid rgba(232,51,74,0.5);
+  border-radius: var(--radius);
+  color: var(--text0); font-family: var(--mono);
+  font-size: 13px; font-weight: 700;
+  cursor: pointer; transition: all 0.15s;
+  white-space: nowrap;
+}
+.cta-primary:hover { background: rgba(232,51,74,0.24); border-color: rgba(232,51,74,0.8); }
+.cta-primary svg { flex-shrink: 0; }
+.cta-hint { font-size: 9px; color: var(--text3); text-align: center; line-height: 1.6; }
+
+/* Suspended alert */
+.suspended-alert {
+  display: none;
+  background: rgba(245,166,35,0.08);
+  border: 1px solid rgba(245,166,35,0.28);
+  border-radius: var(--radius);
+  padding: 12px 16px; margin-top: 16px;
+  font-size: 11px; color: var(--yellow); line-height: 1.7;
+}
+.suspended-alert.show { display: block; }
+
+/* ── Main content area ────────────────────────────────────────────── */
+.content {
+  max-width: 1200px; margin: 0 auto;
+  padding: 28px 28px 48px;
+  display: flex; flex-direction: column; gap: 28px;
+  flex: 1;
+}
+
+/* Section titles */
+.section-title {
+  font-size: 9px; letter-spacing: 2px; text-transform: uppercase;
+  color: var(--text3); padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 14px;
+  display: flex; align-items: center; gap: 8px;
+}
+.section-title span { color: var(--text2); }
+
+/* ── Stat cards row ───────────────────────────────────────────────── */
+.stat-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+.stat-card {
+  background: var(--bg1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  display: flex; flex-direction: column; gap: 6px;
+  transition: border-color 0.12s;
+}
+.stat-card:hover { border-color: var(--border2); }
+.stat-label {
+  font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase;
+  color: var(--text3);
+}
+.stat-value {
+  font-size: 22px; font-weight: 600; color: var(--text0);
+  line-height: 1; font-variant-numeric: tabular-nums;
+}
+.stat-value.accent { color: var(--accent); }
+.stat-value.beam   { color: var(--beam); }
+.stat-value.green  { color: var(--green); }
+.stat-value.yellow { color: var(--yellow); }
+.stat-sub { font-size: 10px; color: var(--text2); }
+
+/* ── Two-column layout ────────────────────────────────────────────── */
+.two-col {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+}
+@media (max-width: 720px) { .two-col { grid-template-columns: 1fr; } }
+
+/* ── Panel card ───────────────────────────────────────────────────── */
+.panel {
+  background: var(--bg1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.panel-header {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px;
+  font-size: 11px; font-weight: 600; color: var(--text1);
+}
+.panel-header svg { flex-shrink: 0; opacity: 0.65; }
+.panel-header .panel-action {
+  margin-left: auto; font-size: 10px; font-weight: 400;
+  color: var(--text3); cursor: pointer; padding: 2px 6px;
+  border: 1px solid transparent; border-radius: 2px;
+  transition: all 0.12s;
+}
+.panel-header .panel-action:hover { border-color: var(--border2); color: var(--text2); }
+.panel-body { padding: 16px 18px; }
+
+/* ── Tier comparison ──────────────────────────────────────────────── */
+.tier-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+}
+@media (max-width: 600px) { .tier-grid { grid-template-columns: 1fr; } }
+.tier-card {
+  border-radius: var(--radius); overflow: hidden;
+  border: 1px solid var(--border);
+  transition: border-color 0.12s;
+}
+.tier-card.active-tier { border-width: 1.5px; }
+.tier-card-head {
+  padding: 12px 14px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 8px;
+}
+.tier-name {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.5px;
+}
+.tier-current-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  margin-left: auto; flex-shrink: 0;
+}
+.tier-card-body { padding: 12px 14px; }
+.tier-feature {
+  font-size: 10px; color: var(--text2);
+  display: flex; align-items: flex-start; gap: 7px;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+.tier-feature:last-child { border-bottom: none; }
+.tier-feature::before { content: '✓'; color: var(--green); font-size: 9px; flex-shrink: 0; margin-top: 1px; }
+.tier-feature.locked { color: var(--text3); }
+.tier-feature.locked::before { content: '—'; color: var(--text3); }
+.tier-upgrade-btn {
+  display: block; width: 100%; margin-top: 10px;
+  padding: 7px 0; text-align: center;
+  background: transparent; border: 1px solid var(--border2);
+  border-radius: 2px; color: var(--text2);
+  font-family: var(--mono); font-size: 10px; cursor: pointer;
+  transition: all 0.12s;
+}
+.tier-upgrade-btn:hover { background: var(--beam-dim); border-color: var(--beam-border); color: var(--text0); }
+.tier-upgrade-btn.current { color: var(--text3); cursor: default; }
+.tier-upgrade-btn.current:hover { background: transparent; border-color: var(--border2); color: var(--text3); }
+
+/* ── Jobs table ───────────────────────────────────────────────────── */
+.jobs-table {
+  width: 100%; border-collapse: collapse;
+  font-size: 11px;
+}
+.jobs-table th {
+  font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase;
+  color: var(--text3); font-weight: 500;
+  padding: 0 0 8px; text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.jobs-table td {
+  padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.03);
+  color: var(--text1); vertical-align: middle;
+}
+.jobs-table tr:last-child td { border-bottom: none; }
+.jobs-table tr:hover td { color: var(--text0); }
+.job-status {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 9px; font-weight: 700; padding: 2px 8px;
+  border-radius: 20px; white-space: nowrap;
+}
+.job-status.RUNNING {
+  background: rgba(99,201,150,0.1); border: 1px solid rgba(99,201,150,0.28);
+  color: var(--green);
+}
+.job-status.FINISHED {
+  background: rgba(0,212,170,0.07); border: 1px solid rgba(0,212,170,0.18);
+  color: var(--accent);
+}
+.job-status.FAILED {
+  background: rgba(255,77,109,0.08); border: 1px solid rgba(255,77,109,0.25);
+  color: var(--red);
+}
+.job-status.CANCELED, .job-status.CANCELLING {
+  background: rgba(90,122,138,0.1); border: 1px solid rgba(90,122,138,0.2);
+  color: var(--text2);
+}
+.job-status.CREATED, .job-status.RESTARTING {
+  background: rgba(245,166,35,0.08); border: 1px solid rgba(245,166,35,0.22);
+  color: var(--yellow);
+}
+.job-status-dot {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: currentColor;
+}
+.job-status.RUNNING .job-status-dot { animation: blink 1.5s ease-in-out infinite; }
+@keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+.jobs-empty {
+  text-align: center; padding: 28px 0;
+  font-size: 11px; color: var(--text3);
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+}
+.jobs-empty svg { opacity: 0.2; }
+.cancel-job-btn {
+  font-size: 9px; padding: 2px 8px;
+  background: transparent; border: 1px solid rgba(255,77,109,0.25);
+  border-radius: 2px; color: rgba(255,77,109,0.7);
+  cursor: pointer; transition: all 0.12s; font-family: var(--mono);
+}
+.cancel-job-btn:hover { background: rgba(255,77,109,0.08); color: var(--red); }
+
+/* ── Usage chart ──────────────────────────────────────────────────── */
+.usage-row {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+  margin-bottom: 16px;
+}
+.usage-cell {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 14px 16px; text-align: center;
+}
+.usage-val {
+  font-size: 18px; font-weight: 600; color: var(--text0);
+  font-variant-numeric: tabular-nums;
+}
+.usage-lbl {
+  font-size: 9px; color: var(--text3); margin-top: 4px;
+  letter-spacing: 1px; text-transform: uppercase;
+}
+.usage-bar-wrap {
+  margin-top: 12px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.usage-bar-row {
+  display: flex; align-items: center; gap: 10px;
+}
+.usage-bar-label { font-size: 10px; color: var(--text3); width: 48px; flex-shrink: 0; }
+.usage-bar-track {
+  flex: 1; height: 6px; background: var(--bg3); border-radius: 3px;
+  overflow: hidden;
+}
+.usage-bar-fill {
+  height: 100%; border-radius: 3px;
+  background: linear-gradient(90deg, var(--beam), rgba(232,51,74,0.4));
+  transition: width 0.8s ease;
+}
+.usage-bar-val { font-size: 10px; color: var(--text2); width: 60px; text-align: right; flex-shrink: 0; }
+
+/* ── Quota overrides ──────────────────────────────────────────────── */
+.quota-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 10px; padding: 4px 10px;
+  background: rgba(0,212,170,0.05);
+  border: 1px solid rgba(0,212,170,0.15);
+  border-radius: 20px; color: var(--accent);
+  margin: 3px;
+}
+.quota-empty { font-size: 11px; color: var(--text3); font-style: italic; }
+
+/* ── Tenant info KV table ─────────────────────────────────────────── */
+.kv-row {
+  display: flex; align-items: flex-start;
+  padding: 9px 0; border-bottom: 1px solid rgba(255,255,255,0.03);
+  gap: 16px;
+}
+.kv-row:last-child { border-bottom: none; }
+.kv-key { font-size: 10px; color: var(--text3); width: 120px; flex-shrink: 0; }
+.kv-val { font-size: 11px; color: var(--text1); word-break: break-all; }
+.kv-val code {
+  font-family: var(--mono); color: var(--accent);
+  background: rgba(0,212,170,0.07);
+  border: 1px solid rgba(0,212,170,0.15);
+  padding: 1px 6px; border-radius: 2px; font-size: 10px;
+}
+.kv-copy {
+  margin-left: auto; flex-shrink: 0;
+  font-size: 9px; color: var(--text3); cursor: pointer;
+  padding: 2px 6px; border: 1px solid transparent;
+  border-radius: 2px; transition: all 0.12s;
+  background: none;
+  font-family: var(--mono);
+}
+.kv-copy:hover { border-color: var(--border2); color: var(--text2); }
+
+/* ── API endpoints quick reference ───────────────────────────────── */
+.endpoint-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.03);
+  font-size: 10px;
+}
+.endpoint-row:last-child { border-bottom: none; }
+.endpoint-method {
+  font-size: 8px; font-weight: 700; padding: 2px 7px;
+  border-radius: 2px; letter-spacing: 0.5px; flex-shrink: 0;
+  width: 38px; text-align: center;
+}
+.method-get    { background: rgba(79,163,224,0.1); color: var(--blue); }
+.method-post   { background: rgba(99,201,150,0.1); color: var(--green); }
+.method-delete { background: rgba(255,77,109,0.1); color: var(--red); }
+.method-patch  { background: rgba(245,166,35,0.1); color: var(--yellow); }
+.endpoint-path { color: var(--text2); font-family: var(--mono); font-size: 10px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.endpoint-desc { font-size: 9px; color: var(--text3); flex-shrink: 0; }
+
+/* ── Toast ────────────────────────────────────────────────────────── */
+#toast {
+  position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+  display: flex; flex-direction: column; gap: 8px; pointer-events: none;
+}
+.toast-item {
+  padding: 10px 16px; border-radius: var(--radius);
+  font-size: 11px; font-family: var(--mono);
+  backdrop-filter: blur(8px);
+  animation: toastIn 0.25s ease forwards;
+  pointer-events: all;
+}
+.toast-item.ok {
+  background: rgba(99,201,150,0.15); border: 1px solid rgba(99,201,150,0.35);
+  color: var(--green);
+}
+.toast-item.err {
+  background: rgba(255,77,109,0.15); border: 1px solid rgba(255,77,109,0.35);
+  color: var(--red);
+}
+.toast-item.info {
+  background: rgba(79,163,224,0.12); border: 1px solid rgba(79,163,224,0.28);
+  color: var(--blue);
+}
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Refresh spinner inline ───────────────────────────────────────── */
+.inline-spin {
+  width: 12px; height: 12px;
+  border: 1.5px solid rgba(232,51,74,0.15);
+  border-top-color: var(--beam);
+  border-radius: 50%;
+  animation: spin 0.75s linear infinite;
+  display: inline-block; vertical-align: middle;
+}
+
+/* ── Responsive ───────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .topnav { padding: 0 16px; }
+  .hero { padding: 24px 16px 20px; }
+  .content { padding: 20px 16px 40px; }
+}
+@media (max-width: 640px) {
+  .hero-title { font-size: 20px; }
+  .stat-row { grid-template-columns: 1fr 1fr; }
+  .usage-row { grid-template-columns: 1fr; }
+  .tier-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     LOADING SCREEN
+     ═══════════════════════════════════════════════════════════════════ -->
+<div id="loading-screen">
+  <div class="loading-logo">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
+         stroke="#e8334a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+    </svg>
+  </div>
+  <div class="loading-spinner"></div>
+  <div class="loading-text">Str:::Beam</div>
+  <div class="loading-step" id="loading-step">Initialising…</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     AUTH SCREEN
+     ═══════════════════════════════════════════════════════════════════ -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-header">
+      <div class="auth-logo">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
+             stroke="#e8334a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+        </svg>
+      </div>
+      <div class="auth-title">Str<span>:::</span>Beam</div>
+      <div class="auth-subtitle">
+        Managed Apache Flink® platform<br>
+        Sign in to access your tenant cluster
+      </div>
+    </div>
+
+    <div class="auth-body">
+      <!-- Error -->
+      <div class="auth-error" id="auth-error"></div>
+
+      <div class="auth-divider">Sign in with</div>
+
+      <!-- Google SSO — GET /api/v1/auth/google -->
+      <button class="sso-btn" onclick="initiateSSO('google')">
+        <svg viewBox="0 0 24 24" width="18" height="18" style="flex-shrink:0;">
+          <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+          <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+          <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+          <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+        </svg>
+        <span class="sso-btn-labels">
+          <strong>Continue with Google</strong>
+          <small>OAuth2 · auto-provisions new accounts → FREE tier</small>
+        </span>
+        <span class="sso-arrow">→</span>
+      </button>
+
+      <!-- GitHub SSO — GET /api/v1/auth/github -->
+      <button class="sso-btn" onclick="initiateSSO('github')">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="var(--text1)" style="flex-shrink:0;">
+          <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+        </svg>
+        <span class="sso-btn-labels">
+          <strong>Continue with GitHub</strong>
+          <small>OAuth2 · auto-provisions new accounts → FREE tier</small>
+        </span>
+        <span class="sso-arrow">→</span>
+      </button>
+
+      <!-- API Key — GET /api/v1/tenants/{tenantKey} with Bearer -->
+      <button class="sso-btn apikey-btn" onclick="toggleApiKeyForm()" id="apikey-toggle-btn">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="var(--text3)"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
+          <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>
+        </svg>
+        <span class="sso-btn-labels">
+          <strong>Tenant API Key</strong>
+          <small>Service accounts · CI/CD · direct access</small>
+        </span>
+        <span class="sso-arrow" id="apikey-arrow">▼</span>
+      </button>
+
+      <div class="apikey-form" id="apikey-form">
+        <label class="form-label">Tenant Key</label>
+        <input class="form-input" id="inp-tenant-key" type="text"
+               placeholder="my-company" autocomplete="off"
+               onkeydown="if(event.key==='Enter')doApiKeyLogin()" />
+        <label class="form-label" style="margin-top:4px;">API Key</label>
+        <input class="form-input" id="inp-api-key" type="password"
+               placeholder="Raw API key (issued on tenant creation)"
+               autocomplete="off"
+               onkeydown="if(event.key==='Enter')doApiKeyLogin()" />
+        <div class="form-hint">
+          The raw key returned once on tenant creation.<br>
+          Rotate via <code>POST /api/v1/tenants/{key}/rotate-key</code>
+        </div>
+        <button class="submit-btn" id="apikey-submit-btn" onclick="doApiKeyLogin()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+          </svg>
+          Connect to Str:::Beam
+        </button>
+      </div>
+    </div>
+
+    <!-- Engine URL config -->
+    <div class="url-row">
+      <label>Engine URL</label>
+      <input type="text" id="inp-beam-url"
+             value="http://localhost:8090"
+             placeholder="https://your-beam-engine.example.com"
+             oninput="saveBeamUrl()" />
+    </div>
+
+    <div class="auth-footer">
+      By signing in you agree to the
+      <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>.<br>
+      New accounts are automatically provisioned on the <strong>FREE</strong> tier.
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     MAIN DASHBOARD
+     ═══════════════════════════════════════════════════════════════════ -->
+<div id="dashboard">
+
+  <!-- Top nav -->
+  <nav class="topnav">
+    <div class="topnav-logo">
+      <div class="topnav-logomark">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+             stroke="#e8334a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+        </svg>
+      </div>
+      <div class="topnav-wordmark">Str<span>:::</span>Beam</div>
+    </div>
+    <div class="topnav-sep"></div>
+    <div class="topnav-tenant">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:.5;">
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+        <polyline points="9 22 9 12 15 12 15 22"/>
+      </svg>
+      <strong id="nav-tenant-name">—</strong>
+    </div>
+    <div class="topnav-tier-chip" id="nav-tier-chip">FREE</div>
+    <div class="topnav-actions">
+      <button class="topnav-btn" onclick="refreshAll()" id="refresh-btn">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="23 4 23 10 17 10"/>
+          <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+        </svg>
+        Refresh
+      </button>
+      <button class="topnav-btn primary" onclick="launchStudio()" id="studio-btn">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+        </svg>
+        Open Studio
+      </button>
+      <button class="topnav-btn" onclick="doLogout()" style="color:var(--text3);">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+          <polyline points="16 17 21 12 16 7"/>
+          <line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+        Sign out
+      </button>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-inner">
+      <div class="hero-text">
+        <div class="hero-greeting">Welcome back</div>
+        <div class="hero-title">
+          <span id="hero-display-name">Your Workspace</span>
+        </div>
+        <div class="hero-subtitle" id="hero-subtitle">
+          Your managed Flink cluster is online and ready to process streaming data.
+        </div>
+        <div class="hero-meta">
+          <span class="hero-badge status-active" id="hero-status-badge">● ACTIVE</span>
+          <span class="hero-badge catalog" id="hero-catalog-badge">catalog: —</span>
+          <span class="hero-badge date" id="hero-date-badge">Member since —</span>
+        </div>
+        <div class="suspended-alert" id="suspended-alert">
+          ⚠ <strong>Tenant Suspended:</strong> You cannot open new sessions or submit SQL statements.
+          Running jobs continue until active sessions expire. Contact your administrator to reactivate.
+        </div>
+      </div>
+      <div class="hero-cta">
+        <button class="cta-primary" onclick="launchStudio()" id="cta-launch-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+          </svg>
+          Connect to Studio
+        </button>
+        <div class="cta-hint" id="cta-hint">
+          Opens a Flink SQL Gateway session<br>scoped to your tenant cluster
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main content -->
+  <div class="content">
+
+    <!-- Stat cards -->
+    <div>
+      <div class="section-title">Cluster at a glance <span id="last-refreshed"></span></div>
+      <div class="stat-row">
+        <div class="stat-card">
+          <div class="stat-label">Running Jobs</div>
+          <div class="stat-value green" id="stat-running">—</div>
+          <div class="stat-sub">active pipelines</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Total Jobs</div>
+          <div class="stat-value" id="stat-total">—</div>
+          <div class="stat-sub">all time</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Usage · 1h</div>
+          <div class="stat-value accent" id="stat-1h">—</div>
+          <div class="stat-sub">slot-seconds</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Usage · 24h</div>
+          <div class="stat-value" id="stat-24h">—</div>
+          <div class="stat-sub">slot-seconds</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Usage · 7d</div>
+          <div class="stat-value" id="stat-7d">—</div>
+          <div class="stat-sub">slot-seconds</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Plan</div>
+          <div class="stat-value beam" id="stat-tier">FREE</div>
+          <div class="stat-sub" id="stat-tier-sub">current tier</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Jobs + Tenant info -->
+    <div class="two-col">
+
+      <!-- Running jobs panel — GET /api/v1/jobs -->
+      <div class="panel">
+        <div class="panel-header">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <polyline points="12 6 12 12 16 14"/>
+          </svg>
+          Jobs
+          <span style="font-size:9px;padding:2px 7px;border-radius:20px;
+                       background:rgba(99,201,150,0.08);border:1px solid rgba(99,201,150,0.2);
+                       color:var(--green);margin-left:4px;" id="running-jobs-count">0 running</span>
+          <span class="panel-action" onclick="loadJobs()">↺ Refresh</span>
+        </div>
+        <div class="panel-body" style="padding:0;">
+          <div id="jobs-container" style="padding:14px 18px;">
+            <div class="jobs-empty">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              <span>Loading jobs…</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tenant info — GET /api/v1/tenants/{key} -->
+      <div class="panel">
+        <div class="panel-header">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+          Tenant Details
+          <span class="panel-action" onclick="copyTenantKey()">⎘ Copy key</span>
+        </div>
+        <div class="panel-body">
+          <div id="tenant-kv-list">
+            <div class="kv-row"><div class="kv-key">Display name</div><div class="kv-val" id="kv-display-name">—</div></div>
+            <div class="kv-row"><div class="kv-key">Tenant key</div><div class="kv-val"><code id="kv-tenant-key">—</code></div><button class="kv-copy" onclick="copyTenantKey()">copy</button></div>
+            <div class="kv-row"><div class="kv-key">Tenant ID</div><div class="kv-val" id="kv-tenant-id" style="font-size:10px;color:var(--text2);">—</div></div>
+            <div class="kv-row"><div class="kv-key">Catalog</div><div class="kv-val"><code id="kv-catalog">—</code></div></div>
+            <div class="kv-row"><div class="kv-key">Status</div><div class="kv-val" id="kv-status">—</div></div>
+            <div class="kv-row"><div class="kv-key">Tier</div><div class="kv-val" id="kv-tier">—</div></div>
+            <div class="kv-row"><div class="kv-key">Created</div><div class="kv-val" id="kv-created">—</div></div>
+            <div class="kv-row"><div class="kv-key">Updated</div><div class="kv-val" id="kv-updated">—</div></div>
+            <div class="kv-row"><div class="kv-key">Engine URL</div><div class="kv-val" id="kv-engine" style="font-size:10px;color:var(--text2);">—</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Usage + Quota -->
+    <div class="two-col">
+
+      <!-- Usage metrics — GET /api/v1/metrics/tenants/{key}/usage -->
+      <div class="panel">
+        <div class="panel-header">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="20" x2="18" y2="10"/>
+            <line x1="12" y1="20" x2="12" y2="4"/>
+            <line x1="6" y1="20" x2="6" y2="14"/>
+          </svg>
+          Slot-Second Usage
+        </div>
+        <div class="panel-body">
+          <div class="usage-row">
+            <div class="usage-cell">
+              <div class="usage-val" id="usage-1h">—</div>
+              <div class="usage-lbl">1 hour</div>
+            </div>
+            <div class="usage-cell">
+              <div class="usage-val" id="usage-24h">—</div>
+              <div class="usage-lbl">24 hours</div>
+            </div>
+            <div class="usage-cell">
+              <div class="usage-val" id="usage-7d">—</div>
+              <div class="usage-lbl">7 days</div>
+            </div>
+          </div>
+          <div class="usage-bar-wrap" id="usage-bars">
+            <div class="usage-bar-row">
+              <span class="usage-bar-label">1h</span>
+              <div class="usage-bar-track"><div class="usage-bar-fill" id="bar-1h" style="width:0%"></div></div>
+              <span class="usage-bar-val" id="bar-1h-val">—</span>
+            </div>
+            <div class="usage-bar-row">
+              <span class="usage-bar-label">24h</span>
+              <div class="usage-bar-track"><div class="usage-bar-fill" id="bar-24h" style="width:0%"></div></div>
+              <span class="usage-bar-val" id="bar-24h-val">—</span>
+            </div>
+            <div class="usage-bar-row">
+              <span class="usage-bar-label">7d</span>
+              <div class="usage-bar-track"><div class="usage-bar-fill" id="bar-7d" style="width:0%"></div></div>
+              <span class="usage-bar-val" id="bar-7d-val">—</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quota overrides -->
+      <div class="panel">
+        <div class="panel-header">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          Quota Overrides
+          <span style="font-size:9px;color:var(--text3);margin-left:4px;">(ENTERPRISE)</span>
+        </div>
+        <div class="panel-body" id="quota-panel-body">
+          <div class="quota-empty">No quota overrides — using tier defaults.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tier comparison — GET /api/v1/pricing/tiers (public) -->
+    <div class="panel">
+      <div class="panel-header">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="1" x2="12" y2="23"/>
+          <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+        </svg>
+        Plans &amp; Pricing
+        <span class="panel-action" onclick="loadPricing()">↺ Refresh</span>
+      </div>
+      <div class="panel-body">
+        <div class="tier-grid" id="tier-grid">
+          <!-- Rendered by JS from /api/v1/pricing/tiers -->
+          <div style="font-size:11px;color:var(--text3);padding:8px 0;">Loading pricing…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- API quick reference -->
+    <div class="panel">
+      <div class="panel-header">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+        </svg>
+        API Quick Reference
+        <span style="font-size:9px;color:var(--text3);margin-left:auto;" id="api-base-label">—</span>
+      </div>
+      <div class="panel-body" style="padding:8px 18px;">
+        <div id="api-ref-list"><!-- filled by JS --></div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /dashboard -->
+
+<!-- Toast container -->
+<div id="toast"></div>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     JAVASCRIPT
+     ═══════════════════════════════════════════════════════════════════ -->
+<script>
+'use strict';
+
+/* ──────────────────────────────────────────────────────────────────
+   STATE
+   ────────────────────────────────────────────────────────────────── */
+const _state = {
+  baseUrl:   '',
+  jwt:       '',
+  tenant:    null,
+  usage:     null,
+  jobs:      [],
+  pricing:   null,
+};
+
+/* ──────────────────────────────────────────────────────────────────
+   UTILITIES
+   ────────────────────────────────────────────────────────────────── */
+function esc(s) {
+  if (s == null) return '—';
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function fmtDate(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('en-GB', {
+    day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'
+  });
+}
+
+function fmtSlots(v) {
+  if (v == null || v === '') return '—';
+  if (typeof v === 'number') {
+    if (v >= 1e6)  return (v/1e6).toFixed(2) + 'M';
+    if (v >= 1000) return (v/1000).toFixed(1) + 'k';
+    return String(v);
+  }
+  return String(v);
+}
+
+function fmtDuration(ms) {
+  if (!ms) return '—';
+  const s = Math.floor(ms / 1000);
+  if (s < 60)   return s + 's';
+  if (s < 3600) return Math.floor(s/60) + 'm ' + (s%60) + 's';
+  return Math.floor(s/3600) + 'h ' + Math.floor((s%3600)/60) + 'm';
+}
+
+function toast(msg, type = 'info', dur = 3500) {
+  const container = document.getElementById('toast');
+  const el = document.createElement('div');
+  el.className = 'toast-item ' + type;
+  el.textContent = msg;
+  container.appendChild(el);
+  setTimeout(() => el.remove(), dur);
+}
+
+function setLoadingStep(msg) {
+  const el = document.getElementById('loading-step');
+  if (el) el.textContent = msg;
+}
+
+function getBaseUrl() {
+  return (document.getElementById('inp-beam-url')?.value || '').trim().replace(/\/$/, '')
+      || _state.baseUrl
+      || 'http://localhost:8090';
+}
+
+function saveBeamUrl() {
+  try { localStorage.setItem('strbeam_url', document.getElementById('inp-beam-url')?.value || ''); } catch(_) {}
+}
+
+function getHeaders(jwt) {
+  const token = jwt || _state.jwt;
+  const h = { 'Accept': 'application/json' };
+  if (token) h['Authorization'] = 'Bearer ' + token;
+  return h;
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   AUTH
+   ────────────────────────────────────────────────────────────────── */
+
+/* GET /api/v1/auth/google or /api/v1/auth/github */
+function initiateSSO(provider) {
+  const url = getBaseUrl();
+  if (!url) { showAuthError('Enter the Str:::Beam Engine URL below.'); return; }
+  try { sessionStorage.setItem('strbeam_baseurl', url); } catch(_) {}
+  try { sessionStorage.setItem('strbeam_return',  window.location.href); } catch(_) {}
+  /* Redirects to provider consent screen.
+     On callback: /api/v1/auth/{provider}/callback exchanges code for JWT
+     and redirects back to Studio with #token=… in the URL fragment.      */
+  window.location.href = `${url}/api/v1/auth/${provider}`;
+}
+
+/* Bearer login via API key — GET /api/v1/tenants/{tenantKey} */
+async function doApiKeyLogin() {
+  const tenantKey = (document.getElementById('inp-tenant-key')?.value || '').trim();
+  const apiKey    = (document.getElementById('inp-api-key')?.value    || '').trim();
+  const url       = getBaseUrl();
+
+  if (!tenantKey) { showAuthError('Enter your tenant key.'); return; }
+  if (!apiKey)    { showAuthError('Enter your API key.'); return; }
+  if (!url)       { showAuthError('Enter the Str:::Beam Engine URL below.'); return; }
+
+  const btn = document.getElementById('apikey-submit-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="inline-spin"></span> Connecting…';
+  hideAuthError();
+
+  try {
+    const r = await fetch(`${url}/api/v1/tenants/${tenantKey}`, {
+      headers: getHeaders(apiKey)
+    });
+
+    if (r.status === 401 || r.status === 403) {
+      throw new Error('Invalid API key or tenant key. Check credentials and try again.');
+    }
+    if (r.status === 404) {
+      throw new Error(`Tenant "${tenantKey}" not found. Check the tenant key.`);
+    }
+    if (!r.ok) {
+      throw new Error(`Str:::Beam returned HTTP ${r.status} — ${r.statusText}`);
+    }
+
+    const tenant = await r.json();
+
+    // Store auth
+    _state.baseUrl = url;
+    _state.jwt     = apiKey;
+    _state.tenant  = tenant;
+    try { localStorage.setItem('strbeam_jwt', apiKey);  } catch(_) {}
+    try { localStorage.setItem('strbeam_url', url);     } catch(_) {}
+    try { localStorage.setItem('strbeam_key', tenantKey); } catch(_) {}
+
+    await launchDashboard();
+
+  } catch(e) {
+    showAuthError(e.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg> Connect to Str:::Beam`;
+  }
+}
+
+/* Handle JWT from OAuth callback URL fragment (#token=…) */
+async function handleOAuthCallback() {
+  const hash = window.location.hash;
+  if (!hash.includes('token=')) return false;
+
+  const params = new URLSearchParams(hash.replace('#',''));
+  const jwt    = params.get('token');
+  if (!jwt) return false;
+
+  history.replaceState(null, '', window.location.pathname + window.location.search);
+
+  const url = (() => {
+    try { return sessionStorage.getItem('strbeam_baseurl') || 'http://localhost:8090'; }
+    catch(_) { return 'http://localhost:8090'; }
+  })();
+
+  setLoadingStep('Exchanging OAuth token…');
+  _state.baseUrl = url;
+  _state.jwt     = jwt;
+
+  // Decode tenant key from JWT payload
+  let tenantKey = '';
+  try {
+    const payload = JSON.parse(atob(jwt.split('.')[1]));
+    tenantKey = payload.tenantKey || payload.sub || payload.tenant || '';
+  } catch(_) {}
+
+  try {
+    let tenant = null;
+
+    if (tenantKey) {
+      setLoadingStep(`Loading tenant "${tenantKey}"…`);
+      const r = await fetch(`${url}/api/v1/tenants/${tenantKey}`, { headers: getHeaders(jwt) });
+      if (r.ok) tenant = await r.json();
+    }
+
+    // Fallback: list tenants — GET /api/v1/tenants
+    if (!tenant) {
+      setLoadingStep('Resolving tenant…');
+      const r2 = await fetch(`${url}/api/v1/tenants`, { headers: getHeaders(jwt) });
+      if (r2.ok) {
+        const list = await r2.json();
+        if (Array.isArray(list) && list.length > 0) tenant = list[0];
+      }
+    }
+
+    if (!tenant) throw new Error('Could not load tenant info after login.');
+
+    _state.tenant = tenant;
+    try { localStorage.setItem('strbeam_jwt', jwt); } catch(_) {}
+    try { localStorage.setItem('strbeam_url', url); } catch(_) {}
+    try { localStorage.setItem('strbeam_key', tenant.tenantKey); } catch(_) {}
+
+    await launchDashboard();
+    return true;
+
+  } catch(e) {
+    console.error('Beam OAuth callback error:', e);
+    return false;
+  }
+}
+
+/* POST /api/v1/auth/logout */
+async function doLogout() {
+  try {
+    await fetch(`${_state.baseUrl}/api/v1/auth/logout`, {
+      method: 'POST', headers: getHeaders()
+    });
+  } catch(_) { /* JWT stateless — discard client-side regardless */ }
+
+  _state.jwt = ''; _state.tenant = null; _state.usage = null;
+  _state.jobs = []; _state.pricing = null;
+
+  try { localStorage.removeItem('strbeam_jwt'); } catch(_) {}
+  try { localStorage.removeItem('strbeam_key'); } catch(_) {}
+  try { sessionStorage.removeItem('strbeam_baseurl'); } catch(_) {}
+
+  document.getElementById('dashboard').style.display = 'none';
+  document.getElementById('auth-screen').style.display = 'flex';
+  document.getElementById('inp-api-key').value = '';
+  toast('Signed out of Str:::Beam', 'info');
+}
+
+/* Restore session from localStorage */
+async function tryRestoreSession() {
+  const jwt = (() => { try { return localStorage.getItem('strbeam_jwt') || ''; } catch(_) { return ''; } })();
+  const url = (() => { try { return localStorage.getItem('strbeam_url') || 'http://localhost:8090'; } catch(_) { return 'http://localhost:8090'; } })();
+  const key = (() => { try { return localStorage.getItem('strbeam_key') || ''; } catch(_) { return ''; } })();
+
+  if (!jwt || !key) return false;
+
+  setLoadingStep('Restoring session…');
+  _state.baseUrl = url;
+  _state.jwt     = jwt;
+
+  // Set URL field
+  const urlInput = document.getElementById('inp-beam-url');
+  if (urlInput) urlInput.value = url;
+
+  try {
+    const r = await fetch(`${url}/api/v1/tenants/${key}`, { headers: getHeaders(jwt) });
+    if (!r.ok) return false;
+    _state.tenant = await r.json();
+    await launchDashboard();
+    return true;
+  } catch(_) { return false; }
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   DASHBOARD LAUNCH
+   ────────────────────────────────────────────────────────────────── */
+async function launchDashboard() {
+  const tenant = _state.tenant;
+  if (!tenant) return;
+
+  setLoadingStep('Loading cluster data…');
+
+  // Parallel fetch: usage + jobs + pricing
+  const [usageRes, jobsRes, pricingRes] = await Promise.allSettled([
+    fetch(`${_state.baseUrl}/api/v1/metrics/tenants/${tenant.tenantKey}/usage`, { headers: getHeaders() }),
+    fetch(`${_state.baseUrl}/api/v1/jobs`,  { headers: getHeaders() }),
+    fetch(`${_state.baseUrl}/api/v1/pricing/tiers`)
+  ]);
+
+  if (usageRes.status === 'fulfilled' && usageRes.value.ok) {
+    _state.usage = await usageRes.value.json();
+  }
+  if (jobsRes.status === 'fulfilled' && jobsRes.value.ok) {
+    const j = await jobsRes.value.json();
+    _state.jobs = Array.isArray(j?.jobs) ? j.jobs : Array.isArray(j) ? j : [];
+  }
+  if (pricingRes.status === 'fulfilled' && pricingRes.value.ok) {
+    _state.pricing = await pricingRes.value.json();
+  }
+
+  renderDashboard();
+
+  // Hide loading, show dashboard
+  const ls = document.getElementById('loading-screen');
+  ls.classList.add('fade-out');
+  setTimeout(() => { ls.style.display = 'none'; }, 400);
+
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('dashboard').style.display   = 'flex';
+
+  renderApiReference();
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   RENDER DASHBOARD
+   ────────────────────────────────────────────────────────────────── */
+function renderDashboard() {
+  const { tenant, usage, jobs, pricing } = _state;
+  if (!tenant) return;
+
+  const tierColors = { FREE:'#f5a623', PRO:'#4fa3e0', ENTERPRISE:'#00d4aa' };
+  const tc = tierColors[tenant.tier] || '#f5a623';
+
+  // Nav
+  document.getElementById('nav-tenant-name').textContent = tenant.displayName || tenant.tenantKey;
+  const chipEl = document.getElementById('nav-tier-chip');
+  chipEl.textContent = tenant.tier;
+  chipEl.style.cssText = `font-size:9px;font-weight:700;padding:3px 10px;border-radius:20px;
+    letter-spacing:1px;flex-shrink:0;background:${tc}18;border:1px solid ${tc}44;color:${tc};`;
+
+  // Hero
+  document.getElementById('hero-display-name').textContent = tenant.displayName || tenant.tenantKey;
+  document.getElementById('hero-subtitle').textContent =
+    `Tenant "${tenant.tenantKey}" · Catalog: ${tenant.catalogName || tenant.tenantKey + '_catalog'} · ${tenant.tier} plan`;
+
+  const statusBadge = document.getElementById('hero-status-badge');
+  if (tenant.status === 'SUSPENDED') {
+    statusBadge.textContent = '● SUSPENDED';
+    statusBadge.className   = 'hero-badge status-suspended';
+    document.getElementById('suspended-alert').classList.add('show');
+    document.getElementById('cta-launch-btn').disabled = true;
+    document.getElementById('studio-btn').disabled     = true;
+  } else {
+    statusBadge.textContent = '● ' + tenant.status;
+    statusBadge.className   = 'hero-badge status-active';
+  }
+
+  document.getElementById('hero-catalog-badge').textContent =
+    'catalog: ' + (tenant.catalogName || tenant.tenantKey + '_catalog');
+  document.getElementById('hero-date-badge').textContent =
+    'Since ' + fmtDate(tenant.createdAt).split(',')[0];
+
+  document.getElementById('cta-hint').textContent =
+    `${tenant.tenantKey} · ${tenant.tier} · ${tenant.status}`;
+
+  // Stats
+  const runningJobs = jobs.filter(j => j.status === 'RUNNING').length;
+  document.getElementById('stat-running').textContent = runningJobs;
+  document.getElementById('stat-total').textContent   = jobs.length;
+  document.getElementById('stat-tier').textContent    = tenant.tier;
+  document.getElementById('stat-tier').style.color    = tc;
+
+  const u1h  = extractUsage(usage, '1h');
+  const u24h = extractUsage(usage, '24h');
+  const u7d  = extractUsage(usage, '7d');
+  document.getElementById('stat-1h').textContent  = fmtSlots(u1h);
+  document.getElementById('stat-24h').textContent = fmtSlots(u24h);
+  document.getElementById('stat-7d').textContent  = fmtSlots(u7d);
+
+  document.getElementById('last-refreshed').textContent =
+    '· updated ' + new Date().toLocaleTimeString();
+
+  // Tenant KV
+  document.getElementById('kv-display-name').textContent = tenant.displayName || '—';
+  document.getElementById('kv-tenant-key').textContent   = tenant.tenantKey   || '—';
+  document.getElementById('kv-tenant-id').textContent    = tenant.id          || '—';
+  document.getElementById('kv-catalog').textContent      = tenant.catalogName || tenant.tenantKey + '_catalog';
+  document.getElementById('kv-engine').textContent       = _state.baseUrl;
+  document.getElementById('kv-created').textContent      = fmtDate(tenant.createdAt);
+  document.getElementById('kv-updated').textContent      = fmtDate(tenant.updatedAt);
+
+  const kvStatus = document.getElementById('kv-status');
+  kvStatus.textContent = tenant.status;
+  kvStatus.style.color = tenant.status === 'ACTIVE' ? 'var(--green)' : tenant.status === 'SUSPENDED' ? 'var(--yellow)' : 'var(--red)';
+
+  const kvTier = document.getElementById('kv-tier');
+  kvTier.textContent = tenant.tier;
+  kvTier.style.color = tc;
+
+  // Usage panel
+  renderUsage(u1h, u24h, u7d);
+
+  // Quota
+  renderQuota(tenant.quotaOverrides);
+
+  // Jobs
+  renderJobs();
+
+  // Pricing
+  renderPricing(pricing, tenant.tier);
+}
+
+/* Extract usage values from various API response shapes */
+function extractUsage(usage, window) {
+  if (!usage) return null;
+  const keys = {
+    '1h':  ['1h','lastHour','oneHour','hour','slotSeconds1h'],
+    '24h': ['24h','lastDay','oneDay','day','slotSeconds24h'],
+    '7d':  ['7d','lastWeek','oneWeek','week','slotSeconds7d'],
+  };
+  for (const k of (keys[window] || [])) {
+    if (usage[k] != null) return usage[k];
+  }
+  return null;
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   RENDER: USAGE BARS
+   ────────────────────────────────────────────────────────────────── */
+function renderUsage(u1h, u24h, u7d) {
+  const vals = [u1h, u24h, u7d].map(v => typeof v === 'number' ? v : 0);
+  const max  = Math.max(...vals, 1);
+
+  document.getElementById('usage-1h').textContent  = fmtSlots(u1h);
+  document.getElementById('usage-24h').textContent = fmtSlots(u24h);
+  document.getElementById('usage-7d').textContent  = fmtSlots(u7d);
+
+  document.getElementById('bar-1h').style.width  = ((vals[0]/max)*100).toFixed(1) + '%';
+  document.getElementById('bar-24h').style.width = ((vals[1]/max)*100).toFixed(1) + '%';
+  document.getElementById('bar-7d').style.width  = ((vals[2]/max)*100).toFixed(1) + '%';
+
+  document.getElementById('bar-1h-val').textContent  = fmtSlots(u1h);
+  document.getElementById('bar-24h-val').textContent = fmtSlots(u24h);
+  document.getElementById('bar-7d-val').textContent  = fmtSlots(u7d);
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   RENDER: QUOTA OVERRIDES
+   ────────────────────────────────────────────────────────────────── */
+function renderQuota(overrides) {
+  const el = document.getElementById('quota-panel-body');
+  if (!overrides || Object.keys(overrides).length === 0) {
+    el.innerHTML = '<div class="quota-empty">No quota overrides — using tier defaults.</div>';
+    return;
+  }
+  el.innerHTML = Object.entries(overrides).map(([k,v]) =>
+    `<span class="quota-pill">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      ${esc(k)}: <strong>${esc(v)}</strong>
+    </span>`
+  ).join('');
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   RENDER: JOBS — GET /api/v1/jobs
+   ────────────────────────────────────────────────────────────────── */
+function renderJobs() {
+  const container = document.getElementById('jobs-container');
+  const jobs      = _state.jobs;
+  const running   = jobs.filter(j => j.status === 'RUNNING').length;
+
+  document.getElementById('running-jobs-count').textContent = running + ' running';
+
+  if (jobs.length === 0) {
+    container.innerHTML = `
+      <div class="jobs-empty">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/>
+        </svg>
+        <span>No jobs yet — connect to Studio and submit a pipeline</span>
+      </div>`;
+    return;
+  }
+
+  const rows = jobs.slice(0, 20).map(job => {
+    const id       = job.jid || job.id || '—';
+    const name     = job.name || job['job-name'] || id.slice(0,8) + '…';
+    const status   = (job.status || 'UNKNOWN').toUpperCase();
+    const duration = job['duration'] || job.duration;
+    const tasks    = job.tasks;
+
+    return `
+    <tr>
+      <td style="font-family:var(--mono);font-size:10px;color:var(--text2);">
+        ${esc(id.slice(0,8))}…
+      </td>
+      <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+        ${esc(name)}
+      </td>
+      <td>
+        <span class="job-status ${status}">
+          <span class="job-status-dot"></span>${status}
+        </span>
+      </td>
+      <td style="color:var(--text2);font-size:10px;">${fmtDuration(duration)}</td>
+      <td>
+        ${status === 'RUNNING' ? `
+        <button class="cancel-job-btn" onclick="cancelJob('${esc(id)}')">cancel</button>
+        ` : ''}
+      </td>
+    </tr>`;
+  }).join('');
+
+  container.innerHTML = `
+    <table class="jobs-table">
+      <thead>
+        <tr>
+          <th>Job ID</th>
+          <th>Name</th>
+          <th>Status</th>
+          <th>Duration</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+    ${jobs.length > 20 ? `<div style="font-size:10px;color:var(--text3);margin-top:10px;text-align:right;">Showing 20 of ${jobs.length} jobs</div>` : ''}
+  `;
+}
+
+/* DELETE /api/v1/jobs/{jobId} */
+async function cancelJob(jobId) {
+  if (!confirm(`Cancel job ${jobId.slice(0,8)}…?`)) return;
+  try {
+    const r = await fetch(`${_state.baseUrl}/api/v1/jobs/${jobId}`, {
+      method:  'DELETE',
+      headers: getHeaders()
+    });
+    if (r.ok) {
+      toast('Job cancel signal sent', 'ok');
+      await loadJobs();
+    } else {
+      toast(`Cancel failed: HTTP ${r.status}`, 'err');
+    }
+  } catch(e) {
+    toast('Cancel failed: ' + e.message, 'err');
+  }
+}
+
+/* Reload jobs from API */
+async function loadJobs() {
+  try {
+    const r = await fetch(`${_state.baseUrl}/api/v1/jobs`, { headers: getHeaders() });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const j = await r.json();
+    _state.jobs = Array.isArray(j?.jobs) ? j.jobs : Array.isArray(j) ? j : [];
+    renderJobs();
+    toast('Jobs refreshed', 'ok');
+  } catch(e) {
+    toast('Could not load jobs: ' + e.message, 'err');
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   RENDER: PRICING — GET /api/v1/pricing/tiers (public)
+   ────────────────────────────────────────────────────────────────── */
+function renderPricing(pricing, currentTier) {
+  const grid = document.getElementById('tier-grid');
+
+  const defaultFeatures = {
+    FREE: [
+      { label: '1 concurrent session', ok: true },
+      { label: '5 SQL statements / min', ok: true },
+      { label: 'Community support', ok: true },
+      { label: 'Custom connector JARs', ok: false },
+      { label: 'Quota overrides', ok: false },
+    ],
+    PRO: [
+      { label: '5 concurrent sessions', ok: true },
+      { label: 'Unlimited statements', ok: true },
+      { label: 'Up to 5 custom JARs', ok: true },
+      { label: 'Email support', ok: true },
+      { label: 'Quota overrides', ok: false },
+    ],
+    ENTERPRISE: [
+      { label: 'Unlimited sessions', ok: true },
+      { label: 'Unlimited statements', ok: true },
+      { label: 'Unlimited custom JARs', ok: true },
+      { label: 'Priority support + SLA', ok: true },
+      { label: 'Custom quota overrides', ok: true },
+    ],
+  };
+
+  const tierMeta = {
+    FREE:       { color: '#f5a623', label: 'FREE' },
+    PRO:        { color: '#4fa3e0', label: 'PRO' },
+    ENTERPRISE: { color: '#00d4aa', label: 'ENTERPRISE' },
+  };
+
+  // Build features from pricing API response if available, else use defaults
+  let tierData = {};
+  if (pricing && typeof pricing === 'object') {
+    // Pricing response shape may vary — try common keys
+    ['FREE','PRO','ENTERPRISE'].forEach(t => {
+      const raw = pricing[t] || pricing[t.toLowerCase()] || null;
+      tierData[t] = raw ? _parsePricingFeatures(raw) : defaultFeatures[t];
+    });
+  } else {
+    tierData = defaultFeatures;
+  }
+
+  grid.innerHTML = ['FREE','PRO','ENTERPRISE'].map(tier => {
+    const meta     = tierMeta[tier];
+    const features = tierData[tier] || defaultFeatures[tier];
+    const isActive = tier === currentTier;
+
+    return `
+    <div class="tier-card ${isActive ? 'active-tier' : ''}"
+         style="background:var(--bg2);
+                ${isActive ? `border-color:${meta.color}44;` : ''}">
+      <div class="tier-card-head"
+           style="background:${meta.color}0c;">
+        <span class="tier-name" style="color:${meta.color};">${meta.label}</span>
+        ${isActive ? `
+        <span style="font-size:9px;color:${meta.color};background:${meta.color}18;
+                     border:1px solid ${meta.color}33;padding:1px 8px;border-radius:20px;
+                     margin-left:4px;">Current</span>` : ''}
+        <div class="tier-current-dot ${isActive ? '' : 'hidden'}"
+             style="background:${isActive ? meta.color : 'transparent'};"></div>
+      </div>
+      <div class="tier-card-body">
+        ${features.map(f => `
+        <div class="tier-feature ${f.ok ? '' : 'locked'}">
+          ${esc(f.label)}
+        </div>`).join('')}
+        <button class="tier-upgrade-btn ${isActive ? 'current' : ''}"
+                onclick="${isActive ? '' : `requestUpgrade('${tier}')`}">
+          ${isActive ? '✓ Active plan' : `Upgrade to ${tier}`}
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function _parsePricingFeatures(raw) {
+  // Try to extract feature list from pricing API response
+  if (Array.isArray(raw?.features)) {
+    return raw.features.map(f =>
+      typeof f === 'string'
+        ? { label: f, ok: true }
+        : { label: f.name || f.label || String(f), ok: f.available !== false }
+    );
+  }
+  if (raw?.quotas) {
+    return Object.entries(raw.quotas).map(([k,v]) => ({ label: `${k}: ${v}`, ok: true }));
+  }
+  return [{ label: 'Contact sales for details', ok: true }];
+}
+
+async function loadPricing() {
+  try {
+    const r = await fetch(`${_state.baseUrl}/api/v1/pricing/tiers`);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    _state.pricing = await r.json();
+    renderPricing(_state.pricing, _state.tenant?.tier);
+    toast('Pricing refreshed', 'ok');
+  } catch(e) {
+    toast('Could not load pricing: ' + e.message, 'err');
+  }
+}
+
+/* PATCH /api/v1/tenants/{key}/tier — request upgrade (admin would do this) */
+async function requestUpgrade(targetTier) {
+  toast(`To upgrade to ${targetTier}, contact your Str:::Beam administrator.`, 'info', 5000);
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   API QUICK REFERENCE
+   ────────────────────────────────────────────────────────────────── */
+function renderApiReference() {
+  const base = _state.baseUrl;
+  const k    = _state.tenant?.tenantKey || '{tenantKey}';
+  document.getElementById('api-base-label').textContent = base;
+
+  const endpoints = [
+    { method:'GET',    path:`/api/v1/tenants/${k}`,                     desc:'Tenant info' },
+    { method:'GET',    path:`/api/v1/metrics/tenants/${k}/usage`,       desc:'Usage metrics' },
+    { method:'GET',    path:`/api/v1/jobs`,                              desc:'Your jobs' },
+    { method:'GET',    path:`/api/v1/jobs/{jobId}`,                     desc:'Job details' },
+    { method:'DELETE', path:`/api/v1/jobs/{jobId}`,                     desc:'Cancel job' },
+    { method:'POST',   path:`/api/v1/sessions`,                         desc:'Open SQL session' },
+    { method:'POST',   path:`/api/v1/sessions/{id}/statements`,         desc:'Submit SQL' },
+    { method:'GET',    path:`/api/v1/jars`,                             desc:'List JARs' },
+    { method:'POST',   path:`/api/v1/jars`,                             desc:'Upload JAR' },
+    { method:'GET',    path:`/api/v1/pricing/tiers`,                    desc:'Tier features' },
+    { method:'POST',   path:`/api/v1/tenants/${k}/rotate-key`,          desc:'Rotate API key' },
+    { method:'GET',    path:`/api/v1/auth/providers`,                   desc:'SSO providers' },
+    { method:'POST',   path:`/api/v1/auth/logout`,                      desc:'Logout' },
+  ];
+
+  const methodClass = { GET:'get', POST:'post', DELETE:'delete', PATCH:'patch' };
+
+  document.getElementById('api-ref-list').innerHTML = endpoints.map(e => `
+    <div class="endpoint-row">
+      <span class="endpoint-method method-${(methodClass[e.method]||'get')}">${e.method}</span>
+      <span class="endpoint-path">${esc(e.path)}</span>
+      <span class="endpoint-desc">${esc(e.desc)}</span>
+    </div>`).join('');
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   REFRESH ALL DATA
+   ────────────────────────────────────────────────────────────────── */
+async function refreshAll() {
+  const btn = document.getElementById('refresh-btn');
+  btn.innerHTML = '<span class="inline-spin"></span> Refreshing…';
+  btn.disabled  = true;
+
+  try {
+    const k = _state.tenant?.tenantKey;
+    if (!k) return;
+
+    const [tRes, uRes, jRes] = await Promise.allSettled([
+      fetch(`${_state.baseUrl}/api/v1/tenants/${k}`,                      { headers: getHeaders() }),
+      fetch(`${_state.baseUrl}/api/v1/metrics/tenants/${k}/usage`,        { headers: getHeaders() }),
+      fetch(`${_state.baseUrl}/api/v1/jobs`,                               { headers: getHeaders() }),
+    ]);
+
+    if (tRes.status === 'fulfilled' && tRes.value.ok) _state.tenant = await tRes.value.json();
+    if (uRes.status === 'fulfilled' && uRes.value.ok) _state.usage  = await uRes.value.json();
+    if (jRes.status === 'fulfilled' && jRes.value.ok) {
+      const j = await jRes.value.json();
+      _state.jobs = Array.isArray(j?.jobs) ? j.jobs : Array.isArray(j) ? j : [];
+    }
+
+    renderDashboard();
+    toast('Dashboard refreshed', 'ok');
+  } catch(e) {
+    toast('Refresh failed: ' + e.message, 'err');
+  } finally {
+    btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="23 4 23 10 17 10"/>
+      <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+    </svg> Refresh`;
+    btn.disabled = false;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   LAUNCH STUDIO
+   POST /api/v1/sessions — create a new Flink SQL Gateway session
+   ────────────────────────────────────────────────────────────────── */
+async function launchStudio() {
+  const tenant = _state.tenant;
+  if (!tenant) return;
+
+  if (tenant.status === 'SUSPENDED') {
+    toast('Tenant is suspended — cannot open sessions', 'err');
+    return;
+  }
+
+  // If running inside Studio (index.html), wire auth and open the app
+  if (typeof window.doConnect === 'function' || typeof window.state !== 'undefined') {
+    _patchStudioAndLaunch();
+    return;
+  }
+
+  // Standalone mode: open a session and show connection details
+  const btn = document.getElementById('cta-launch-btn');
+  const navBtn = document.getElementById('studio-btn');
+  btn.disabled    = true;
+  navBtn.disabled = true;
+  btn.innerHTML   = `<span class="inline-spin"></span> Opening session…`;
+
+  try {
+    const r = await fetch(`${_state.baseUrl}/api/v1/sessions`, {
+      method:  'POST',
+      headers: { ...getHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ label: tenant.tenantKey + '-studio' })
+    });
+
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const sess = await r.json();
+
+    const studioUrl = `${window.location.origin}/index.html` +
+      `#beam=${encodeURIComponent(_state.baseUrl)}` +
+      `&token=${encodeURIComponent(_state.jwt)}` +
+      `&session=${encodeURIComponent(sess.sessionId)}` +
+      `&tenant=${encodeURIComponent(tenant.tenantKey)}`;
+
+    toast('Session opened — launching Studio', 'ok');
+    setTimeout(() => { window.open(studioUrl, '_blank'); }, 400);
+
+  } catch(e) {
+    toast('Could not open session: ' + e.message, 'err');
+  } finally {
+    btn.disabled    = false;
+    navBtn.disabled = false;
+    btn.innerHTML   = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+      Connect to Studio`;
+  }
+}
+
+/* Patch Studio auth state when this screen is embedded in index.html */
+function _patchStudioAndLaunch() {
+  if (!window.state) window.state = {};
+  window.state.beam = {
+    baseUrl: _state.baseUrl,
+    jwt:     _state.jwt,
+    tenant:  _state.tenant,
+    authMethod: 'beam-dashboard'
+  };
+
+  const remoteInput = document.getElementById('inp-remote-url');
+  if (remoteInput) remoteInput.value = _state.baseUrl;
+  const tokenInput = document.getElementById('inp-token');
+  if (tokenInput) tokenInput.value = _state.jwt;
+
+  if (typeof setMode     === 'function') setMode('remote');
+  if (typeof setAuthMode === 'function') setAuthMode('bearer');
+
+  const sessName = document.getElementById('inp-session-name');
+  if (sessName) sessName.value = _state.tenant.tenantKey;
+
+  // Remove this welcome overlay
+  document.getElementById('dashboard').style.display = 'none';
+  const cs = document.getElementById('connect-screen');
+  if (cs) cs.style.display = 'none';
+
+  if (typeof doConnect === 'function') doConnect();
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   UI HELPERS
+   ────────────────────────────────────────────────────────────────── */
+function toggleApiKeyForm() {
+  const form  = document.getElementById('apikey-form');
+  const arrow = document.getElementById('apikey-arrow');
+  const open  = form.classList.contains('open');
+  form.classList.toggle('open', !open);
+  if (arrow) arrow.textContent = open ? '▼' : '▲';
+}
+
+function showAuthError(msg) {
+  const el = document.getElementById('auth-error');
+  el.textContent = msg;
+  el.classList.add('show');
+}
+function hideAuthError() {
+  document.getElementById('auth-error').classList.remove('show');
+}
+
+function copyTenantKey() {
+  const k = _state.tenant?.tenantKey;
+  if (!k) return;
+  navigator.clipboard.writeText(k)
+    .then(() => toast('Tenant key copied', 'ok'))
+    .catch(() => toast('Could not copy', 'err'));
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   INIT
+   ────────────────────────────────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', async () => {
+  // Restore saved URL
+  try {
+    const savedUrl = localStorage.getItem('strbeam_url') || 'http://localhost:8090';
+    const urlInput = document.getElementById('inp-beam-url');
+    if (urlInput) urlInput.value = savedUrl;
+    _state.baseUrl = savedUrl;
+  } catch(_) {}
+
+  setLoadingStep('Checking for active session…');
+
+  // 1. Check OAuth callback (#token=…)
+  const handled = await handleOAuthCallback();
+  if (handled) return;
+
+  // 2. Check for #beam=…&token=… params (launched from Studio)
+  const hash = window.location.hash;
+  if (hash.includes('beam=') && hash.includes('token=')) {
+    const params    = new URLSearchParams(hash.replace('#',''));
+    const beamUrl   = decodeURIComponent(params.get('beam')   || '');
+    const jwt       = decodeURIComponent(params.get('token')  || '');
+    const tenantKey = decodeURIComponent(params.get('tenant') || '');
+    if (beamUrl && jwt && tenantKey) {
+      history.replaceState(null, '', window.location.pathname);
+      _state.baseUrl = beamUrl;
+      _state.jwt     = jwt;
+      setLoadingStep('Loading tenant from Studio handoff…');
+      try {
+        const r = await fetch(`${beamUrl}/api/v1/tenants/${tenantKey}`, { headers: getHeaders(jwt) });
+        if (r.ok) {
+          _state.tenant = await r.json();
+          await launchDashboard();
+          return;
+        }
+      } catch(_) {}
+    }
+  }
+
+  // 3. Try restoring from localStorage
+  setLoadingStep('Restoring saved session…');
+  const restored = await tryRestoreSession();
+  if (restored) return;
+
+  // 4. No session — show auth screen
+  const ls = document.getElementById('loading-screen');
+  ls.classList.add('fade-out');
+  setTimeout(() => {
+    ls.style.display   = 'none';
+    document.getElementById('auth-screen').style.display = 'flex';
+  }, 300);
+});
+</script>
+</body>
+</html>
