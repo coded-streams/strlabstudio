@@ -427,21 +427,22 @@
       gap: 8px !important;
     }
 
-    /* ── Status bar execution spinner ─────────────────────────────── */
-    .spinner {
-      width: 10px;
-      height: 10px;
-      border: 2px solid rgba(0, 212, 170, 0.2);
-      border-top-color: var(--accent, #00d4aa);
-      border-radius: 50%;
-      animation: _spin 0.75s linear infinite;
-      flex-shrink: 0;
-      display: inline-block;
-    }
-
-    @keyframes _spin {
-      to { transform: rotate(360deg); }
-    }
+    /*!* ── Status bar execution spinner ─────────────────────────────── *!*/
+    /*.spinner {*/
+    /*  width: 12px;*/
+    /*  height: 12px;*/
+    /*  border: 2px solid rgba(0, 212, 170, 0.2);*/
+    /*  border-top-color: var(--accent, #00d4aa);*/
+    /*  border-radius: 50%;*/
+    /*  animation: _spin 0.75s linear infinite;*/
+    /*  flex-shrink: 0;*/
+    /*  display: block;*/
+    /*  will-change: transform;*/
+    /*}*/
+    /*@keyframes _spin {*/
+    /*  from { transform: rotate(0deg); }*/
+    /*  to   { transform: rotate(360deg); }*/
+    /*}*/
 
     /* ── Connect screen responsive ────────────────────────────────── */
     @media (max-width: 860px) {
@@ -1076,7 +1077,7 @@
 
                      value="http://localhost:8090"
 
-                     placeholder="https://your-beam-engine.example.com"
+                     placeholder="https://io.streambeam.com"
 
                      style="font-size:11px;" oninput="beamUpdateEndpointPreview()" />
 
@@ -2017,6 +2018,9 @@ SHOW CATALOGS;"></textarea>
       </div>
       <div class="status-sep"></div>
       <div class="status-item" id="sb-job-info" style="display:none;">Job: <span id="sb-job" style="color:var(--accent3)">—</span></div>
+
+      <div id="statusbar-chip-tray" style="display:flex;align-items:center;gap:0;flex:1;min-width:0;overflow:hidden;"></div>
+
       <div class="status-item" id="status-exec" style="display:none;"><div class="spinner"></div><span id="status-exec-text">Executing…</span></div>
     </div>
   </div><!-- /app -->
@@ -2282,31 +2286,29 @@ SHOW CATALOGS;"></textarea>
         const inner = overlay.querySelector('.modal');
         if (!inner) return;
 
-        // Hide overlay (keep in DOM)
         overlay.style.display = 'none';
 
-        // Create taskbar chip
         const chip = document.createElement('div');
         chip.id = 'minimised-chip-' + modalId;
         chip.style.cssText = `
-      display:inline-flex;align-items:center;gap:5px;
-      padding:0 10px;height:100%;
-      font-size:10px;font-family:var(--mono);
-      color:var(--accent);cursor:pointer;
-      border-left:1px solid var(--border);
-      background:rgba(0,212,170,0.08);
-      transition:background 0.1s;white-space:nowrap;flex-shrink:0;
-    `;
+    display:inline-flex;align-items:center;gap:5px;
+    padding:0 10px;height:100%;
+    font-size:10px;font-family:var(--mono);
+    color:var(--accent);cursor:pointer;
+    border-left:1px solid var(--border);
+    background:rgba(0,212,170,0.08);
+    transition:background 0.1s;white-space:nowrap;flex-shrink:0;
+  `;
         chip.innerHTML = `<span style="font-size:11px;">⬡</span> ${label} <button onclick="event.stopPropagation();modalRestore('${modalId}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px;line-height:1;padding:0 0 0 4px;margin:0;">×</button>`;
         chip.addEventListener('click', () => modalRestore(modalId));
         chip.addEventListener('mouseenter', () => chip.style.background = 'rgba(0,212,170,0.15)');
         chip.addEventListener('mouseleave', () => chip.style.background = 'rgba(0,212,170,0.08)');
 
-
         _minimised[modalId] = { chip };
         requestAnimationFrame(() => {
-          const sb = document.getElementById('statusbar');
-          if (sb) sb.appendChild(chip);
+          // ← CHANGE: target chip tray, not statusbar
+          const tray = document.getElementById('statusbar-chip-tray');
+          if (tray) tray.appendChild(chip);
         });
       };
 
@@ -2361,6 +2363,82 @@ SHOW CATALOGS;"></textarea>
   // Close More menu on outside click
   document.addEventListener('click', e => {
     if (!e.target.closest('#tb-more-wrap')) _tbCloseMore();
+  });
+</script>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+
+    // ── Beam button: show its panel directly ──────────────────────
+    var beamBtn = document.getElementById('mode-beam');
+    if (beamBtn) {
+      beamBtn.onclick = function () {
+
+        // 1. Deactivate ALL mode buttons including beam
+        ['proxy','direct','confluent','ververica','aws','beam'].forEach(function(m) {
+          var b = document.getElementById('mode-' + m);
+          if (b) b.classList.remove('active');
+        });
+
+        // 2. Hide ALL info panels
+        ['proxy','direct','confluent','ververica','aws','beam'].forEach(function(m) {
+          var p = document.getElementById('mode-' + m + '-info');
+          if (p) p.style.display = 'none';
+        });
+
+        // 3. Activate beam button + show its panel
+        beamBtn.classList.add('active');
+        var beamPanel = document.getElementById('mode-beam-info');
+        if (beamPanel) beamPanel.style.display = 'block';
+
+        // 4. Hide footer and session row — beam has its own auth flow
+        var footer = document.querySelector('.connect-footer');
+        if (footer) footer.style.display = 'none';
+        var sessRow = document.getElementById('session-mode-row');
+        if (sessRow) sessRow.style.display = 'none';
+        var propsGroup = document.querySelector('#props-area');
+        if (propsGroup) {
+          var fg = propsGroup.closest('.field-group');
+          if (fg) fg.style.display = 'none';
+        }
+
+        // 5. Load providers if available
+        if (typeof beamLoadProviders === 'function') {
+          var url = (document.getElementById('inp-beam-url')?.value || '').trim();
+          if (url) beamLoadProviders();
+        }
+      };
+    }
+
+    // ── Other mode buttons: reset beam highlight before switching ─
+    ['proxy','direct','confluent','ververica','aws'].forEach(function(m) {
+      var b = document.getElementById('mode-' + m);
+      if (!b) return;
+      b.onclick = function () {
+        // Deactivate beam button explicitly
+        var beam = document.getElementById('mode-beam');
+        if (beam) beam.classList.remove('active');
+
+        // Hide beam panel
+        var beamPanel = document.getElementById('mode-beam-info');
+        if (beamPanel) beamPanel.style.display = 'none';
+
+        // Restore footer, session row, props that beam hid
+        var footer = document.querySelector('.connect-footer');
+        if (footer) footer.style.display = '';
+        var sessRow = document.getElementById('session-mode-row');
+        if (sessRow) sessRow.style.display = '';
+        var propsGroup = document.querySelector('#props-area');
+        if (propsGroup) {
+          var fg = propsGroup.closest('.field-group');
+          if (fg) fg.style.display = '';
+        }
+
+        // Let connection.js setMode handle the rest normally
+        if (typeof setMode === 'function') setMode(m);
+      };
+    });
+
   });
 </script>
 

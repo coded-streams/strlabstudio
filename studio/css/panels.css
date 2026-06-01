@@ -214,11 +214,13 @@
   .jg-edge.active {
     stroke: var(--accent); stroke-width: 2;
     stroke-dasharray: 10 5;
+    stroke-dashoffset: 0;
     animation: flowEdge 1.2s linear infinite;
   }
   .jg-edge.error-edge {
     stroke: var(--red); stroke-width: 2; opacity: 0.8;
     stroke-dasharray: 6 4;
+    stroke-dashoffset: 0;
     animation: flowEdgeErr 1.5s linear infinite;
   }
   @keyframes flowEdge    { to { stroke-dashoffset: -45; } }
@@ -854,15 +856,15 @@ body.theme-light .perf-subtab-btn.active { background: var(--bg1); }
   opacity: 0.75;
 }
 
-/* ── Animated active edge (data is flowing) ─────────────────── */
-.jg-edge.active {
-  stroke: var(--accent);
-  stroke-dasharray: 6 4;
-  animation: dash-flow 1.2s linear infinite;
-}
-@keyframes dash-flow {
-  to { stroke-dashoffset: -20; }
-}
+/*!* ── Animated active edge (data is flowing) ─────────────────── *!*/
+/*.jg-edge.active {*/
+/*  stroke: var(--accent);*/
+/*  stroke-dasharray: 6 4;*/
+/*  animation: dash-flow 1.2s linear infinite;*/
+/*}*/
+/*@keyframes dash-flow {*/
+/*  to { stroke-dashoffset: -20; }*/
+/*}*/
 
 /* ── Button padding normalisation ───────────────────────────── */
 .jg-refresh-btn {

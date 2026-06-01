@@ -578,14 +578,21 @@
   .empty-state .msg { font-size: 12px; text-align: center; line-height: 1.6; }
 
   /* ── SPINNER ── */
-  .spinner {
-    width: 14px; height: 14px; border-radius: 50%;
-    border: 2px solid var(--border2);
-    border-top-color: var(--accent);
-    animation: spin 0.6s linear infinite;
-    display: inline-block; flex-shrink: 0;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
+.spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--border2);
+  border-top-color: var(--accent);
+  animation: spin 0.6s linear infinite;
+  display: inline-block;
+  flex-shrink: 0;
+  will-change: transform;        /* ADD: forces GPU compositing layer */
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }    /* ADD explicit from */
+  to   { transform: rotate(360deg); }
+}
 
   /* ── STATUS BAR ── */
   #statusbar {
@@ -601,7 +608,14 @@
     width: 5px; height: 5px; border-radius: 50%;
   }
   .status-sep { width: 1px; height: 14px; background: var(--border); }
-  #status-exec { margin-left: auto; }
+#status-exec {
+  display: none;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  padding: 0 8px;
+  border-left: 1px solid var(--border);
+}
 
   /* ── MODAL ── */
   .modal-overlay {

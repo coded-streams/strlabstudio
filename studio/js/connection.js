@@ -55,7 +55,7 @@ function setMode(mode) {
 
   if (mode === 'beam') {
     const url = (document.getElementById('inp-beam-url')?.value || '').trim();
-    if (url) beamLoadProviders();
+    if (url && typeof beamLoadProviders === 'function') beamLoadProviders();
   }
 }
 

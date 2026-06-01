@@ -742,101 +742,53 @@ async function beamLaunchStudio() {
     const overlay = document.getElementById('beam-welcome-overlay');
     if (overlay) {
         const spinner = document.createElement('div');
-        spinner.id = 'beam-launch-spinner';
         spinner.style.cssText = `
-            position:fixed;inset:0;background:rgba(8,11,15,0.92);
-            display:flex;flex-direction:column;align-items:center;justify-content:center;
-            gap:16px;z-index:10;
-        `;
+      position:fixed;inset:0;background:rgba(8,11,15,0.92);
+      display:flex;flex-direction:column;align-items:center;justify-content:center;
+      gap:16px;z-index:10;
+    `;
         spinner.innerHTML = `
-            <div style="width:36px;height:36px;border:3px solid rgba(232,51,74,0.15);
-                        border-top-color:#e8334a;border-radius:50%;
-                        animation:_spin 0.8s linear infinite;"></div>
-            <div style="font-size:11px;color:#e8334a;letter-spacing:1px;">
-                Opening SQL Gateway session…
-            </div>`;
+      <div style="width:36px;height:36px;border:3px solid rgba(232,51,74,0.15);
+                  border-top-color:#e8334a;border-radius:50%;
+                  animation:_spin 0.8s linear infinite;"></div>
+      <div style="font-size:11px;color:#e8334a;letter-spacing:1px;">
+        Opening SQL Gateway session…
+      </div>`;
         overlay.appendChild(spinner);
     }
 
     const { baseUrl, jwt, tenant } = beam;
 
-    // Parse host and port from baseUrl for state.gateway
-    let host = 'localhost', port = '8084';
-    try {
-        const u = new URL(baseUrl);
-        host = u.hostname;
-        port = u.port || (u.protocol === 'https:' ? '443' : '80');
-    } catch (_) {}
-
-    // Patch the auth headers so api() sends the Bearer token
-    // We do this by temporarily setting the remote mode inputs
+    // ── Patch Studio's hidden remote-mode fields ──────────────────────
+    // connection.js uses these to build the API base URL and auth header
     const remoteInput = document.getElementById('inp-remote-url');
     if (remoteInput) remoteInput.value = baseUrl;
+
     const tokenInput = document.getElementById('inp-token');
     if (tokenInput) tokenInput.value = jwt;
 
-    // Switch connection mode so getBaseUrl() + getAuthHeaders() work correctly
+    // Switch to 'remote' mode so getBaseUrl() returns the Beam engine URL
+    // and getAuthHeaders() sends the Bearer JWT
     if (typeof setMode     === 'function') setMode('remote');
     if (typeof setAuthMode === 'function') setAuthMode('bearer');
 
-    // Remove welcome overlay and hide connect screen
+    // Pre-fill session name with tenant key
+    const sessNameInput = document.getElementById('inp-session-name');
+    if (sessNameInput) sessNameInput.value = tenant.tenantKey;
+
+    // Remove overlay and hide connect screen
     if (overlay) overlay.remove();
     const cs = document.getElementById('connect-screen');
     if (cs) cs.style.display = 'none';
 
-    // Temporarily set gateway so api() can make calls
-    window.state.gateway = { host, port, baseUrl };
-
-    if (typeof setConnectStatus === 'function') {
-        setConnectStatus('loading', `Connecting to ${baseUrl} …`);
-    }
-    const connectBtn = document.getElementById('connect-btn');
-    if (connectBtn) connectBtn.disabled = true;
-
-    try {
-        // Verify gateway reachable
-        const verifyResp = await fetchWithTimeout(
-            `${baseUrl}/v1/info`,
-            { headers: { Accept: 'application/json', ...getAuthHeaders() } },
-            8000
-        );
-        if (!verifyResp.ok) throw new Error(`Gateway returned HTTP ${verifyResp.status}`);
-
-        // Create session scoped to this tenant
-        const sessionName = tenant.tenantKey || 'beam-session';
-        const sessResp = await api('POST', '/v1/sessions', { sessionName });
-        if (!sessResp || !sessResp.sessionHandle) {
-            throw new Error('Gateway did not return a session handle.');
+    // Fire doConnect() — this opens POST /api/v1/sessions and launches the app
+    if (typeof doConnect === 'function') {
+        try {
+            await doConnect();
+        } catch (e) {
+            if (typeof toast === 'function') toast('Could not open session: ' + e.message, 'err');
+            if (cs) cs.style.display = 'flex'; // show connect screen again on failure
         }
-
-        window.state.activeSession  = sessResp.sessionHandle;
-        window.state.isAdminSession = false;
-        window.state.sessions = [{
-            handle: sessResp.sessionHandle,
-            name:   sessionName,
-            created: new Date()
-        }];
-
-        // Pre-fill session name input for reconnect
-        const sessNameInput = document.getElementById('inp-session-name');
-        if (sessNameInput) sessNameInput.value = sessionName;
-
-        // Launch the main app UI
-        if (typeof launchApp === 'function') launchApp(host, port);
-        if (typeof toast === 'function') toast(`Connected to Str:::Beam — ${tenant.displayName}`, 'ok');
-        if (typeof addLog === 'function') {
-            addLog('OK', `Beam session created: ${sessResp.sessionHandle.slice(0,8)}… (tenant: ${tenant.tenantKey})`);
-        }
-
-    } catch (e) {
-        if (typeof setConnectStatus === 'function') {
-            setConnectStatus('err', `Failed to connect: ${e.message}`);
-        }
-        if (typeof toast === 'function') toast('Could not open session: ' + e.message, 'err');
-        if (typeof addLog === 'function') addLog('ERR', `Beam launch failed: ${e.message}`);
-        if (cs) cs.style.display = 'flex';
-        window.state.gateway = null;
-        if (connectBtn) connectBtn.disabled = false;
     }
 }
 
@@ -906,18 +858,5 @@ async function beamOpenUpgradeInfo(currentTier) {
      2. Wire up the Beam mode button to load providers on click
    ────────────────────────────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', function () {
-    // Always check for OAuth callback first.
-    // If a token is found, it loads the tenant and shows the welcome screen.
-    // If not found, this returns false immediately and does nothing.
     beamHandleOAuthCallback();
-
-    // When the user clicks the Str:::Beam mode button,
-    // load the list of available SSO providers from the engine.
-    const beamBtn = document.getElementById('mode-beam');
-    if (beamBtn) {
-        beamBtn.addEventListener('click', function () {
-            const url = beamGetBaseUrl();
-            if (url) beamLoadProviders();
-        });
-    }
 });
