@@ -144,40 +144,55 @@ async function beamLoadProviders() {
    ────────────────────────────────────────────────────────────────── */
 function beamInitiateSSO(provider) {
     const url = beamGetBaseUrl();
-
     if (!url) {
         if (typeof toast === 'function') toast('Enter the Str:::Beam Engine URL first', 'err');
         return;
     }
-
-    // Save the base URL so beamHandleOAuthCallback() can use it after the redirect
     try { sessionStorage.setItem('strbeam_baseurl', url); } catch (_) {}
 
-    // Save return info in case we need it
-    try {
-        sessionStorage.setItem('strbeam_pending_auth', JSON.stringify({
-            provider,
-            baseUrl: url,
-            returnTo: window.location.href
-        }));
-    } catch (_) {}
-
-    // Supported endpoints from the Beam OpenAPI spec:
-    //   GET /api/v1/auth/google  → Beam engine redirects to Google consent
-    //   GET /api/v1/auth/github  → Beam engine redirects to GitHub consent
-    const ssoEndpoints = {
-        google: '/api/v1/auth/google',
-        github: '/api/v1/auth/github',
-    };
-
+    const ssoEndpoints = { google: '/api/v1/auth/google', github: '/api/v1/auth/github' };
     const endpoint = ssoEndpoints[provider];
     if (!endpoint) {
         if (typeof toast === 'function') toast(`Unknown SSO provider: ${provider}`, 'err');
         return;
     }
 
-    // Leave Studio — browser goes to Beam engine, then Google/GitHub, then back
-    window.location.href = `${url}${endpoint}`;
+    const popupUrl  = `${url}${endpoint}`;
+    const popupOpts = 'width=520,height=640,left=200,top=100,resizable=yes,scrollbars=yes';
+    const popup     = window.open(popupUrl, 'strbeam_oauth', popupOpts);
+
+    if (!popup) {
+        // Popup blocked — fall back to full tab redirect
+        if (typeof toast === 'function') toast('Popup blocked — redirecting instead', 'info');
+        window.location.href = popupUrl;
+        return;
+    }
+
+    if (typeof setConnectStatus === 'function') {
+        setConnectStatus('loading', `Waiting for ${provider} sign-in…`);
+    }
+
+    const poll = setInterval(function () {
+        if (popup.closed) {
+            clearInterval(poll);
+            if (typeof setConnectStatus === 'function') {
+                setConnectStatus('err', 'Sign-in cancelled.');
+            }
+            return;
+        }
+        try {
+            const hash = popup.location.hash;
+            if (hash && hash.includes('token=')) {
+                clearInterval(poll);
+                popup.close();
+                const params = new URLSearchParams(hash.slice(1));
+                const jwt    = params.get('token');
+                if (jwt) _beamProcessToken(jwt, url);
+            }
+        } catch (_) {
+            // Cross-origin while still on Google/GitHub — keep polling
+        }
+    }, 300);
 }
 
 
@@ -199,90 +214,58 @@ function beamInitiateSSO(provider) {
    ────────────────────────────────────────────────────────────────── */
 async function beamHandleOAuthCallback() {
     const hash = window.location.hash;
-
-    // Quick exit — no token in URL, nothing to handle
     if (!hash.includes('token=')) return false;
 
-    const params = new URLSearchParams(hash.slice(1)); // slice(1) removes the leading '#'
+    const params = new URLSearchParams(hash.slice(1));
     const jwt    = params.get('token');
     if (!jwt) return false;
 
-    // Remove token from URL immediately — don't leave JWTs in browser history
     history.replaceState(null, '', window.location.pathname + window.location.search);
 
-    // Retrieve the Beam base URL that was saved before the redirect
     const baseUrl = (() => {
         try { return sessionStorage.getItem('strbeam_baseurl') || 'http://localhost:8090'; }
         catch (_) { return 'http://localhost:8090'; }
     })();
 
+    await _beamProcessToken(jwt, baseUrl);
+    return true;
+}
+
+async function _beamProcessToken(jwt, baseUrl) {
     if (typeof setConnectStatus === 'function') {
         setConnectStatus('loading', 'Loading your Str:::Beam workspace…');
     }
 
-    try {
-        // ── Step 1: Decode the tenant key from the JWT payload ──────────
-        // JWT format: header.payload.signature  (all base64url encoded)
-        // The payload contains claims like tenantKey, sub, etc.
-        let tenantKey = '';
-        try {
-            const payloadBase64 = jwt.split('.')[1];
-            const payload       = JSON.parse(atob(payloadBase64));
-            tenantKey = payload.tenantKey || payload.sub || payload.tenant || '';
-        } catch (_) {
-            // If JWT decoding fails, we fall back to listing tenants below
-        }
+    const headers = {
+        'Accept':        'application/json',
+        'Authorization': `Bearer ${jwt}`,
+    };
 
-        // ── Step 2: Load tenant info ─────────────────────────────────────
-        // GET /api/v1/tenants/{tenantKey} (requires Bearer auth)
+    try {
         let tenant = null;
 
-        if (tenantKey) {
-            const r = await fetch(`${baseUrl}/api/v1/tenants/${tenantKey}`, {
-                headers: {
-                    'Accept':        'application/json',
-                    'Authorization': `Bearer ${jwt}`,
-                }
-            });
-            if (r.ok) tenant = await r.json();
-        }
+        // Always try /me first — works for any authenticated user
+        try {
+            const rMe = await fetch(`${baseUrl}/api/v1/tenants/me`, { headers });
+            if (rMe.ok) tenant = await rMe.json();
+        } catch (_) {}
 
-        // ── Step 3: Fallback — list all tenants if direct lookup failed ───
-        // GET /api/v1/tenants  (admin-only in the spec, but also used for
-        // listing the calling user's own tenants depending on implementation)
-        if (!tenant) {
-            const r2 = await fetch(`${baseUrl}/api/v1/tenants`, {
-                headers: {
-                    'Accept':        'application/json',
-                    'Authorization': `Bearer ${jwt}`,
-                }
-            });
-            if (r2.ok) {
-                const list = await r2.json();
-                if (Array.isArray(list) && list.length > 0) tenant = list[0];
-            }
-        }
+        if (!tenant) throw new Error('Could not load tenant information. Make sure the /api/v1/tenants/me endpoint is available.');
 
-        if (!tenant) throw new Error('Could not load tenant information after login.');
-
-        // ── Step 4: Store auth state and show welcome screen ─────────────
         if (!window.state) window.state = {};
         window.state.beam = { baseUrl, jwt, tenant, authMethod: 'sso' };
 
         await beamShowTenantWelcome(tenant, jwt, baseUrl);
-        return true;
 
     } catch (e) {
         if (typeof setConnectStatus === 'function') {
             setConnectStatus('err', `Str:::Beam login failed: ${e.message}`);
         }
         if (typeof addLog === 'function') {
-            addLog('ERR', `Beam OAuth callback error: ${e.message}`);
+            addLog('ERR', `Beam SSO error: ${e.message}`);
         }
-        return false;
     }
 }
-
 
 /* ──────────────────────────────────────────────────────────────────
    API KEY LOGIN
