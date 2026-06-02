@@ -314,6 +314,23 @@
     @media (max-width: 768px) { .layout { grid-template-columns: 1fr; grid-template-rows: 52px 1fr; } .sidebar { display: none; } .content { padding: 20px 16px 40px; } .stat-grid { grid-template-columns: 1fr 1fr; } .topnav-env { display: none; } .docs-grid { grid-template-columns: 1fr 1fr; } }
     @media (max-width: 480px) { .stat-grid { grid-template-columns: 1fr; } .usage-grid { grid-template-columns: 1fr; background: none; border: none; gap: 8px; } .usage-cell { border: 1px solid var(--border-soft); border-radius: var(--r-md); } .docs-grid { grid-template-columns: 1fr; } }
 
+    .connect-status.show {
+      display: block !important;
+    }
+    .connect-status .spinner {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border: 2px solid var(--border-med);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      margin-right: 8px;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
     /* ══════════════════════════════════════════════════════════════════════
      * THEME: ST Dark — IntelliJ IDEA New UI Dark inspired
      * Warm near-black bg · vivid blue accent · muted warm-grey text
@@ -1014,6 +1031,98 @@
 <button class="theme-toggle" id="theme-toggle-btn" onclick="toggleTheme()">🌙 ST Dark</button>
 
 <script>
+  // ============================================================
+  // OAuth HANDLER - MUST RUN FIRST
+  // ============================================================
+
+  async function beamHandleOAuthCallback() {
+    const hash = window.location.hash;
+    if (!hash || !hash.includes('token=')) return false;
+
+    const params = new URLSearchParams(hash.slice(1));
+    const jwt = params.get('token');
+
+    if (!jwt) return false;
+
+    // Clean the URL
+    history.replaceState(null, '', window.location.pathname + window.location.search);
+
+    // Get baseUrl - you can change this to your actual backend URL
+    const baseUrl = 'http://localhost:8090'; // Change this to your backend URL
+
+    await fetchAndShowTenant(jwt, baseUrl);
+    return true;
+  }
+
+  async function fetchAndShowTenant(jwt, baseUrl) {
+    try {
+      // Show loading status
+      let statusEl = document.getElementById('connect-status');
+      if (!statusEl) {
+        // Create status element if it doesn't exist
+        statusEl = document.createElement('div');
+        statusEl.id = 'connect-status';
+        statusEl.style.cssText = 'position:fixed;top:20px;right:20px;z-index:10000;background:var(--surface-0);border:1px solid var(--border-med);border-radius:8px;padding:12px 16px;font-size:13px;box-shadow:var(--shadow-drop);';
+        document.body.appendChild(statusEl);
+      }
+      statusEl.style.display = 'block';
+      statusEl.innerHTML = 'Loading your Str:::Beam workspace…';
+      statusEl.className = 'connect-status show loading';
+
+      // Fetch tenant info
+      const response = await fetch(`${baseUrl}/api/v1/tenants/me`, {
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${jwt}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch tenant: ${response.status}`);
+      }
+
+      const tenant = await response.json();
+      console.log('Tenant loaded:', tenant);
+
+      // Fetch additional data
+      const [usageRes, jobsRes, pricingRes] = await Promise.allSettled([
+        fetch(`${baseUrl}/api/v1/metrics/tenants/${tenant.tenantKey}/usage`, {
+          headers: { 'Authorization': `Bearer ${jwt}` }
+        }),
+        fetch(`${baseUrl}/api/v1/jobs`, {
+          headers: { 'Authorization': `Bearer ${jwt}` }
+        }),
+        fetch(`${baseUrl}/api/v1/pricing/tiers`)
+      ]);
+
+      const usage = usageRes.status === 'fulfilled' && usageRes.value.ok ? await usageRes.value.json() : null;
+      const jobs = jobsRes.status === 'fulfilled' && jobsRes.value.ok ? await jobsRes.value.json() : null;
+      const pricing = pricingRes.status === 'fulfilled' && pricingRes.value.ok ? await pricingRes.value.json() : null;
+
+      // Store data in window
+      window.beamWelcomeData = { tenant, jwt, baseUrl, usage, jobs, pricing };
+
+      if (!window.state) window.state = {};
+      window.state.beam = { baseUrl, jwt, tenant, authMethod: 'sso' };
+
+      // Now populate the dashboard
+      populateAll();
+
+      // Hide status after 2 seconds
+      setTimeout(() => {
+        if (statusEl) statusEl.style.display = 'none';
+      }, 2000);
+
+    } catch (error) {
+      console.error('Failed to load tenant:', error);
+      const statusEl = document.getElementById('connect-status');
+      if (statusEl) {
+        statusEl.innerHTML = `✗ Failed to load workspace: ${error.message}`;
+        statusEl.className = 'connect-status show err';
+      }
+    }
+  }
+
   const _d       = window.beamWelcomeData || {};
   const tenant   = _d.tenant  || {};
   const usage    = _d.usage   || null;
