@@ -339,7 +339,210 @@ async function beamOpenUpgradeInfo(currentTier) {
     }
 }
 
+/* ── Launch Studio directly from a welcome-page trigger ─────────────
+   Skips connect screen entirely, pre-loads the session, shows the
+   ← Dashboard button, and sets the heartbeat for Beam's PUT endpoint.
+   ─────────────────────────────────────────────────────────────────── */
+async function _beamLaunchFromTrigger(trigger) {
+    const { tenant, jwt, baseUrl, sessionId, catalogName, sessionTier, expiresAt, fromBeam } = trigger;
+
+    if (typeof setConnectStatus === 'function') {
+        setConnectStatus('loading', 'Resuming session…');
+    }
+
+    try {
+        // ── 1. Verify the pre-opened session is still alive ──────────
+        const hbRes = await fetch(baseUrl + '/api/v1/sessions/' + sessionId + '/heartbeat', {
+            method: 'PUT',
+            headers: { 'Authorization': 'Bearer ' + jwt },
+        });
+
+        // If session expired, open a new one
+        let activeSessionId = sessionId;
+        if (hbRes.status === 404 || hbRes.status === 410) {
+            if (typeof setConnectStatus === 'function') setConnectStatus('loading', 'Session expired — opening new session…');
+            const newSess = await fetch(baseUrl + '/api/v1/sessions', {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Bearer ' + jwt,
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify({ sessionName: (tenant.tenantKey || 'beam') + '-studio' }),
+            });
+            if (!newSess.ok) throw new Error('Could not open session: HTTP ' + newSess.status);
+            const newData  = await newSess.json();
+            activeSessionId = newData.sessionId || newData.sessionHandle;
+        }
+
+        // ── 2. Wire up state ─────────────────────────────────────────
+        if (!window.state) window.state = {};
+
+        // Beam's REST paths differ from the standard SQL Gateway:
+        // Standard:  /v1/sessions/{id}/statements
+        // Beam:      /api/v1/sessions/{id}/statements
+        // We point baseUrl to Beam's base and the api() helper will use
+        // /api/v1/... paths via the gateway object below.
+        window.state.beam = {
+            baseUrl,
+            jwt,
+            tenant,
+            authMethod:  'sso',
+            sessionId:   activeSessionId,
+            catalogName: catalogName || tenant.catalogName || '',
+            fromBeam:    true,
+        };
+
+        // The gateway object controls where api() sends requests.
+        // Set baseUrl to Beam's engine so all /api/v1/sessions/... calls
+        // go to the right host. Port is irrelevant when baseUrl is full URL.
+        const url = new URL(baseUrl);
+        window.state.gateway = {
+            host:    url.hostname,
+            port:    url.port || (url.protocol === 'https:' ? '443' : '80'),
+            baseUrl: baseUrl + '/api/v1',  // all api() calls will resolve relative to this
+        };
+
+        // ── 3. Launch Studio UI ───────────────────────────────────────
+        if (typeof launchApp === 'function') {
+            // Temporarily set inputs so launchApp() reads the right values
+            const remoteInput = document.getElementById('inp-remote-url');
+            const sessInput   = document.getElementById('inp-session-name');
+            if (remoteInput) remoteInput.value = baseUrl;
+            if (sessInput)   sessInput.value   = tenant.tenantKey || '';
+
+            // Patch state before launchApp so topbar shows correctly
+            window.state.activeSession  = activeSessionId;
+            window.state.isAdminSession = false;
+            window.state.sessions = [{
+                handle:      activeSessionId,
+                name:        (tenant.tenantKey || 'beam') + '-studio',
+                created:     new Date(),
+                isAdmin:     false,
+                jobIds:      [],
+                queryCount:  0,
+                _auditTrail: [],
+                _beamSession: true,
+            }];
+
+            launchApp(url.hostname, url.port || '');
+        }
+
+        // ── 4. Override topbar labels for Beam context ────────────────
+        const sessionIdEl = document.getElementById('topbar-session-id');
+        const hostLabelEl = document.getElementById('topbar-host-label');
+        const sbHostEl    = document.getElementById('sb-host');
+        const sbSessEl    = document.getElementById('sb-session');
+        if (sessionIdEl) sessionIdEl.textContent = activeSessionId.slice(0, 8) + '…';
+        if (hostLabelEl) hostLabelEl.textContent = url.hostname;
+        if (sbHostEl)    sbHostEl.textContent    = url.hostname;
+        if (sbSessEl)    sbSessEl.textContent    = activeSessionId.slice(0, 8) + '…';
+
+        // ── 5. Show ← Dashboard button (Beam users only) ─────────────
+        if (fromBeam) _beamInjectDashboardButton();
+
+        // ── 6. Start Beam-specific heartbeat (PUT, not POST) ─────────
+        // Beam sessions expire after 25h — heartbeat every 30s
+        _beamStudioHeartbeat(baseUrl, jwt, activeSessionId);
+
+        // ── 7. Restore workspace tabs ─────────────────────────────────
+        // launchApp already calls restoreWorkspace(); nothing extra needed.
+
+        if (typeof toast === 'function') toast('Str:::Beam session loaded · ' + (tenant.displayName || tenant.tenantKey), 'ok');
+        if (typeof addLog === 'function') addLog('OK', 'Beam session resumed: ' + activeSessionId.slice(0, 8) + '… · tenant: ' + (tenant.tenantKey || ''));
+
+    } catch (e) {
+        if (typeof setConnectStatus === 'function') {
+            setConnectStatus('err', 'Beam connection failed: ' + e.message);
+        }
+        if (typeof addLog === 'function') addLog('ERR', 'Beam launch failed: ' + e.message);
+    }
+}
+
+/* ── Beam-specific heartbeat running inside Studio ──────────────────
+   Uses PUT /api/v1/sessions/{id}/heartbeat (not POST /v1/…)
+   This replaces the standard startHeartbeat() for Beam sessions.
+   ─────────────────────────────────────────────────────────────────── */
+let _beamStudioHbTimer = null;
+
+function _beamStudioHeartbeat(baseUrl, jwt, sessionId) {
+    if (_beamStudioHbTimer) clearInterval(_beamStudioHbTimer);
+    _beamStudioHbTimer = setInterval(async () => {
+        if (!sessionId) return;
+        try {
+            const r = await fetch(baseUrl + '/api/v1/sessions/' + sessionId + '/heartbeat', {
+                method: 'PUT',
+                headers: { 'Authorization': 'Bearer ' + jwt },
+            });
+            if (r.status === 404 || r.status === 410) {
+                // Session gone — show banner and stop
+                clearInterval(_beamStudioHbTimer);
+                _beamStudioHbTimer = null;
+                if (typeof showSessionExpiredBanner === 'function') showSessionExpiredBanner();
+                if (typeof addLog === 'function') addLog('WARN', 'Beam session expired. Re-open from the Dashboard.');
+            }
+        } catch (_) {}
+    }, 30000);
+}
+
+/* ── ← Dashboard button injected into Studio topbar ─────────────── */
+function _beamInjectDashboardButton() {
+    if (document.getElementById('beam-dashboard-btn')) return;
+
+    const btn = document.createElement('button');
+    btn.id = 'beam-dashboard-btn';
+    btn.title = 'Return to Str:::Beam Dashboard';
+    btn.innerHTML =
+        '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;margin-right:5px;vertical-align:middle;"><polyline points="15 18 9 12 15 6"/></svg>' +
+        'Dashboard';
+    btn.style.cssText = [
+        'display:inline-flex',
+        'align-items:center',
+        'gap:4px',
+        'padding:4px 11px',
+        'background:rgba(232,51,74,0.10)',
+        'border:1px solid rgba(232,51,74,0.35)',
+        'border-radius:4px',
+        'color:#e8334a',
+        'font-family:var(--mono)',
+        'font-size:11px',
+        'font-weight:600',
+        'cursor:pointer',
+        'flex-shrink:0',
+        'margin-left:6px',
+        'letter-spacing:0.2px',
+        'transition:background 0.12s',
+    ].join(';');
+    btn.addEventListener('mouseenter', () => btn.style.background = 'rgba(232,51,74,0.18)');
+    btn.addEventListener('mouseleave', () => btn.style.background = 'rgba(232,51,74,0.10)');
+    btn.addEventListener('click', _beamGoToDashboard);
+
+    // Insert at the start of topbar-actions (before the first button)
+    const actions = document.querySelector('.topbar-actions');
+    if (actions) actions.insertBefore(btn, actions.firstChild);
+}
+
+function _beamGoToDashboard() {
+    // Stop Studio heartbeat — welcome page will restart its own
+    if (_beamStudioHbTimer) { clearInterval(_beamStudioHbTimer); _beamStudioHbTimer = null; }
+    window.location.href = '/beam-welcome.html';
+}
+
 /* ── PAGE LOAD INIT ────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', function () {
+    // ── Check for connect trigger set by beam-welcome.html ──────────
+    try {
+        const raw = sessionStorage.getItem('strbeam_connect_trigger');
+        if (raw) {
+            sessionStorage.removeItem('strbeam_connect_trigger');
+            const trigger = JSON.parse(raw);
+            if (trigger && trigger.jwt && trigger.baseUrl) {
+                // Small delay so Studio's state.js and other scripts are initialised
+                setTimeout(() => _beamLaunchFromTrigger(trigger), 300);
+                return;
+            }
+        }
+    } catch (_) {}
+
     beamHandleOAuthCallback();
 });

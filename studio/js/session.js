@@ -36,6 +36,20 @@ async function createSession() {
   const propsRaw = document.getElementById('modal-session-props').value.trim();
   const props    = parseProps(propsRaw);
 
+  // ── Beam mode: session is owned by the beam connection, not created here ──
+  if (connMode === 'beam') {
+    closeModal('modal-new-session');
+    if (window.state?.beam?.sessionId) {
+      // Already have a live beam session — nothing to do
+      toast('Beam session already active — use the session from your Dashboard', 'info');
+    } else {
+      // No beam session yet — user must authenticate first
+      setConnectStatus('err', 'Sign in with Google, GitHub, or API Key above first.');
+      document.getElementById('connect-btn').disabled = false;
+    }
+    return;
+  }
+
   if (!state.gateway || !state.gateway.baseUrl) {
     closeModal('modal-new-session');
     toast('Not connected — please reconnect to the gateway first', 'err');
@@ -155,7 +169,10 @@ async function _loadGatewaySessionsForAdmin() {
       // Handle both object {sessionHandle:'...'} and bare string "handle-uuid"
       const handle = (typeof gws === 'string') ? gws
           : (gws.sessionHandle || gws.handle || gws.session_handle || null);
-      if (!handle || typeof handle !== 'string') return;
+      if (!handle || typeof handle !== 'string') {
+        addLog('WARN', 'Gateway returned a session entry with no recognisable handle — skipped: ' + JSON.stringify(gws));
+        return;
+      }
       const name = (typeof gws === 'string') ? '' : (gws.sessionName || gws.name || '');
       if (!state.sessions.find(s => s.handle === handle)) {
         state.sessions.push({
@@ -298,7 +315,7 @@ function switchAsdTab(tab) {
   refreshAsdContent(tab);
 }
 
-async function refreshAsdContent(tab) {
+async function refreshAsdContent(activeTab) {
   const modal = document.getElementById('modal-admin-session-detail');
   if (!modal) return;
   const handle = modal._inspectingHandle;
@@ -314,7 +331,9 @@ async function refreshAsdContent(tab) {
   const history   = isActiveSession ? (state.history || []) : (savedSt.history || []);
   const tabs      = isActiveSession ? (state.tabs    || []) : (savedSt.tabs    || []);
   const qCount    = isActiveSession ? (state.history || []).length : (sess.queryCount || history.length);
-  const activeTab = tab || 'overview';
+
+  // Default to 'overview' if no tab specified
+  if (!activeTab) activeTab = 'overview';
 
   // ── Overview pane
   if (activeTab === 'overview') {
@@ -444,9 +463,13 @@ function viewSessionJobs(handle) {
 function switchSession(handle) {
   if (handle === state.activeSession) return;
   if (state.currentOp) {
-    const { opHandle, sessionHandle: oldSess } = state.currentOp;
+    // Safely extract opHandle — guard against varying shapes of currentOp
+    const opHandle = state.currentOp.opHandle || state.currentOp.operationHandle;
+    const opSession = state.currentOp.sessionHandle || state.activeSession;
     state.currentOp = null;
-    api('DELETE', `/v1/sessions/${oldSess || state.activeSession}/operations/${opHandle}/cancel`).catch(()=>{});
+    if (opHandle) {
+      api('DELETE', `/v1/sessions/${opSession}/operations/${opHandle}/cancel`).catch(() => {});
+    }
     document.getElementById('stop-btn').style.display = 'none';
     setExecuting(false);
   }
@@ -505,12 +528,16 @@ function switchSession(handle) {
 // ── Delete session
 async function deleteSession(handle) {
   if (!confirm(`Delete session ${shortHandle(handle)}?`)) return;
-  // Admin audit trail
-  if (state.isAdminSession && handle !== state.activeSession) {
-    recordAudit(handle, 'Session Deleted', `Admin ${state.adminName||'Admin'} deleted this session`);
-  }
+
   try {
     await api('DELETE', `/v1/sessions/${handle}`);
+
+    // Record audit AFTER confirmed deletion so we don't log phantom deletes on failure.
+    // At this point sess still exists in state.sessions so _auditTrail push will succeed.
+    if (state.isAdminSession && handle !== state.activeSession) {
+      recordAudit(handle, 'Session Deleted', `Admin ${state.adminName || 'Admin'} deleted this session`);
+    }
+
     state.sessions = state.sessions.filter(s => s.handle !== handle);
     if (state.activeSession === handle) {
       state.activeSession = state.sessions.length ? state.sessions[0].handle : null;
@@ -534,7 +561,8 @@ function registerJobForSession(jobId) {
   }
   if (!state._jobSessionMap) state._jobSessionMap = {};
   state._jobSessionMap[jobId] = state.activeSession;
-  renderSessionsList();
+  // Lightweight update — no need for a full list re-render on every job registration
+  _updateSessionCountBadge();
 }
 
 function filterJobsForCurrentSession(jobs) {
@@ -620,8 +648,7 @@ function showCancelJobConfirm(jid, jobName) {
 }
 
 async function _doCancelJob(jid) {
-  // ── Record audit BEFORE cancelling so it's captured even if cancel fails ──
-  // Find which session owns this job
+  // Record audit BEFORE cancelling so it's captured even if cancel fails
   const ownerHandle = state._jobSessionMap ? (state._jobSessionMap[jid] || state.activeSession) : state.activeSession;
   const liveJobs = (typeof perf !== 'undefined' && perf.lastJobs) ? perf.lastJobs : [];
   const job = liveJobs.find(j => j.jid === jid);
@@ -636,7 +663,8 @@ async function _doCancelJob(jid) {
     setTimeout(refreshJobGraphList, 1500);
   } catch(e) {
     try {
-      await fetch(`${state.gateway?.baseUrl || ''}/jobmanager-api/jobs/${jid}`, { method: 'PATCH' });
+      // Use jmApi for the fallback too, keeping URL construction consistent
+      await jmApi(`/jobs/${jid}`, 'PATCH');
       addLog('WARN', `Job ${jid.slice(0,8)}… cancel signal sent`);
       toast('Job cancel signal sent', 'info');
       setTimeout(refreshJobGraphList, 1500);

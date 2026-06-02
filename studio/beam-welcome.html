@@ -327,9 +327,7 @@
       animation: spin 0.6s linear infinite;
       margin-right: 8px;
     }
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
     /* ══════════════════════════════════════════════════════════════════════
      * THEME: ST Dark — IntelliJ IDEA New UI Dark inspired
@@ -605,6 +603,21 @@
           </table>
         </div>
       </div>
+
+      <!-- Beam session info + quota bars -->
+      <div class="card card-padded" style="margin-top:14px;">
+        <div class="section-header">
+          <span class="section-title">Active Session</span>
+          <div class="pill-status active" id="beam-session-pill" style="display:none;">
+            <div class="pill-dot"></div><span>BEAM</span>
+          </div>
+        </div>
+        <div id="beam-session-info" style="font-size:13px;color:var(--text-tertiary);">
+          Opening session on your cluster…
+        </div>
+        <div id="beam-quota-bars" style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border-soft);"></div>
+      </div>
+
     </section>
 
     <!-- SECTION: CREDENTIALS -->
@@ -1058,16 +1071,9 @@
     try {
       // Show loading status
       let statusEl = document.getElementById('connect-status');
-      if (!statusEl) {
-        // Create status element if it doesn't exist
-        statusEl = document.createElement('div');
-        statusEl.id = 'connect-status';
-        statusEl.style.cssText = 'position:fixed;top:20px;right:20px;z-index:10000;background:var(--surface-0);border:1px solid var(--border-med);border-radius:8px;padding:12px 16px;font-size:13px;box-shadow:var(--shadow-drop);';
-        document.body.appendChild(statusEl);
-      }
+      // ... creates statusEl if not exists ...
       statusEl.style.display = 'block';
       statusEl.innerHTML = 'Loading your Str:::Beam workspace…';
-      statusEl.className = 'connect-status show loading';
 
       // Fetch tenant info
       const response = await fetch(`${baseUrl}/api/v1/tenants/me`, {
@@ -1108,6 +1114,9 @@
       // Now populate the dashboard
       populateAll();
 
+      // Open a Flink session now that tenant data is ready
+      await beamOpenSession();
+
       // Hide status after 2 seconds
       setTimeout(() => {
         if (statusEl) statusEl.style.display = 'none';
@@ -1123,15 +1132,19 @@
     }
   }
 
-  const _d       = window.beamWelcomeData || {};
-  const tenant   = _d.tenant  || {};
-  const usage    = _d.usage   || null;
-  const jobs     = _d.jobs    || null;
-  const pricing  = _d.pricing || null;
-  const baseUrl  = (_d.baseUrl || '').replace(/\/$/, '');
-  const jwt      = _d.jwt     || '';
+  // These are lazy getters so they always read the latest beamWelcomeData
+  function _d()       { return window.beamWelcomeData || {}; }
+  function getTenant(){ return _d().tenant  || {}; }
+  function getUsage() { return _d().usage   || null; }
+  function getJobs()  { return _d().jobs    || null; }
+  function getPricing(){ return _d().pricing || null; }
+  function getBaseUrl(){ return (_d().baseUrl || '').replace(/\/$/, ''); }
+  function getJwt()   { return _d().jwt     || ''; }
 
-  document.addEventListener('DOMContentLoaded', () => { populateAll(); });
+  document.addEventListener('DOMContentLoaded', async () => {
+    const handled = await beamHandleOAuthCallback();
+    if (!handled) populateAll();
+  });
   window.populate = populateAll;
   window.updateCodeSnippets = populateCodeSnippets;
 
@@ -1145,7 +1158,313 @@
     populateApiKeySection();
   }
 
+  /* ══════════════════════════════════════════════════════
+   BEAM SESSION LIFECYCLE
+   Opens a session on login, heartbeats every 30s,
+   live-refreshes dashboard every 5s
+   ══════════════════════════════════════════════════════ */
+
+  let _beamSessionId      = null;
+  let _beamHeartbeatTimer = null;
+  let _beamRefreshTimer   = null;
+  const BEAM_HEARTBEAT_MS = 30000;
+  const BEAM_REFRESH_MS   = 5000;
+
+  async function beamOpenSession() {
+    const tenant  = getTenant();
+    const baseUrl = getBaseUrl();
+    const jwt     = getJwt();
+    const pricing = getPricing();
+
+    if (!baseUrl || !jwt) return;
+
+    // ── Quota pre-check: maxSessions ────────────────────────────────
+    const tier = (tenant.tier || 'FREE').toUpperCase();
+    const pt   = pricing ? (pricing[tier] || pricing[tier.toLowerCase()] || {}) : {};
+    const maxSessions = parseInt((pt.quotas || {}).maxSessions || defaultQuota(tier, 'sessions'), 10);
+    if (!isNaN(maxSessions) && maxSessions <= 0) {
+      showBeamBanner('warn', 'Your plan does not allow active sessions. Upgrade to open a session.');
+      return;
+    }
+
+    try {
+      showBeamBanner('loading', 'Opening Flink session on your cluster…');
+
+      const sessionName = tenant.tenantKey
+              ? tenant.tenantKey + '-dashboard-' + Date.now().toString(36).slice(-4)
+              : 'dashboard-session';
+
+      const r = await fetch(baseUrl + '/api/v1/sessions', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + jwt,
+          'Content-Type':  'application/json',
+          'Accept':        'application/json',
+        },
+        body: JSON.stringify({ sessionName }),
+      });
+
+      if (r.status === 429) {
+        showBeamBanner('warn', 'Session quota reached for your plan (' + maxSessions + ' max). Close an existing session or upgrade.');
+        return;
+      }
+      if (!r.ok) throw new Error('HTTP ' + r.status + ' — ' + r.statusText);
+
+      const data = await r.json();
+      // SessionController returns { sessionId, catalogName, tier, expiresAt }
+      _beamSessionId = data.sessionId || data.sessionHandle || null;
+      if (!_beamSessionId) throw new Error('No sessionId returned from engine');
+
+      // Persist into beamWelcomeData so connectToStudio() can pass it
+      if (window.beamWelcomeData) {
+        window.beamWelcomeData.sessionId   = _beamSessionId;
+        window.beamWelcomeData.catalogName = data.catalogName || tenant.catalogName || '';
+        window.beamWelcomeData.sessionTier = data.tier || tier;
+        window.beamWelcomeData.expiresAt   = data.expiresAt || null;
+      }
+
+      showBeamBanner('ok', 'Session ready · ' + _beamSessionId.slice(0, 8) + '…');
+      setTimeout(() => hideBeamBanner(), 3000);
+
+      const pill = document.getElementById('beam-session-pill');
+      if (pill) pill.style.display = 'inline-flex';
+
+      // Update session info in UI
+      const sessEl = document.getElementById('beam-session-info');
+      if (sessEl) {
+        sessEl.innerHTML =
+                '<span style="color:var(--green);font-weight:500;">● SESSION ACTIVE</span>' +
+                '&nbsp;&middot;&nbsp;<span style="font-family:var(--font-mono);font-size:11px;">' +
+                _beamSessionId.slice(0, 8) + '…</span>' +
+                (data.catalogName ? '&nbsp;&middot;&nbsp;catalog: <code>' + esc(data.catalogName) + '</code>' : '') +
+                (data.expiresAt   ? '&nbsp;&middot;&nbsp;expires: ' + new Date(data.expiresAt).toLocaleTimeString() : '');
+      }
+
+      beamStartHeartbeat();
+      beamStartLiveRefresh();
+
+    } catch (e) {
+      showBeamBanner('err', 'Could not open session: ' + e.message);
+    }
+  }
+
+  function beamStartHeartbeat() {
+    if (_beamHeartbeatTimer) clearInterval(_beamHeartbeatTimer);
+    _beamHeartbeatTimer = setInterval(async () => {
+      const baseUrl = getBaseUrl();
+      const jwt     = getJwt();
+      if (!_beamSessionId || !baseUrl || !jwt) return;
+      try {
+        // Beam uses PUT (not POST) for heartbeat
+        const r = await fetch(baseUrl + '/api/v1/sessions/' + _beamSessionId + '/heartbeat', {
+          method: 'PUT',
+          headers: { 'Authorization': 'Bearer ' + jwt },
+        });
+        if (r.status === 404) {
+          // Session expired — try to reopen
+          clearInterval(_beamHeartbeatTimer);
+          _beamHeartbeatTimer = null;
+          _beamSessionId = null;
+          showBeamBanner('warn', 'Session expired — reopening…');
+          setTimeout(beamOpenSession, 1000);
+        }
+      } catch (_) {}
+    }, BEAM_HEARTBEAT_MS);
+  }
+
+  function beamStartLiveRefresh() {
+    if (_beamRefreshTimer) clearInterval(_beamRefreshTimer);
+    _beamRefreshTimer = setInterval(beamLiveRefresh, BEAM_REFRESH_MS);
+    // Run immediately once
+    beamLiveRefresh();
+  }
+
+  async function beamLiveRefresh() {
+    const tenant  = getTenant();
+    const baseUrl = getBaseUrl();
+    const jwt     = getJwt();
+    if (!baseUrl || !jwt || !tenant.tenantKey) return;
+
+    try {
+      const [jobsRes, usageRes] = await Promise.allSettled([
+        fetch(baseUrl + '/api/v1/jobs', {
+          headers: { 'Authorization': 'Bearer ' + jwt, 'Accept': 'application/json' },
+        }),
+        fetch(baseUrl + '/api/v1/metrics/tenants/' + tenant.tenantKey + '/usage', {
+          headers: { 'Authorization': 'Bearer ' + jwt, 'Accept': 'application/json' },
+        }),
+      ]);
+
+      if (jobsRes.status === 'fulfilled' && jobsRes.value.ok) {
+        const jobs = await jobsRes.value.json();
+        window.beamWelcomeData.jobs = jobs;
+        _refreshJobsTable(jobs);
+      }
+
+      if (usageRes.status === 'fulfilled' && usageRes.value.ok) {
+        const usage = await usageRes.value.json();
+        window.beamWelcomeData.usage = usage;
+        _refreshUsageStats(usage);
+      }
+    } catch (_) {}
+  }
+
+  function _refreshJobsTable(jobs) {
+    const jobArr = flattenJobs(jobs);
+    const running = jobArr.filter(j => (j.status || j.state || '').toUpperCase() === 'RUNNING').length;
+    const total   = jobArr.length;
+    setText('stat-running', running);
+    setText('stat-total', total);
+    setText('cluster-running-jobs', running);
+    setText('cluster-total-jobs', total);
+    setText('sidebar-jobs-count', total);
+
+    const rSub = document.getElementById('stat-running-sub');
+    if (rSub) { rSub.textContent = running > 0 ? 'Active pipelines' : 'No active pipelines'; rSub.className = running > 0 ? 'stat-sub green' : 'stat-sub'; }
+
+    // Re-render jobs section if visible
+    const listEl = document.getElementById('jobs-list-content');
+    if (!listEl) return;
+    if (!jobArr.length) {
+      listEl.innerHTML = '<div style="text-align:center;padding:40px 0;color:var(--text-muted);font-size:13px;">No jobs found. Submit a SQL statement from Studio to see jobs here.</div>';
+      return;
+    }
+    const rows = jobArr.map(j => {
+      const status = (j.status || j.state || 'UNKNOWN').toUpperCase();
+      const color  = status === 'RUNNING' ? 'var(--green)' : status === 'FAILED' ? 'var(--accent)' : 'var(--text-tertiary)';
+      const dur    = j.duration != null ? fmtDuration(j.duration) : '—';
+      const canCancel = ['RUNNING', 'RESTARTING', 'CREATED'].includes(status);
+      return '<tr style="border-bottom:1px solid var(--border-soft);">' +
+              '<td style="padding:10px 0;font-size:12px;font-family:var(--font-mono);color:var(--text-secondary);">' + esc(j.jid || j.id || '—') + '</td>' +
+              '<td style="padding:10px 12px;font-size:13px;color:var(--text-primary);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(j.name || '—') + '</td>' +
+              '<td style="padding:10px 8px;"><span style="font-size:11px;font-weight:600;color:' + color + ';">' + status + '</span></td>' +
+              '<td style="padding:10px 0;font-size:12px;color:var(--text-tertiary);">' + dur + '</td>' +
+              '<td style="padding:10px 0;">' +
+              (canCancel ? '<button onclick="beamCancelJob(\'' + esc(j.jid || j.id) + '\')" style="font-size:11px;padding:2px 8px;background:var(--accent-light);border:1px solid var(--accent-border);color:var(--accent);border-radius:4px;cursor:pointer;">Cancel</button>' : '') +
+              '</td>' +
+              '</tr>';
+    }).join('');
+    listEl.innerHTML =
+            '<table style="width:100%;border-collapse:collapse;">' +
+            '<thead><tr style="border-bottom:2px solid var(--border-soft);">' +
+            '<th style="text-align:left;padding:8px 0;font-size:11px;font-weight:600;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.5px;">Job ID</th>' +
+            '<th style="text-align:left;padding:8px 12px;font-size:11px;font-weight:600;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.5px;">Name</th>' +
+            '<th style="text-align:left;padding:8px 8px;font-size:11px;font-weight:600;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.5px;">Status</th>' +
+            '<th style="text-align:left;padding:8px 0;font-size:11px;font-weight:600;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.5px;">Duration</th>' +
+            '<th style="padding:8px 0;width:80px;"></th>' +
+            '</tr></thead><tbody>' + rows + '</tbody></table>';
+  }
+
+  function _refreshUsageStats(usage) {
+    setText('usage-1h',  fmtSlots(getUsageWindow(usage, '1h')));
+    setText('usage-24h', fmtSlots(getUsageWindow(usage, '24h')));
+    setText('usage-7d',  fmtSlots(getUsageWindow(usage, '7d')));
+    const u24 = getUsageWindow(usage, '24h');
+    setText('stat-usage', u24 != null ? fmtSlots(u24) : '—');
+
+    // Quota usage bars — show consumed vs limit
+    const tenant  = getTenant();
+    const pricing = getPricing();
+    const tier    = (tenant.tier || 'FREE').toUpperCase();
+    const pt      = pricing ? (pricing[tier] || pricing[tier.toLowerCase()] || {}) : {};
+    _renderQuotaBars(usage, pt, tier);
+  }
+
+  function _renderQuotaBars(usage, pt, tier) {
+    const el = document.getElementById('beam-quota-bars');
+    if (!el) return;
+
+    const quotas = (pt || {}).quotas || {};
+    const u24    = getUsageWindow(usage, '24h') || 0;
+
+    // Slot-seconds daily limit is not in the API currently so we derive it
+    // from the tier defaults: FREE=3600 (1h*1slot), PRO=unlimited-ish
+    const slotLimits = { FREE: 3600, PRO: 259200, ENTERPRISE: null };
+    const slotLimit  = slotLimits[tier] || null;
+    const slotPct    = slotLimit ? Math.min(100, Math.round(u24 / slotLimit * 100)) : null;
+
+    const maxJobs     = parseInt(quotas.maxRunningJobs || defaultQuota(tier, 'jobs'), 10);
+    const maxSessions = parseInt(quotas.maxSessions    || defaultQuota(tier, 'sessions'), 10);
+
+    const jobArr  = flattenJobs(window.beamWelcomeData?.jobs || null);
+    const running = jobArr.filter(j => (j.status || j.state || '').toUpperCase() === 'RUNNING').length;
+    const jobPct  = !isNaN(maxJobs) && maxJobs > 0 ? Math.min(100, Math.round(running / maxJobs * 100)) : null;
+
+    const bar = (label, pct, used, max, warn) => {
+      if (pct === null) return `
+      <div style="margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:12px;">
+          <span style="color:var(--text-secondary);">${label}</span>
+          <span style="color:var(--text-tertiary);">${used} / unlimited</span>
+        </div>
+        <div style="height:4px;background:var(--surface-3);border-radius:2px;">
+          <div style="width:${Math.min(100, pct || 0)}%;height:100%;background:var(--green);border-radius:2px;"></div>
+        </div>
+      </div>`;
+      const color = pct >= 90 ? 'var(--accent)' : pct >= 70 ? 'var(--orange)' : 'var(--green)';
+      return `
+      <div style="margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:12px;">
+          <span style="color:var(--text-secondary);">${label}</span>
+          <span style="color:${color};font-weight:500;">${used} / ${max}${warn && pct >= 90 ? ' ⚠' : ''}</span>
+        </div>
+        <div style="height:4px;background:var(--surface-3);border-radius:2px;">
+          <div style="width:${pct}%;height:100%;background:${color};border-radius:2px;transition:width 0.4s;"></div>
+        </div>
+      </div>`;
+    };
+
+    el.innerHTML =
+            bar('Slot-seconds (24h)',  slotPct,  fmtSlots(u24), slotLimit ? fmtSlots(slotLimit) : '∞', true) +
+            bar('Running jobs',        jobPct,   running,        maxJobs,                                true);
+  }
+
+  async function beamCancelJob(jid) {
+    const baseUrl = getBaseUrl();
+    const jwt     = getJwt();
+    if (!jid || !baseUrl || !jwt) return;
+    if (!confirm('Cancel job ' + jid.slice(0, 8) + '…? This cannot be undone.')) return;
+    try {
+      const r = await fetch(baseUrl + '/api/v1/jobs/' + jid, {
+        method: 'DELETE',
+        headers: { 'Authorization': 'Bearer ' + jwt },
+      });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      toast('Job cancel requested', 'ok');
+      setTimeout(beamLiveRefresh, 1500);
+    } catch (e) {
+      toast('Cancel failed: ' + e.message, 'err');
+    }
+  }
+
+  /* ── Banner helper ─────────────────────────────────────────────── */
+  function showBeamBanner(type, msg) {
+    let el = document.getElementById('beam-session-banner');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'beam-session-banner';
+      // Insert before the first section
+      const content = document.getElementById('main-content');
+      if (content) content.insertBefore(el, content.firstChild);
+    }
+    const colors = {
+      ok:      { bg: 'var(--green-bg)',   border: 'var(--green-border)',   text: 'var(--green)'  },
+      err:     { bg: 'var(--accent-light)', border: 'var(--accent-border)', text: 'var(--accent)' },
+      warn:    { bg: 'var(--orange-bg)',  border: 'var(--orange-border)',  text: 'var(--orange)' },
+      loading: { bg: 'var(--blue-bg)',    border: 'var(--blue-border)',    text: 'var(--blue)'   },
+    };
+    const c = colors[type] || colors.loading;
+    el.style.cssText = `margin-bottom:16px;padding:10px 16px;border-radius:var(--r-md);font-size:12px;font-weight:500;background:${c.bg};border:1px solid ${c.border};color:${c.text};display:flex;align-items:center;gap:8px;`;
+    el.innerHTML = (type === 'loading' ? '<div class="spinner" style="width:12px;height:12px;border:2px solid rgba(0,0,0,0.1);border-top-color:var(--blue);border-radius:50%;animation:spin 0.6s linear infinite;"></div>' : '') + esc(msg);
+  }
+
+  function hideBeamBanner() {
+    const el = document.getElementById('beam-session-banner');
+    if (el) el.style.display = 'none';
+  }
+
   function populateNav() {
+    const tenant = getTenant();
     const key = tenant.tenantKey || '';
     if (key) { setText('nav-tenant-key', key); document.getElementById('topnav-env').style.display = 'flex'; }
     const status = (tenant.status || 'ACTIVE').toUpperCase();
@@ -1159,6 +1478,10 @@
   }
 
   function populateOverview() {
+    const tenant = getTenant();
+    const usage = getUsage();
+    const jobs = getJobs();
+    const baseUrl = getBaseUrl();
     const name    = tenant.displayName || '';
     const tier    = (tenant.tier || 'FREE').toUpperCase();
     const created = tenant.createdAt ? new Date(tenant.createdAt).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) : '—';
@@ -1191,11 +1514,11 @@
     setText('cluster-total-jobs', total);
     setText('sidebar-jobs-count', total);
 
-    const u24 = getUsage('24h');
+    const u24 = getUsageWindow(usage, '24h');
     setText('stat-usage', u24 != null ? fmtSlots(u24) : '—');
-    setText('usage-1h',  fmtSlots(getUsage('1h')));
-    setText('usage-24h', fmtSlots(getUsage('24h')));
-    setText('usage-7d',  fmtSlots(getUsage('7d')));
+    setText('usage-1h',  fmtSlots(getUsageWindow(usage, '1h')));
+    setText('usage-24h', fmtSlots(getUsageWindow(usage, '24h')));
+    setText('usage-7d',  fmtSlots(getUsageWindow(usage, '7d')));
 
     const tierBadgeEl = document.createElement('span');
     tierBadgeEl.className = 'tier-badge tier-' + tier;
@@ -1206,6 +1529,8 @@
   }
 
   function populateCredentials() {
+    const tenant = getTenant();
+    const baseUrl = getBaseUrl();
     const catalog = tenant.catalogName || (tenant.tenantKey ? tenant.tenantKey + '_catalog' : '—');
     setText('cred-tenant-key', tenant.tenantKey || '—');
     setText('cred-catalog', catalog);
@@ -1213,6 +1538,8 @@
   }
 
   function populateCodeSnippets() {
+    const tenant = getTenant();
+    const baseUrl = getBaseUrl();
     const tKey    = tenant.tenantKey   || 'YOUR_TENANT_KEY';
     const catalog = tenant.catalogName || (tKey + '_catalog');
     const url     = baseUrl            || 'YOUR_ENGINE_URL';
@@ -1223,6 +1550,8 @@
   }
 
   function populatePlan() {
+    const tenant = getTenant();
+    const pricing = getPricing();
     const tier = (tenant.tier || 'FREE').toUpperCase();
     const badge = document.getElementById('plan-tier-badge');
     if (badge) { badge.className = 'tier-badge tier-' + tier; badge.textContent = tier; }
@@ -1250,6 +1579,7 @@
   }
 
   function populateJobs() {
+    const jobs = getJobs();
     const jobArr = flattenJobs(jobs);
     const listEl = document.getElementById('jobs-list-content');
     if (!listEl) return;
@@ -1280,11 +1610,11 @@
   function setCode(id, val) { const e = document.getElementById(id); if (e && val) e.textContent = val; }
   function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
   function flattenJobs(j) { if (!j) return []; if (Array.isArray(j)) return j; if (Array.isArray(j.jobs)) return j.jobs; return []; }
-  function getUsage(win) {
-    if (!usage) return null;
+  function getUsageWindow(usageData, win) {
+    if (!usageData) return null;
     const keys = { '1h':['1h','lastHour','oneHour'], '24h':['24h','lastDay','oneDay'], '7d':['7d','lastWeek','oneWeek'] };
-    for (const k of (keys[win]||[])) if (usage[k] != null) return usage[k];
-    if (usage.slotSeconds && usage.slotSeconds[win] != null) return usage.slotSeconds[win];
+    for (const k of (keys[win]||[])) if (usageData[k] != null) return usageData[k];
+    if (usageData.slotSeconds && usageData.slotSeconds[win] != null) return usageData.slotSeconds[win];
     return null;
   }
   function fmtSlots(v) {
@@ -1328,6 +1658,9 @@
 
   /* ── API Key Management ── */
   function populateApiKeySection() {
+    const tenant = getTenant();
+    const baseUrl = getBaseUrl();
+    const jwt = getJwt();
     const catalog = tenant.catalogName || (tenant.tenantKey ? tenant.tenantKey + '_catalog' : '—');
     setText('mgmt-tenant-key', tenant.tenantKey || '—');
     setText('mgmt-catalog', catalog);
@@ -1347,6 +1680,7 @@
 
   function mgmtRevealKey() {
     const el = document.getElementById('mgmt-key-display');
+    const jwt = getJwt();
     if (!el) return;
     if (!jwt) { toast('API key not available in this session', 'err'); return; }
     el.textContent = jwt;
@@ -1355,6 +1689,9 @@
   }
 
   async function confirmKeyRotation() {
+    const tenant = getTenant();
+    const baseUrl = getBaseUrl();
+    const jwt = getJwt();
     if (!confirm('Rotate your API key?\n\nThe current key stops working IMMEDIATELY. Copy the new key before closing this page.')) return;
     const btn = document.getElementById('rotate-confirm-btn');
     if (btn) { btn.disabled = true; btn.textContent = 'Rotating…'; }
@@ -1378,6 +1715,34 @@
       toast('Rotation failed: ' + e.message, 'err');
     } finally {
       if (btn) { btn.disabled = false; btn.textContent = 'Rotate API Key →'; }
+    }
+  }
+
+  async function fetchEngineHealth() {
+    const baseUrl = getBaseUrl();
+    const jwt = getJwt();
+    if (!baseUrl) return;
+    setText('health-status', 'Checking…');
+    try {
+      const r = await fetch(baseUrl + '/api/v1/health', { headers: { 'Authorization': 'Bearer ' + jwt, 'Accept': 'application/json' } });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const d = await r.json();
+      const up = d.status === 'UP';
+      const statusEl = document.getElementById('health-status');
+      if (statusEl) statusEl.innerHTML = '<span style="color:' + (up ? 'var(--green)' : 'var(--accent)') + ';font-weight:500;">' + (d.status || '—') + '</span>';
+      setText('health-service', d.service || '—');
+      setText('health-version', d.version || '—');
+      setText('health-checked', new Date().toLocaleTimeString());
+      const pill = document.getElementById('health-pill');
+      if (pill) {
+        pill.style.display = 'inline-flex';
+        pill.className = 'pill-status ' + (up ? 'active' : '');
+        if (!up) { pill.style.background='var(--accent-light)'; pill.style.border='1px solid var(--accent-border)'; pill.style.color='var(--accent)'; }
+        const txt = document.getElementById('health-pill-text'); if (txt) txt.textContent = d.status || '—';
+      }
+    } catch(e) {
+      setText('health-status', 'Unreachable — ' + e.message);
+      setText('health-checked', new Date().toLocaleTimeString());
     }
   }
 
@@ -1466,7 +1831,9 @@
     navigator.clipboard.writeText(text).then(() => toast('Code copied', 'ok'));
   }
   function revealKey() {
-    const el = document.getElementById('apikey-display'); if (!el) return;
+    const el = document.getElementById('apikey-display');
+    const jwt = getJwt();
+    if (!el) return;
     if (!jwt) { toast('API key not available in this session', 'err'); return; }
     el.textContent = jwt;
     navigator.clipboard.writeText(jwt).then(() => toast('API key copied to clipboard', 'ok'));
@@ -1476,26 +1843,85 @@
   function confirmRotate() { if (!confirm('Rotate your API key? The current key will stop working immediately.')) return; toast('Contact support@codedstreams.io or use the admin panel to rotate your key.', 'info'); }
 
   function connectToStudio() {
-    if (window.parent && window.parent !== window) {
-      window.parent.postMessage({ type: 'BEAM_CONNECT', tenant, jwt, baseUrl }, '*');
-    } else if (window.opener && window.opener._beamWelcomeConnectCallback) {
-      window.opener._beamWelcomeConnectCallback({ tenant, jwt, baseUrl });
-    } else {
-      try { sessionStorage.setItem('strbeam_connect_trigger', JSON.stringify({ tenant, jwt, baseUrl })); } catch(_) {}
-      toast('Switching to Studio…', 'info');
+    const tenant    = getTenant();
+    const jwt       = getJwt();
+    const baseUrl   = getBaseUrl();
+    const sessionId = _beamSessionId;
+
+    if (!jwt || !baseUrl) {
+      toast('No active session — please sign in first', 'err');
+      return;
     }
+
+    // Stop the welcome-page heartbeat — Studio will take over
+    if (_beamHeartbeatTimer) { clearInterval(_beamHeartbeatTimer); _beamHeartbeatTimer = null; }
+    // Keep live refresh running so dashboard stays updated while Studio is open
+    // (user may return to this tab)
+
+    const trigger = {
+      tenant,
+      jwt,
+      baseUrl,
+      sessionId,          // pre-opened session — Studio skips POST /sessions
+      catalogName: window.beamWelcomeData?.catalogName || tenant.catalogName || '',
+      sessionTier: window.beamWelcomeData?.sessionTier || (tenant.tier || 'FREE').toUpperCase(),
+      expiresAt:   window.beamWelcomeData?.expiresAt   || null,
+      fromBeam:    true,  // flag so Studio shows ← Dashboard button
+    };
+
+    try {
+      sessionStorage.setItem('strbeam_connect_trigger', JSON.stringify(trigger));
+      sessionStorage.setItem('strbeam_baseurl', baseUrl);
+    } catch (_) {}
+
+    // If embedded or popup, notify parent
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({ type: 'BEAM_CONNECT', ...trigger }, '*');
+    }
+    if (window.opener && window.opener !== window) {
+      try {
+        if (typeof window.opener._beamWelcomeConnectCallback === 'function') {
+          window.opener._beamWelcomeConnectCallback(trigger);
+          toast('Connecting Studio…', 'info');
+          return;
+        }
+      } catch (_) {}
+    }
+
+    toast('Opening Studio…', 'info');
+    setTimeout(() => { window.location.href = '/studio/index.html'; }, 400);
   }
 
   function beamLogout() {
+    const jwt = getJwt();
+    const baseUrl = getBaseUrl();
     if (!confirm('Sign out of Str:::Beam?')) return;
+
+    // Fire logout request (best-effort, don't block)
+    if (baseUrl && jwt) {
+      fetch(baseUrl + '/api/v1/auth/logout', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + jwt }
+      }).catch(() => {});
+    }
+
+    // Clear stored data
+    window.beamWelcomeData = null;
+    try { sessionStorage.removeItem('strbeam_baseurl'); } catch(_) {}
+    try { sessionStorage.removeItem('strbeam_connect_trigger'); } catch(_) {}
+
+    // Notify parent/opener if embedded
     if (window.parent && window.parent !== window) {
       window.parent.postMessage({ type: 'BEAM_LOGOUT' }, '*');
-    } else if (window.opener && window.opener.beamLogout) {
-      window.opener.beamLogout();
-    } else {
-      if (baseUrl && jwt) fetch(baseUrl + '/api/v1/auth/logout', { method:'POST', headers:{'Authorization':'Bearer ' + jwt} }).catch(()=>{});
-      toast('Signed out', 'info');
     }
+    if (window.opener && window.opener !== window) {
+      try { if (typeof window.opener.beamLogout === 'function') window.opener.beamLogout(); } catch(_) {}
+    }
+
+    toast('Signed out', 'info');
+
+    // Reload the page after a short delay to return to a clean state
+    setTimeout(() => { window.location.reload(); }, 800);
   }
 
   function toast(msg, type) {
