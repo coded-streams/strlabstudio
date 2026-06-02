@@ -544,6 +544,13 @@
       .logo-text .logo-ver { display: none !important; }
     }
 
+    #beam-welcome-overlay {
+      overflow: hidden;
+    }
+    #beam-welcome-iframe {
+      display: block;
+    }
+
     #tb-more-menu.open { display: flex !important; }
   </style>
 </head>
@@ -2434,8 +2441,11 @@ SHOW CATALOGS;"></textarea>
           if (fg) fg.style.display = '';
         }
 
+        const beamOverlay = document.getElementById('beam-welcome-overlay');
+        if (beamOverlay) beamOverlay.remove();
+
         // Let connection.js setMode handle the rest normally
-        if (typeof setMode === 'function') setMode(m);
+        if (typeof setMode ==='function') setMode(m);
       };
     });
 
