@@ -201,47 +201,49 @@ async function beamShowTenantWelcome(tenant, jwt, baseUrl) {
     _beamInjectWelcomeScreen(tenant, jwt, baseUrl, usage, jobs, pricing);
 }
 
-/* ── RENDER WELCOME SCREEN - NO IFRAME, DIRECT ─────────────── */
 function _beamInjectWelcomeScreen(tenant, jwt, baseUrl, usage, jobs, pricing) {
-    /* ── Remove any stale overlay ── */
+    // Remove any existing overlay
     const existing = document.getElementById('beam-welcome-overlay');
     if (existing) existing.remove();
 
-    /* ── Hide connect screen ── */
+    // Hide connect screen
     const cs = document.getElementById('connect-screen');
     if (cs) cs.style.display = 'none';
 
-    /* ── Show the main app (which contains the dashboard) ── */
+    // Show the main app (which contains the dashboard)
     const app = document.getElementById('app');
     if (app) app.classList.add('visible');
 
-    /* ── Inject data into window for the existing dashboard ── */
+    // CRITICAL FIX: Don't automatically launch Studio
+    // Only store the data and show the dashboard
+
+    // Store data for the existing dashboard
     window.beamWelcomeData = { tenant, jwt, baseUrl, usage, jobs, pricing };
 
-    /* ── Manually populate the dashboard if functions exist ── */
+    // Manually populate the dashboard
     if (typeof populateAll === 'function') {
         populateAll();
-    } else {
-        // Try to find and call populate functions from the window
-        if (window.populateAll) window.populateAll();
-        if (window.populate) window.populate();
+    } else if (window.populateAll) {
+        window.populateAll();
+    } else if (window.populate) {
+        window.populate();
     }
 
-    /* ── Update code snippets ── */
+    // Update code snippets
     if (typeof updateCodeSnippets === 'function') {
         updateCodeSnippets();
     } else if (window.updateCodeSnippets) {
         window.updateCodeSnippets();
     }
 
-    /* ── Ensure overview section is visible ── */
+    // Show overview section
     if (typeof showSection === 'function') {
         showSection('overview');
     } else if (window.showSection) {
         window.showSection('overview');
     }
 
-    /* ── Update topbar with tenant info ── */
+    // Update topbar with tenant info
     const navTenant = document.getElementById('nav-tenant-key');
     if (navTenant && tenant.tenantKey) {
         navTenant.textContent = tenant.tenantKey;
@@ -249,7 +251,7 @@ function _beamInjectWelcomeScreen(tenant, jwt, baseUrl, usage, jobs, pricing) {
         if (envDiv) envDiv.style.display = 'flex';
     }
 
-    /* ── Store callback for Connect button ── */
+    // Store callback for Connect button - DON'T call it automatically
     window._beamWelcomeConnectCallback = async function({ tenant: t, jwt: j, baseUrl: u }) {
         if (!window.state) window.state = {};
         window.state.beam = { baseUrl: u, jwt: j, tenant: t, authMethod: 'sso' };
@@ -274,6 +276,9 @@ function _beamInjectWelcomeScreen(tenant, jwt, baseUrl, usage, jobs, pricing) {
             }
         }
     };
+
+    // REMOVED: The automatic call to launch Studio
+    // The user must now explicitly click "Connect to Studio" button
 }
 
 /* ── LAUNCH STUDIO ─────────────────────────────────────────── */
