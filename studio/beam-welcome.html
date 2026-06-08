@@ -448,6 +448,683 @@
     }
     .theme-toggle:hover { color: var(--text-primary); border-color: var(--text-tertiary); }
   </style>
+  <style id="beam-embedded-css">
+
+    /* ── Layout shell ──────────────────────────────────────────────────────────── */
+    #section-editor,
+    #section-jobview {
+      display: none;
+      flex-direction: column;
+      height: calc(100vh - 52px);   /* fill under topnav */
+      min-height: 480px;
+      overflow: hidden;
+      padding: 0 !important;        /* override .content padding */
+      margin: 0 !important;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    #section-editor.active,
+    #section-jobview.active { display: flex; }
+
+    /* ── Theme palette additions (beam vars complement the existing ones) ──────── */
+    :root {
+      /* syntax highlight tokens — same palette as sql-highlight.js dark theme */
+      --bsh-keyword  : #00d4aa;
+      --bsh-clause   : #4fa3e0;
+      --bsh-stream   : #7ec8e3;
+      --bsh-type     : #c8d96a;
+      --bsh-func     : #c792ea;
+      --bsh-string   : #f5a623;
+      --bsh-ident    : #7ab8d8;
+      --bsh-number   : #56d3d8;
+      --bsh-comment  : #4d7a55;
+      --bsh-operator : #7a8a9a;
+      --bsh-plain    : #c8d8e8;
+    }
+    body.theme-stdark {
+      --bsh-keyword  : #4e9de8;
+      --bsh-clause   : #4e9de8;
+      --bsh-stream   : #57c764;
+      --bsh-type     : #e2c26e;
+      --bsh-func     : #d4a2f7;
+      --bsh-string   : #e07734;
+      --bsh-ident    : #9cdcfe;
+      --bsh-number   : #b5cea8;
+      --bsh-comment  : #5c7a5c;
+      --bsh-operator : #888a9a;
+      --bsh-plain    : #cdd6e0;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════════════
+       EDITOR SECTION
+       ═══════════════════════════════════════════════════════════════════════════ */
+
+    .beam-editor-layout {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+      background: var(--surface-1);
+    }
+
+    /* ── session bar ─────────────────────────────────────────────────────────── */
+    .beam-session-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 14px;
+      background: var(--surface-0);
+      border-bottom: 1px solid var(--border-soft);
+      flex-shrink: 0;
+      font-size: 11px;
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+    }
+    .beam-session-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      flex-shrink: 0;
+      transition: background 0.3s;
+    }
+    .beam-session-dot.ok  { background: var(--green); animation: blink 2.5s ease-in-out infinite; }
+    .beam-session-dot.run { background: var(--orange); animation: blink 0.5s ease-in-out infinite; }
+
+    /* ── tab bar ─────────────────────────────────────────────────────────────── */
+    .beam-tabs-bar {
+      display: flex;
+      align-items: flex-end;
+      gap: 0;
+      padding: 0 8px 0 0;
+      background: var(--surface-1);
+      border-bottom: 1px solid var(--border-soft);
+      flex-shrink: 0;
+      overflow-x: auto;
+      overflow-y: hidden;
+      scrollbar-width: none;
+      min-height: 34px;
+    }
+    .beam-tabs-bar::-webkit-scrollbar { display: none; }
+
+    .beam-tab {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 6px 12px;
+      font-size: 11px;
+      font-weight: 500;
+      font-family: var(--font-mono);
+      color: var(--text-tertiary);
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      white-space: nowrap;
+      margin-bottom: -1px;
+      transition: color 0.12s, border-color 0.12s, background 0.12s;
+      position: relative;
+      min-width: 80px;
+      max-width: 160px;
+    }
+    .beam-tab:hover { color: var(--text-primary); background: var(--surface-2); }
+    .beam-tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+      background: var(--surface-0);
+      font-weight: 600;
+    }
+    .beam-tab-dot {
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: var(--accent);
+      display: none;
+      flex-shrink: 0;
+    }
+    .beam-tab.unsaved .beam-tab-dot { display: inline-block; }
+    .beam-tab-label {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+      min-width: 0;
+      text-align: left;
+    }
+    .beam-tab-close {
+      font-size: 13px;
+      opacity: 0.4;
+      flex-shrink: 0;
+      width: 14px;
+      text-align: center;
+      line-height: 1;
+      border-radius: 2px;
+      padding: 1px 2px;
+      transition: opacity 0.12s, background 0.12s;
+    }
+    .beam-tab:hover .beam-tab-close { opacity: 0.8; }
+    .beam-tab-close:hover { opacity: 1 !important; background: rgba(232,51,74,0.15); color: var(--accent); }
+    .beam-tab-add {
+      padding: 5px 10px;
+      font-size: 16px;
+      font-weight: 300;
+      color: var(--text-tertiary);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      flex-shrink: 0;
+      line-height: 1;
+      border-radius: var(--r-sm);
+      margin-left: 2px;
+      align-self: center;
+      transition: color 0.12s, background 0.12s;
+    }
+    .beam-tab-add:hover { color: var(--accent); background: var(--accent-light); }
+
+    /* ── editor toolbar ──────────────────────────────────────────────────────── */
+    .beam-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 6px 12px;
+      background: var(--surface-0);
+      border-bottom: 1px solid var(--border-soft);
+      flex-shrink: 0;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .beam-toolbar::-webkit-scrollbar { display: none; }
+
+    .beam-tbtn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      font-size: 11px;
+      font-weight: 500;
+      font-family: var(--font-ui);
+      border-radius: var(--r-sm);
+      border: 1px solid var(--border-soft);
+      background: var(--surface-1);
+      color: var(--text-secondary);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.12s;
+      flex-shrink: 0;
+    }
+    .beam-tbtn:hover { background: var(--surface-2); color: var(--text-primary); border-color: var(--border-med); }
+    .beam-tbtn.run   { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+    .beam-tbtn.run:hover { background: #d42b41; }
+    .beam-tbtn.run:disabled { opacity: 0.5; cursor: not-allowed; }
+    .beam-tbtn.stop  { background: var(--accent-light); border-color: var(--accent-border); color: var(--accent); display: none; }
+    .beam-tbtn.stop.visible { display: inline-flex; }
+    .beam-tbtn.accent { border-color: var(--accent-border); color: var(--accent); background: var(--accent-light); }
+
+    .beam-tb-sep { width: 1px; height: 18px; background: var(--border-soft); flex-shrink: 0; margin: 0 2px; }
+
+    .beam-tb-snippet {
+      padding: 3px 7px;
+      font-size: 10px;
+      font-family: var(--font-mono);
+      border: 1px solid var(--border-soft);
+      border-radius: 3px;
+      background: var(--surface-2);
+      color: var(--text-tertiary);
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+      transition: all 0.12s;
+    }
+    .beam-tb-snippet:hover { border-color: var(--accent-border); color: var(--accent); background: var(--accent-light); }
+
+    .beam-tb-info {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 10px;
+      color: var(--text-tertiary);
+      font-family: var(--font-mono);
+      flex-shrink: 0;
+    }
+    .beam-exec-spinner {
+      display: none;
+      align-items: center;
+      gap: 5px;
+      font-size: 10px;
+      color: var(--accent);
+    }
+    .beam-exec-spinner.on { display: flex; }
+    .beam-exec-spinner::before {
+      content: '';
+      width: 9px; height: 9px;
+      border: 2px solid rgba(232,51,74,0.2);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: _bspin 0.7s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes _bspin { to { transform: rotate(360deg); } }
+
+    /* ── editor area: mirror + textarea ─────────────────────────────────────── */
+    .beam-editor-area {
+      position: relative;
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      overflow: hidden;
+      background: var(--surface-0);
+    }
+
+    #beam-line-nums {
+      width: 42px;
+      flex-shrink: 0;
+      overflow: hidden;
+      padding: 10px 0;
+      background: var(--surface-1);
+      border-right: 1px solid var(--border-soft);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      line-height: 1.65;
+      color: var(--text-muted);
+      text-align: right;
+      user-select: none;
+      box-sizing: border-box;
+    }
+    #beam-line-nums span { display: block; padding-right: 8px; }
+
+    /* ── highlight mirror (sits BEHIND textarea) ─────────────────────────────── */
+    #beam-hl-mirror {
+      position: absolute;
+      top: 0;
+      left: 42px;          /* width of line-nums */
+      right: 0;
+      bottom: 0;
+      pointer-events: none;
+      overflow: hidden;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      font-family: 'DM Mono', 'IBM Plex Mono', 'Fira Code', monospace;
+      font-size: 12px;
+      line-height: 1.65;
+      padding: 10px 14px;
+      box-sizing: border-box;
+      color: transparent;
+      background: transparent;
+      z-index: 0;
+      tab-size: 4;
+      -moz-tab-size: 4;
+    }
+
+    /* Token colours */
+    #beam-hl-mirror .bsh-kw   { color: var(--bsh-keyword);  font-weight: 700; }
+    #beam-hl-mirror .bsh-cl   { color: var(--bsh-clause);   font-weight: 700; }
+    #beam-hl-mirror .bsh-st   { color: var(--bsh-stream);   font-weight: 700; }
+    #beam-hl-mirror .bsh-tp   { color: var(--bsh-type); }
+    #beam-hl-mirror .bsh-fn   { color: var(--bsh-func); }
+    #beam-hl-mirror .bsh-str  { color: var(--bsh-string); }
+    #beam-hl-mirror .bsh-id   { color: var(--bsh-ident); }
+    #beam-hl-mirror .bsh-num  { color: var(--bsh-number); }
+    #beam-hl-mirror .bsh-cmt  { color: var(--bsh-comment); font-style: italic; }
+    #beam-hl-mirror .bsh-op   { color: var(--bsh-operator); }
+    #beam-hl-mirror .bsh-pl   { color: var(--bsh-plain); }
+
+    /* ── actual textarea: transparent text, visible caret ───────────────────── */
+    #beam-sql-editor {
+      position: relative;
+      z-index: 1;
+      flex: 1;
+      min-width: 0;
+      resize: none;
+      border: none;
+      outline: none;
+      padding: 10px 14px;
+      font-family: 'DM Mono', 'IBM Plex Mono', 'Fira Code', monospace;
+      font-size: 12px;
+      line-height: 1.65;
+      color: transparent !important;
+      -webkit-text-fill-color: transparent !important;
+      caret-color: var(--text-primary) !important;
+      background: transparent !important;
+      tab-size: 4;
+      -moz-tab-size: 4;
+      overflow: auto;
+      white-space: pre;
+      word-wrap: normal;
+      box-sizing: border-box;
+    }
+    #beam-sql-editor::placeholder {
+      color: var(--text-muted) !important;
+      -webkit-text-fill-color: var(--text-muted) !important;
+      opacity: 1;
+    }
+    body.theme-stdark #beam-sql-editor { caret-color: #cdd6e0 !important; }
+
+    /* ── results split ───────────────────────────────────────────────────────── */
+    .beam-v-resizer {
+      height: 5px;
+      background: var(--border-soft);
+      cursor: ns-resize;
+      flex-shrink: 0;
+      transition: background 0.14s;
+    }
+    .beam-v-resizer:hover { background: rgba(232,51,74,0.4); }
+
+    .beam-results-panel {
+      height: 220px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--surface-0);
+      border-top: 1px solid var(--border-soft);
+    }
+    .beam-rtabs-bar {
+      display: flex;
+      align-items: center;
+      background: var(--surface-1);
+      border-bottom: 1px solid var(--border-soft);
+      flex-shrink: 0;
+    }
+    .beam-rtab {
+      padding: 6px 14px;
+      font-size: 11px;
+      font-weight: 500;
+      font-family: var(--font-ui);
+      color: var(--text-tertiary);
+      border: none;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      background: transparent;
+      cursor: pointer;
+      transition: color 0.12s, border-color 0.12s;
+    }
+    .beam-rtab:hover { color: var(--text-primary); }
+    .beam-rtab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+    .beam-rtab-badge {
+      display: inline-block;
+      font-size: 9px;
+      padding: 1px 5px;
+      border-radius: 20px;
+      background: var(--surface-3, var(--surface-2));
+      color: var(--text-tertiary);
+      margin-left: 3px;
+      font-weight: 500;
+    }
+    .beam-rtab.active .beam-rtab-badge {
+      background: rgba(232,51,74,0.12);
+      color: var(--accent);
+    }
+    .beam-results-body {
+      flex: 1;
+      overflow: hidden;
+      position: relative;
+    }
+    #beam-res-data,
+    #beam-res-log {
+      display: none;
+      height: 100%;
+      overflow: auto;
+    }
+    #beam-res-data.on,
+    #beam-res-log.on { display: block; }
+
+    /* results table */
+    .beam-res-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+      font-family: var(--font-mono);
+    }
+    .beam-res-table thead th {
+      background: var(--surface-2);
+      color: var(--text-secondary);
+      font-weight: 600;
+      padding: 5px 10px;
+      text-align: left;
+      border-bottom: 2px solid var(--border-soft);
+      white-space: nowrap;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .beam-res-table tbody tr:nth-child(even) { background: var(--surface-1); }
+    .beam-res-table tbody tr:hover { background: var(--blue-bg, rgba(0,115,230,0.05)) !important; }
+    .beam-res-table tbody td {
+      padding: 4px 10px;
+      border-bottom: 1px solid var(--border-soft);
+      color: var(--text-primary);
+      max-width: 280px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .beam-res-table tbody td.b-null { color: var(--text-muted); font-style: italic; }
+    .beam-res-table tbody td.b-num  { color: var(--blue); }
+    .beam-res-table tbody td.b-rn   { color: var(--text-muted); text-align: right; width: 36px; background: var(--surface-1) !important; }
+
+    /* log */
+    #beam-res-log {
+      padding: 6px 12px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      line-height: 1.75;
+    }
+    .b-log-line { margin-bottom: 1px; }
+    .b-log-time { color: var(--text-muted); margin-right: 6px; }
+    .b-log-ok   { color: var(--green); }
+    .b-log-err  { color: var(--accent); font-weight: 600; }
+    .b-log-warn { color: var(--orange); }
+    .b-log-info { color: var(--text-secondary); }
+    .b-log-sql  { color: var(--blue); }
+
+    .beam-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      gap: 8px;
+      color: var(--text-muted);
+      font-size: 12px;
+      text-align: center;
+      padding: 24px;
+    }
+    .beam-empty .ei { font-size: 28px; opacity: 0.25; }
+
+    /* ═══════════════════════════════════════════════════════════════════════════
+       JOB VIEW SECTION
+       ═══════════════════════════════════════════════════════════════════════════ */
+
+    .beam-jv-layout  {
+      display: flex;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    /* toolbar */
+    .beam-jv-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 7px 14px;
+      background: var(--surface-0);
+      border-bottom: 1px solid var(--border-soft);
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+    #beam-jg-sel {
+      padding: 5px 10px;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      background: var(--surface-1);
+      border: 1px solid var(--border-med);
+      border-radius: var(--r-md);
+      color: var(--text-primary);
+      min-width: 220px;
+      max-width: 380px;
+      cursor: pointer;
+      outline: none;
+    }
+    .beam-jv-badge {
+      font-size: 10px; font-weight: 700;
+      padding: 2px 9px; border-radius: 20px;
+      border: 1px solid var(--border-soft);
+      display: none;
+    }
+    .beam-jv-badge.RUNNING  { background: var(--green-bg); border-color: var(--green-border); color: var(--green); display: inline-block; }
+    .beam-jv-badge.FINISHED { background: var(--surface-2); color: var(--text-tertiary); display: inline-block; }
+    .beam-jv-badge.FAILED   { background: var(--accent-light); border-color: var(--accent-border); color: var(--accent); display: inline-block; }
+    .beam-jv-badge.CANCELED { background: var(--orange-bg); border-color: var(--orange-border); color: var(--orange); display: inline-block; }
+
+    /* left sidebar */
+    .beam-jv-sidebar {
+      width: 230px;
+      flex-shrink: 0;
+      overflow-y: auto;
+      border-right: 1px solid var(--border-soft);
+      background: var(--surface-0);
+      display: flex;
+      flex-direction: column;
+    }
+    .beam-jv-sb-hdr {
+      padding: 8px 12px 4px;
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      border-bottom: 1px solid var(--border-soft);
+      flex-shrink: 0;
+    }
+    .beam-job-row {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      padding: 8px 12px;
+      cursor: pointer;
+      border-bottom: 1px solid var(--border-soft);
+      transition: background 0.1s;
+    }
+    .beam-job-row:hover { background: var(--surface-2); }
+    .beam-job-row.active { background: var(--accent-light); border-right: 2px solid var(--accent); }
+    .beam-job-row-name {
+      font-size: 12px; font-weight: 500;
+      color: var(--text-primary);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .beam-job-row-meta {
+      font-size: 10px; color: var(--text-tertiary);
+      font-family: var(--font-mono);
+      display: flex; gap: 8px; align-items: center;
+    }
+    .b-state-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%; flex-shrink: 0;
+    }
+    .b-state-dot.RUNNING  { background: var(--green); animation: blink 2.5s ease-in-out infinite; }
+    .b-state-dot.FINISHED { background: var(--text-muted); }
+    .b-state-dot.FAILED   { background: var(--accent); }
+    .b-state-dot.CANCELED { background: var(--orange); }
+    .b-state-dot.RESTARTING { background: var(--orange); animation: blink 0.8s ease-in-out infinite; }
+
+    /* DAG canvas area */
+    .beam-jg-wrap {
+      flex: 1;
+      min-width: 0;
+      position: relative;
+      overflow: hidden;
+    }
+    .beam-jg-canvas {
+      width: 100%; height: 100%;
+      overflow: auto;
+      position: relative;
+      background: var(--surface-1);
+      cursor: grab;
+    }
+    .beam-jg-canvas:active,
+    .beam-jg-canvas.dragging { cursor: grabbing; }
+
+    /* node detail slide-in */
+    .beam-jv-detail {
+      position: absolute;
+      bottom: 0; right: 0;
+      width: 320px;
+      max-height: 65%;
+      background: var(--surface-0);
+      border-top: 1px solid var(--border-soft);
+      border-left: 1px solid var(--border-soft);
+      border-radius: var(--r-lg) 0 0 0;
+      overflow-y: auto;
+      padding: 14px 16px;
+      display: none;
+      z-index: 20;
+      box-shadow: -4px -4px 16px rgba(0,0,0,0.08);
+    }
+    .beam-jv-detail.open { display: block; }
+    .beam-jv-detail-hdr {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .beam-jv-detail-title { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+    .beam-jv-detail-close {
+      background: none; border: none; cursor: pointer;
+      color: var(--text-tertiary); font-size: 16px; line-height: 1;
+    }
+    .beam-metric-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+    .beam-mc {
+      background: var(--surface-1);
+      border: 1px solid var(--border-soft);
+      border-radius: var(--r-sm);
+      padding: 7px 10px;
+      text-align: center;
+    }
+    .beam-mc .mc-l { font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 3px; }
+    .beam-mc .mc-v { font-size: 17px; font-weight: 600; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+    .beam-mc .mc-u { font-size: 9px; color: var(--text-tertiary); margin-top: 1px; }
+    .beam-mc.hi  { border-color: var(--green-border); background: var(--green-bg); }
+    .beam-mc.hi .mc-v  { color: var(--green); }
+    .beam-mc.bad { border-color: var(--accent-border); background: var(--accent-light); }
+    .beam-mc.bad .mc-v { color: var(--accent); }
+    .beam-jv-kv { width: 100%; border-collapse: collapse; }
+    .beam-jv-kv tr { border-bottom: 1px solid var(--border-soft); }
+    .beam-jv-kv td { padding: 5px 0; font-size: 11px; }
+    .beam-jv-kv .kk { color: var(--text-tertiary); font-weight: 500; width: 44%; }
+    .beam-jv-kv .vv { color: var(--text-primary); font-family: var(--font-mono); font-size: 11px; }
+
+    /* live dot */
+    .beam-live-dot {
+      display: inline-block;
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--green);
+      margin-right: 4px;
+      animation: blink 2s ease-in-out infinite;
+    }
+
+    /* ── shared sidebar item counts ─────────────────────────────────────────── */
+    #sb-editor-count { background: rgba(232,51,74,0.12) !important; color: var(--accent) !important; }
+    #sb-jobview-count { min-width: 16px; text-align: center; }
+
+    /* ── responsive ─────────────────────────────────────────────────────────── */
+    @media (max-width: 768px) {
+      .beam-jv-sidebar { display: none; }
+      #beam-sql-editor { font-size: 11px; }
+      .beam-results-panel { height: 170px; }
+      .beam-jv-detail { width: 100%; }
+    }
+  </style>
 </head>
 <body>
 
@@ -473,10 +1150,6 @@
         <div class="pill-dot"></div>
         <span id="nav-status-text">ACTIVE</span>
       </div>
-      <button class="btn btn-primary" onclick="connectToStudio()">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
-        Connect to Studio
-      </button>
       <button class="btn btn-ghost" onclick="beamLogout()">Sign out</button>
     </div>
   </header>
@@ -512,6 +1185,26 @@
       API Key
     </button>
     <div class="sidebar-divider"></div>
+    <div class="sidebar-section-label">Workspace Tools</div>
+
+    <button class="sidebar-item" id="sb-editor-btn" onclick="showBeamTool('editor')">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+      </svg>
+      SQL Editor
+      <span class="sidebar-item-count" id="sb-editor-count" style="display:none;">●</span>
+    </button>
+
+    <button class="sidebar-item" id="sb-jobview-btn" onclick="showBeamTool('jobview')">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/>
+      </svg>
+      Job View
+      <span class="sidebar-item-count" id="sb-jobview-count">0</span>
+    </button>
     <div class="sidebar-section-label">Resources</div>
     <button class="sidebar-item" onclick="showSection('docs')">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
@@ -1022,6 +1715,317 @@
           <div class="doc-card-sub">PRO and Enterprise plan comparison</div>
           <div class="doc-card-arrow">View plans &rarr;</div>
         </a>
+      </div>
+    </section>
+
+    <section id="section-editor">
+      <div class="beam-editor-layout">
+
+        <!-- session bar -->
+        <div class="beam-editor-session-bar">
+          <div class="beam-session-dot" id="beam-ed-session-dot"></div>
+          <span id="beam-ed-session-label">No session — connect first</span>
+          <span style="margin-left:auto;display:flex;align-items:center;gap:6px;">
+        <span class="beam-exec-spinner" id="beam-exec-spinner">Executing…</span>
+        <button class="btn btn-secondary" style="font-size:10px;padding:3px 10px;"
+                onclick="beamEditorFormatSQL()" title="Format SQL">⟳ Format</button>
+        <button class="btn btn-secondary" style="font-size:10px;padding:3px 10px;"
+                onclick="beamEditorExportCSV()" title="Export current results as CSV">⬇ CSV</button>
+      </span>
+        </div>
+
+        <!-- toolbar -->
+        <div class="beam-editor-toolbar">
+          <button class="btn-run" id="beam-run-btn" onclick="beamEditorRun()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            Run  <kbd style="font-size:9px;opacity:0.7;margin-left:2px;">Ctrl+↵</kbd>
+          </button>
+          <button class="btn-stop" id="beam-stop-btn" onclick="beamEditorStop()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+            Stop
+          </button>
+          <div class="beam-snippet-row">
+            <button class="beam-snippet-btn" onclick="beamInsertSnippet('show')">SHOW TABLES</button>
+            <button class="beam-snippet-btn" onclick="beamInsertSnippet('select')">SELECT *</button>
+            <button class="beam-snippet-btn" onclick="beamInsertSnippet('tumble')">TUMBLE window</button>
+            <button class="beam-snippet-btn" onclick="beamInsertSnippet('insert')">INSERT INTO</button>
+            <button class="beam-snippet-btn" onclick="beamInsertSnippet('create')">CREATE TABLE</button>
+            <button class="beam-snippet-btn" onclick="beamInsertSnippet('udf')">SQL UDF</button>
+          </div>
+          <div class="toolbar-info">
+            <span class="beam-cursor-pos" id="beam-cursor-pos">Ln 1, Col 1</span>
+          </div>
+        </div>
+
+        <!-- editor -->
+        <div class="beam-editor-wrap" id="beam-editor-wrap">
+          <div id="beam-line-numbers"><span>1</span></div>
+          <textarea
+                  id="beam-sql-editor"
+                  spellcheck="false"
+                  autocomplete="off"
+                  autocorrect="off"
+                  autocapitalize="off"
+                  placeholder="-- Write your Flink SQL here&#10;-- Ctrl+Enter to run&#10;&#10;SHOW TABLES;"
+          ></textarea>
+        </div>
+
+        <!-- v-resizer -->
+        <div class="beam-v-resizer" id="beam-v-resizer"></div>
+
+        <!-- results -->
+        <div class="beam-results-panel" id="beam-results-panel">
+          <div class="beam-results-tabs">
+            <button class="beam-rtab active" id="beam-rtab-data" onclick="beamSwitchResultTab('data')">
+              Results <span class="beam-rtab-badge" id="beam-row-badge">0</span>
+            </button>
+            <button class="beam-rtab" id="beam-rtab-log" onclick="beamSwitchResultTab('log')">
+              Log <span class="beam-rtab-badge" id="beam-log-badge">0</span>
+            </button>
+            <div style="margin-left:auto;padding:0 10px;display:flex;align-items:center;gap:6px;">
+              <button class="btn-secondary-sm" onclick="beamClearResults()" style="font-size:10px;">⌫ Clear</button>
+            </div>
+          </div>
+          <div class="beam-results-content">
+            <div id="beam-result-data" class="active">
+              <div class="beam-empty-state" id="beam-result-empty">
+                <div class="icon">⚡</div>
+                <div>Run a query to see results.<br><kbd>Ctrl+Enter</kbd> to execute.</div>
+              </div>
+            </div>
+            <div id="beam-result-log"></div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ── SECTION: JOB VIEW ───────────────────────────────────────────────── -->
+    <section id="section-jobview">
+      <div class="beam-jv-toolbar">
+        <label>Job:</label>
+        <select id="beam-jg-job-select" onchange="beamJgLoadJob(this.value)">
+          <option value="">— Select a job —</option>
+        </select>
+        <span class="beam-jv-badge" id="beam-jv-status-badge"></span>
+        <button class="btn btn-secondary" style="font-size:11px;padding:5px 12px;" onclick="beamJgRefreshJobs()">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          Refresh Jobs
+        </button>
+        <button class="btn btn-secondary" style="font-size:11px;padding:5px 12px;" onclick="beamJgReload()">↺ Reload Graph</button>
+        <button class="btn" id="beam-jg-cancel-btn" onclick="beamJgCancelJob()"
+                style="display:none;font-size:11px;padding:5px 12px;background:var(--accent-light);border:1px solid var(--accent-border);color:var(--accent);">
+          ⬛ Cancel Job
+        </button>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:8px;">
+          <button id="beam-jg-live-btn" class="btn btn-secondary" style="font-size:11px;padding:5px 12px;" onclick="beamJgToggleLive()">
+            ▶ Live
+          </button>
+          <span style="font-size:11px;color:var(--text-tertiary);" id="beam-jg-hint">Double-click a node to inspect</span>
+        </div>
+      </div>
+
+      <div class="beam-jv-layout">
+        <!-- job list sidebar -->
+        <div class="beam-jv-sidebar">
+          <div class="beam-jv-sidebar-title">Jobs</div>
+          <div id="beam-jv-job-list">
+            <div style="padding:12px;font-size:11px;color:var(--text-muted);">Click Refresh Jobs to load…</div>
+          </div>
+        </div>
+
+        <!-- DAG canvas -->
+        <div style="flex:1;min-width:0;position:relative;overflow:hidden;">
+          <div class="beam-jg-canvas-wrap" id="beam-jg-canvas-wrap">
+            <div class="beam-empty-state">
+              <div class="icon" style="font-size:40px;">◈</div>
+              <div>Select a job to visualise its execution graph</div>
+              <div style="font-size:11px;">Click <strong>Refresh Jobs</strong> to load jobs from the cluster</div>
+            </div>
+          </div>
+
+          <!-- node detail panel -->
+          <div class="beam-jv-detail" id="beam-jv-detail">
+            <div class="beam-jv-detail-title">
+              <span id="beam-jv-detail-title-text">Vertex Details</span>
+              <button class="beam-jv-detail-close" onclick="document.getElementById('beam-jv-detail').classList.remove('open')">×</button>
+            </div>
+            <div class="beam-metric-grid" id="beam-jv-metric-grid"></div>
+            <table class="beam-jv-kv" id="beam-jv-kv-table"></table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="section-editor">
+      <div class="beam-editor-layout">
+
+        <!-- session status bar -->
+        <div class="beam-session-bar">
+          <div class="beam-session-dot" id="beam-ed-dot"></div>
+          <span id="beam-ed-session-lbl" style="font-size:11px;">No session</span>
+          <span style="margin-left:auto;display:flex;align-items:center;gap:6px;">
+        <span class="beam-exec-spinner" id="beam-spin">Executing…</span>
+        <button class="beam-tbtn accent" style="padding:2px 9px;font-size:10px;"
+                onclick="beamEdConnectStudio()" title="Open this session in the full Studio">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+          </svg>
+          Open in Studio
+        </button>
+      </span>
+        </div>
+
+        <!-- multi-tab bar -->
+        <div class="beam-tabs-bar" id="beam-tabs-bar">
+          <!-- tabs rendered by JS -->
+          <button class="beam-tab-add" onclick="beamEdAddTab()" title="New tab">+</button>
+        </div>
+
+        <!-- toolbar -->
+        <div class="beam-toolbar">
+          <button class="beam-tbtn run" id="beam-run-btn" onclick="beamEdRun()">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            Run
+            <kbd style="font-size:9px;opacity:0.65;margin-left:1px;">Ctrl+↵</kbd>
+          </button>
+          <button class="beam-tbtn stop" id="beam-stop-btn" onclick="beamEdStop()">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+            Stop
+          </button>
+          <div class="beam-tb-sep"></div>
+          <button class="beam-tbtn" onclick="beamEdFormat()" title="Format SQL">⟳ Format</button>
+          <button class="beam-tbtn" onclick="beamEdComment()" title="Toggle comment  Ctrl+/">✎ Comment</button>
+          <button class="beam-tbtn" onclick="beamEdSave()" title="Save tab  Ctrl+S">💾 Save</button>
+          <div class="beam-tb-sep"></div>
+          <!-- snippets -->
+          <button class="beam-tb-snippet" onclick="beamEdSnippet('show')">SHOW TABLES</button>
+          <button class="beam-tb-snippet" onclick="beamEdSnippet('select')">SELECT *</button>
+          <button class="beam-tb-snippet" onclick="beamEdSnippet('tumble')">TUMBLE</button>
+          <button class="beam-tb-snippet" onclick="beamEdSnippet('insert')">INSERT INTO</button>
+          <button class="beam-tb-snippet" onclick="beamEdSnippet('create')">CREATE TABLE</button>
+          <button class="beam-tb-snippet" onclick="beamEdSnippet('udf')">SQL UDF</button>
+          <div class="beam-tb-info">
+            <span id="beam-cursor-pos">Ln 1, Col 1</span>
+            <button class="beam-tbtn" onclick="beamEdExportCSV()" title="Export CSV" style="padding:2px 8px;font-size:10px;">⬇ CSV</button>
+            <button class="beam-tbtn" onclick="beamEdClear()" style="padding:2px 8px;font-size:10px;">⌫ Clear</button>
+          </div>
+        </div>
+
+        <!-- editor + highlight mirror -->
+        <div class="beam-editor-area" id="beam-editor-area">
+          <div id="beam-line-nums"><span>1</span></div>
+          <!-- mirror div sits behind textarea -->
+          <div id="beam-hl-mirror" aria-hidden="true"></div>
+          <textarea
+                  id="beam-sql-editor"
+                  spellcheck="false"
+                  autocomplete="off"
+                  autocorrect="off"
+                  autocapitalize="off"
+                  placeholder="-- Flink SQL — Ctrl+Enter to run&#10;&#10;SHOW TABLES;"
+          ></textarea>
+        </div>
+
+        <!-- vertical resizer -->
+        <div class="beam-v-resizer" id="beam-v-resizer"></div>
+
+        <!-- results -->
+        <div class="beam-results-panel" id="beam-results-panel">
+          <div class="beam-rtabs-bar">
+            <button class="beam-rtab active" id="beam-rtab-data" onclick="beamEdSwitchRTab('data')">
+              Results <span class="beam-rtab-badge" id="beam-row-badge">0</span>
+            </button>
+            <button class="beam-rtab" id="beam-rtab-log" onclick="beamEdSwitchRTab('log')">
+              Log <span class="beam-rtab-badge" id="beam-log-badge">0</span>
+            </button>
+            <div style="margin-left:auto;padding:0 8px;">
+              <button class="beam-tbtn" onclick="beamEdClearResults()"
+                      style="padding:2px 8px;font-size:10px;">⌫ Clear</button>
+            </div>
+          </div>
+          <div class="beam-results-body">
+            <div id="beam-res-data" class="on">
+              <div class="beam-empty" id="beam-res-empty">
+                <div class="ei">⚡</div>
+                <div>Run a query to see results.<br>
+                  <kbd style="background:var(--surface-2);padding:1px 5px;border-radius:3px;font-size:10px;">Ctrl+Enter</kbd> to execute.
+                </div>
+              </div>
+            </div>
+            <div id="beam-res-log"></div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ── JOB VIEW SECTION ──────────────────────────────────────────────────── -->
+    <section id="section-jobview">
+
+      <!-- toolbar -->
+      <div class="beam-jv-toolbar">
+        <label style="font-size:11px;color:var(--text-secondary);font-weight:500;">Job:</label>
+        <select id="beam-jg-sel" onchange="beamJgLoad(this.value)">
+          <option value="">— Select a job —</option>
+        </select>
+        <span class="beam-jv-badge" id="beam-jv-status"></span>
+        <button class="beam-tbtn" onclick="beamJgRefresh()">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+               stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="23 4 23 10 17 10"/>
+            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+          </svg>
+          Refresh Jobs
+        </button>
+        <button class="beam-tbtn" onclick="beamJgReload()">↺ Reload</button>
+        <button class="beam-tbtn bad" id="beam-jg-cancel-btn" onclick="beamJgCancel()"
+                style="display:none;color:var(--accent);border-color:var(--accent-border);background:var(--accent-light);">
+          ⬛ Cancel Job
+        </button>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:6px;">
+          <button id="beam-jg-live-btn" class="beam-tbtn" onclick="beamJgToggleLive()">▶ Live</button>
+          <span style="font-size:10px;color:var(--text-tertiary);" id="beam-jg-hint">
+        Double-click a node to inspect · scroll to zoom · drag to pan
+      </span>
+        </div>
+      </div>
+
+      <div class="beam-jv-layout">
+
+        <!-- job list sidebar -->
+        <div class="beam-jv-sidebar">
+          <div class="beam-jv-sb-hdr">Jobs on cluster</div>
+          <div id="beam-jv-list">
+            <div style="padding:12px;font-size:11px;color:var(--text-muted);">
+              Click Refresh Jobs to load…
+            </div>
+          </div>
+        </div>
+
+        <!-- DAG canvas + node detail -->
+        <div class="beam-jg-wrap">
+          <div class="beam-jg-canvas" id="beam-jg-canvas">
+            <div class="beam-empty" style="height:100%;">
+              <div class="ei" style="font-size:42px;">◈</div>
+              <div>Select a job to visualise its execution graph</div>
+              <div style="font-size:11px;">Click <strong>Refresh Jobs</strong> then select a job above</div>
+            </div>
+          </div>
+
+          <!-- slide-in node detail -->
+          <div class="beam-jv-detail" id="beam-jv-detail">
+            <div class="beam-jv-detail-hdr">
+              <span class="beam-jv-detail-title" id="beam-jv-detail-ttl">Vertex Details</span>
+              <button class="beam-jv-detail-close"
+                      onclick="document.getElementById('beam-jv-detail').classList.remove('open')">×</button>
+            </div>
+            <div class="beam-metric-grid" id="beam-jv-metrics"></div>
+            <table class="beam-jv-kv" id="beam-jv-kv"></table>
+          </div>
+        </div>
+
       </div>
     </section>
 
@@ -1933,6 +2937,2396 @@
     tray.appendChild(item);
     setTimeout(() => item.remove(), 3200);
   }
+</script>
+
+<script>
+  /* ═══════════════════════════════════════════════════════════════════════════
+     BEAM EMBEDDED WORKSPACE
+     Provides a self-contained SQL editor and Job Graph viewer that talks
+     directly to the Beam engine API using the already-established JWT and
+     session (opened by beamOpenSession() on login).
+
+     All identifiers are prefixed "beamEd_" or "beamJg_" to avoid conflicts
+     with the Studio globals that share the page if the Studio JS files are
+     loaded in future.
+     ═══════════════════════════════════════════════════════════════════════════ */
+
+  // ── helpers ──────────────────────────────────────────────────────────────────
+  function _bEsc(s) {
+    return String(s == null ? '' : s)
+            .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+  function _bFmtDur(ms) {
+    if (!ms || ms <= 0) return '—';
+    if (ms < 1000) return ms + 'ms';
+    if (ms < 60000) return (ms/1000).toFixed(1) + 's';
+    return Math.floor(ms/60000) + 'm ' + Math.round((ms%60000)/1000) + 's';
+  }
+  function _bFmtN(n) {
+    if (n == null) return '—';
+    n = parseFloat(n);
+    if (isNaN(n)) return '—';
+    if (n >= 1e6) return (n/1e6).toFixed(1) + 'M';
+    if (n >= 1e3) return (n/1e3).toFixed(1) + 'k';
+    return String(Math.round(n));
+  }
+
+  // ── API layer — calls Beam engine via JWT ─────────────────────────────────────
+  async function _beamApi(method, path, body) {
+    const baseUrl = (getBaseUrl() || 'http://localhost:8090').replace(/\/$/, '');
+    const jwt = getJwt();
+    if (!jwt) throw new Error('Not authenticated — please sign in');
+
+    const opts = {
+      method,
+      headers: {
+        'Authorization': 'Bearer ' + jwt,
+        'Accept': 'application/json',
+      },
+    };
+    if (body) {
+      opts.headers['Content-Type'] = 'application/json';
+      opts.body = JSON.stringify(body);
+    }
+    const url = baseUrl + path;
+    const r = await fetch(url, opts);
+    if (!r.ok) {
+      let errText = 'HTTP ' + r.status;
+      try { const j = await r.json(); errText = j.message || j.error || errText; } catch(_) {}
+      throw new Error(errText);
+    }
+    if (r.status === 204) return null;
+    return r.json();
+  }
+
+  // Convenience: GET vertex metrics from Beam's proxied JobManager endpoint
+  async function _beamJobApi(path) {
+    return _beamApi('GET', '/api/v1' + path);
+  }
+
+  // ── Section routing: extends existing showSection() ───────────────────────────
+  const _origShowSection = window.showSection;
+  window.showSection = function(name) {
+    // Hide our custom tool sections first
+    document.getElementById('section-editor').classList.remove('active');
+    document.getElementById('section-jobview').classList.remove('active');
+    document.getElementById('section-editor').style.display = 'none';
+    document.getElementById('section-jobview').style.display = 'none';
+
+    // Update sidebar states for our buttons
+    ['sb-editor-btn','sb-jobview-btn'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.classList.remove('active');
+    });
+
+    if (name === 'editor' || name === 'jobview') {
+      // Hide all standard sections
+      ['overview','credentials','integration','jobs','plan','apikeys','docs'].forEach(s => {
+        const el = document.getElementById('section-' + s);
+        if (el) el.style.display = 'none';
+      });
+      document.querySelectorAll('.sidebar-item').forEach(b => b.classList.remove('active'));
+
+      const secEl = document.getElementById('section-' + name);
+      if (secEl) { secEl.style.display = 'flex'; secEl.classList.add('active'); }
+      const sbBtn = document.getElementById('sb-' + name + '-btn');
+      if (sbBtn) sbBtn.classList.add('active');
+      window.scrollTo({ top: 0 });
+
+      if (name === 'editor') beamEditorInit();
+      if (name === 'jobview') { beamJgRefreshJobs(); beamJgStartLive(); }
+    } else {
+      if (typeof _origShowSection === 'function') _origShowSection(name);
+    }
+  };
+
+  // Public alias used by sidebar buttons
+  window.showBeamTool = function(name) { showSection(name); };
+
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     SQL EDITOR ENGINE
+     ═══════════════════════════════════════════════════════════════════════════ */
+
+  const beamEd = {
+    sessionId:    null,
+    currentOpId:  null,
+    results:      [],
+    columns:      [],
+    logLines:     [],
+    logBadge:     0,
+    rowBadge:     0,
+    maxRows:      5000,
+    polling:      false,
+    abortCtrl:    null,
+  };
+
+  // Quick-insert snippets
+  const BEAM_SNIPPETS = {
+    show:   'SHOW TABLES;',
+    select: 'SELECT\n    *\nFROM\n    your_table\nLIMIT 100;',
+    tumble: `SELECT
+    window_start,
+    window_end,
+    COUNT(*) AS cnt
+FROM TABLE(
+    TUMBLE(TABLE your_source, DESCRIPTOR(event_time), INTERVAL '1' MINUTE)
+)
+GROUP BY window_start, window_end;`,
+    insert: `INSERT INTO your_sink
+SELECT
+    *
+FROM
+    your_source;`,
+    create: `CREATE TABLE my_source (
+    id        STRING,
+    amount    DOUBLE,
+    event_time TIMESTAMP(3),
+    WATERMARK FOR event_time AS event_time - INTERVAL '5' SECOND
+) WITH (
+    'connector' = 'kafka',
+    'topic'     = 'my-topic',
+    'properties.bootstrap.servers' = 'localhost:9092',
+    'format'    = 'json'
+);`,
+    udf: `CREATE TEMPORARY FUNCTION classify(score DOUBLE)
+RETURNS STRING
+LANGUAGE SQL AS $$
+    CASE
+        WHEN score >= 0.8 THEN 'HIGH'
+        WHEN score >= 0.5 THEN 'MED'
+        ELSE 'LOW'
+    END
+$$;`,
+  };
+
+  function beamInsertSnippet(key) {
+    const ed = document.getElementById('beam-sql-editor');
+    if (!ed) return;
+    const snippet = BEAM_SNIPPETS[key] || '';
+    const pos = ed.selectionStart;
+    const before = ed.value.slice(0, pos);
+    const after  = ed.value.slice(ed.selectionEnd);
+    const sep = before && !before.endsWith('\n\n') ? '\n\n' : '';
+    ed.value = before + sep + snippet + '\n' + after;
+    ed.selectionStart = ed.selectionEnd = pos + sep.length + snippet.length + 1;
+    ed.focus();
+    beamEdUpdateLineNumbers();
+    beamEdUpdateCursor();
+  }
+
+  function beamEditorInit() {
+    // Update session bar
+    const sid = _beamSessionId;
+    const dot = document.getElementById('beam-ed-session-dot');
+    const lbl = document.getElementById('beam-ed-session-label');
+    if (sid) {
+      beamEd.sessionId = sid;
+      if (dot) { dot.classList.add('active'); }
+      if (lbl) lbl.textContent = 'Session: ' + sid.slice(0,8) + '…  ·  Tenant: ' + (getTenant().tenantKey || '—');
+    } else {
+      if (dot) dot.classList.remove('active');
+      if (lbl) lbl.textContent = 'No active session — return to Overview and reconnect';
+    }
+    beamEdSetupResizer();
+  }
+
+  // ── Line numbers ──────────────────────────────────────────────────────────────
+  function beamEdUpdateLineNumbers() {
+    const ed = document.getElementById('beam-sql-editor');
+    const ln = document.getElementById('beam-line-numbers');
+    if (!ed || !ln) return;
+    const count = ed.value.split('\n').length;
+    ln.innerHTML = Array.from({length: count}, (_, i) => `<span>${i+1}</span>`).join('');
+    ln.scrollTop = ed.scrollTop;
+  }
+
+  function beamEdUpdateCursor() {
+    const ed = document.getElementById('beam-sql-editor');
+    const el = document.getElementById('beam-cursor-pos');
+    if (!ed || !el) return;
+    const txt = ed.value.slice(0, ed.selectionStart);
+    const lines = txt.split('\n');
+    el.textContent = `Ln ${lines.length}, Col ${lines[lines.length-1].length+1}`;
+  }
+
+  // Wire up editor events once DOM is ready
+  document.addEventListener('DOMContentLoaded', function() {
+    const ed = document.getElementById('beam-sql-editor');
+    if (!ed) return;
+
+    ed.addEventListener('input', () => { beamEdUpdateLineNumbers(); beamEdUpdateCursor(); });
+    ed.addEventListener('keyup', beamEdUpdateCursor);
+    ed.addEventListener('click', beamEdUpdateCursor);
+    ed.addEventListener('scroll', () => {
+      const ln = document.getElementById('beam-line-numbers');
+      if (ln) ln.scrollTop = ed.scrollTop;
+    });
+    ed.addEventListener('keydown', (e) => {
+      // Ctrl+Enter → run
+      if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); beamEditorRun(); return; }
+      // Tab → 4 spaces
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        const s = ed.selectionStart, end = ed.selectionEnd;
+        ed.value = ed.value.slice(0,s) + '    ' + ed.value.slice(end);
+        ed.selectionStart = ed.selectionEnd = s + 4;
+        beamEdUpdateLineNumbers();
+        return;
+      }
+      // Ctrl+/ → comment
+      if (e.ctrlKey && e.key === '/') {
+        e.preventDefault();
+        beamEdToggleComment(ed);
+        return;
+      }
+    });
+    beamEdUpdateLineNumbers();
+  });
+
+  function beamEdToggleComment(ed) {
+    const s = ed.selectionStart, end = ed.selectionEnd;
+    const lines = ed.value.split('\n');
+    let pos = 0, sl = 0, el = 0;
+    for (let i = 0; i < lines.length; i++) {
+      if (pos <= s && sl === 0) sl = i;
+      if (pos <= end) el = i;
+      pos += lines[i].length + 1;
+    }
+    const allC = lines.slice(sl, el+1).every(l => l.trimStart().startsWith('--'));
+    for (let i = sl; i <= el; i++) {
+      lines[i] = allC ? lines[i].replace(/^(\s*)--\s?/, '$1') : '-- ' + lines[i];
+    }
+    ed.value = lines.join('\n');
+    beamEdUpdateLineNumbers();
+  }
+
+  // ── Vertical resizer ──────────────────────────────────────────────────────────
+  function beamEdSetupResizer() {
+    const resizer = document.getElementById('beam-v-resizer');
+    const results = document.getElementById('beam-results-panel');
+    if (!resizer || !results) return;
+    let startY = 0, startH = 0, dragging = false;
+    resizer.addEventListener('mousedown', e => {
+      dragging = true; startY = e.clientY; startH = results.offsetHeight;
+      document.body.style.userSelect = 'none';
+      e.preventDefault();
+    });
+    document.addEventListener('mousemove', e => {
+      if (!dragging) return;
+      const delta = startY - e.clientY;
+      results.style.height = Math.max(80, Math.min(600, startH + delta)) + 'px';
+    });
+    document.addEventListener('mouseup', () => {
+      if (dragging) { dragging = false; document.body.style.userSelect = ''; }
+    });
+  }
+
+  // ── Result tabs ───────────────────────────────────────────────────────────────
+  function beamSwitchResultTab(name) {
+    ['data','log'].forEach(t => {
+      document.getElementById('beam-result-' + t)?.classList.toggle('active', t === name);
+      document.getElementById('beam-rtab-' + t)?.classList.toggle('active', t === name);
+    });
+  }
+
+  // ── Log helpers ───────────────────────────────────────────────────────────────
+  function beamEdLog(level, msg) {
+    beamEd.logLines.push({ level, msg, time: new Date().toLocaleTimeString('en-US',{hour12:false}) });
+    beamEd.logBadge++;
+    const badge = document.getElementById('beam-log-badge');
+    if (badge) badge.textContent = beamEd.logBadge > 99 ? '99+' : beamEd.logBadge;
+    const logEl = document.getElementById('beam-result-log');
+    if (!logEl) return;
+    const line = document.createElement('div');
+    line.className = 'beam-log-line';
+    line.innerHTML =
+            `<span class="beam-log-time">${beamEd.logLines[beamEd.logLines.length-1].time}</span>` +
+            `<span class="beam-log-${level.toLowerCase()}">[${level}]</span> ${_bEsc(msg)}`;
+    logEl.appendChild(line);
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  // ── Result rendering ──────────────────────────────────────────────────────────
+  function beamEdRenderResults() {
+    const dataEl = document.getElementById('beam-result-data');
+    if (!dataEl) return;
+    const emptyEl = document.getElementById('beam-result-empty');
+    if (emptyEl) emptyEl.style.display = 'none';
+
+    const cols = beamEd.columns;
+    const rows = beamEd.results;
+
+    if (!rows.length) {
+      dataEl.innerHTML = '<div class="beam-empty-state"><div class="icon">✓</div><div>Query returned no rows.</div></div>';
+      return;
+    }
+
+    let html = '<table class="beam-result-table"><thead><tr><th>#</th>';
+    cols.forEach(c => { html += `<th>${_bEsc(c.name || c)}</th>`; });
+    html += '</tr></thead><tbody>';
+    rows.forEach((row, ri) => {
+      const fields = Array.isArray(row?.fields) ? row.fields : Object.values(row?.fields || row || {});
+      html += `<tr><td style="color:var(--text-muted);text-align:right;">${ri+1}</td>`;
+      fields.forEach((v, ci) => {
+        const colType = (cols[ci]?.logicalType?.type || cols[ci]?.type || '').toUpperCase();
+        const isNum = ['INT','BIGINT','DOUBLE','FLOAT','DECIMAL','INTEGER','TINYINT','SMALLINT'].some(t => colType.includes(t));
+        const isNull = v === null || v === undefined;
+        const cls = isNull ? 'null-val' : isNum ? 'num-val' : '';
+        html += `<td class="${cls}" title="${_bEsc(v)}">${isNull ? 'NULL' : _bEsc(String(v))}</td>`;
+      });
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+    dataEl.innerHTML = html;
+
+    const badge = document.getElementById('beam-row-badge');
+    if (badge) badge.textContent = rows.length > 999 ? '999+' : rows.length;
+  }
+
+  // ── Execution ─────────────────────────────────────────────────────────────────
+  function beamEdSetRunning(yes) {
+    const run  = document.getElementById('beam-run-btn');
+    const stop = document.getElementById('beam-stop-btn');
+    const spin = document.getElementById('beam-exec-spinner');
+    if (run)  { run.disabled = yes; }
+    if (stop) { stop.classList.toggle('visible', yes); }
+    if (spin) { spin.classList.toggle('visible', yes); }
+    const dot = document.getElementById('beam-ed-session-dot');
+    if (dot) {
+      if (yes) { dot.style.background = 'var(--orange)'; dot.style.animation = 'blink 0.5s ease-in-out infinite'; }
+      else     { dot.classList.add('active'); dot.style.background = ''; dot.style.animation = ''; }
+    }
+  }
+
+  async function beamEditorRun() {
+    const ed = document.getElementById('beam-sql-editor');
+    const sql = ed?.value?.trim();
+    if (!sql) { toast('Editor is empty', 'err'); return; }
+
+    const sid = _beamSessionId;
+    if (!sid) {
+      toast('No active session — go to Overview to reconnect', 'err');
+      beamEdLog('ERR', 'No active session. Return to Overview and reconnect.');
+      beamSwitchResultTab('log');
+      return;
+    }
+    beamEd.sessionId = sid;
+
+    // Split on semicolons (respect strings)
+    const stmts = _beamSplitSQL(sql).filter(s => s.trim());
+    if (!stmts.length) return;
+
+    beamEdSetRunning(true);
+    beamEd.results  = [];
+    beamEd.columns  = [];
+    beamEd.logBadge = 0;
+    beamEd.rowBadge = 0;
+    document.getElementById('beam-result-log').innerHTML  = '';
+    document.getElementById('beam-result-data').innerHTML = '';
+    const badge = document.getElementById('beam-log-badge');
+    if (badge) badge.textContent = '0';
+    const rbadge = document.getElementById('beam-row-badge');
+    if (rbadge) rbadge.textContent = '0';
+
+    beamEdLog('INFO', `Running ${stmts.length} statement(s) on session ${sid.slice(0,8)}…`);
+
+    for (let i = 0; i < stmts.length; i++) {
+      const stmt = stmts[i];
+      beamEdLog('SQL', `[${i+1}/${stmts.length}] ${stmt.replace(/\s+/g,' ').slice(0,120)}${stmt.length>120?'…':''}`);
+      try {
+        await _beamRunStmt(sid, stmt);
+      } catch(e) {
+        beamEdLog('ERR', _beamParseError(e.message));
+        beamSwitchResultTab('log');
+        break;
+      }
+    }
+
+    beamEdSetRunning(false);
+    beamEd.currentOpId = null;
+  }
+
+  async function _beamRunStmt(sid, sql) {
+    // Submit
+    const resp = await _beamApi('POST', `/api/v1/sessions/${sid}/statements`, { statement: sql.replace(/;+$/, '') });
+    const opId = resp.operationId || resp.operationHandle;
+    if (!opId) throw new Error('No operationId returned');
+    beamEd.currentOpId = opId;
+
+    // Poll
+    let token = 0, polls = 0, firstRows = true, emptyPolls = 0;
+    const maxPolls = 3600;
+    const isInsert = /^\s*(INSERT|EXECUTE\s+STATEMENT)/i.test(sql.trim());
+
+    while (polls < maxPolls && beamEd.polling !== false) {
+      await _beamSleep(400);
+
+      let opStatus = 'RUNNING';
+      try {
+        const st = await _beamApi('GET', `/api/v1/sessions/${sid}/statements/${opId}/status`);
+        opStatus = ((st.operationStatus || st.status || 'RUNNING') + '').toUpperCase();
+      } catch(_) {}
+
+      if (opStatus === 'ERROR') {
+        // Fetch error detail
+        let errMsg = 'Operation failed';
+        try {
+          const er = await _beamApi('GET', `/api/v1/sessions/${sid}/statements/${opId}/result/0`);
+          if (er?.errors?.length) errMsg = er.errors.join(' | ');
+          else if (er?.message)   errMsg = er.message;
+        } catch(_) {}
+        throw new Error(errMsg);
+      }
+      if (opStatus === 'CANCELED') throw new Error('Operation was cancelled');
+      if (['NOT_READY','PENDING','INITIALIZED','ACCEPTED'].includes(opStatus)) { polls++; continue; }
+
+      // Fetch result page
+      let result;
+      try {
+        result = await _beamApi('GET', `/api/v1/sessions/${sid}/statements/${opId}/result/${token}`);
+      } catch(fe) {
+        if ((fe.message+'').includes('404')) {
+          beamEdLog('OK', `Stream ended — ${beamEd.results.length} row(s)`);
+          return;
+        }
+        polls++; continue;
+      }
+
+      // Advance token
+      if (result.nextResultUri) {
+        const m = (result.nextResultUri+'').match(/\/result\/(\d+)/);
+        token = m ? parseInt(m[1]) : token + 1;
+      } else {
+        token++;
+      }
+
+      // Columns
+      if (result.results?.columns?.length) beamEd.columns = result.results.columns;
+
+      // Rows
+      const rawData = result.results?.data || result.data || [];
+      const newRows = rawData.map(row => {
+        if (row == null) return { fields: [] };
+        if (!Array.isArray(row) && row.fields !== undefined) return { fields: Array.isArray(row.fields) ? row.fields : Object.values(row.fields) };
+        if (Array.isArray(row)) return { fields: row };
+        return { fields: Object.values(row) };
+      });
+
+      const isEOS = result.resultType === 'EOS' ||
+              (!result.nextResultUri && opStatus === 'FINISHED' && result.resultType !== 'PAYLOAD');
+
+      if (newRows.length) {
+        emptyPolls = 0;
+        // Detect job-ID-only result (INSERT submitted a streaming job)
+        const isJobIdResult = beamEd.columns.length === 1 &&
+                /^job.?id$/i.test(beamEd.columns[0]?.name || '');
+        if (isJobIdResult) {
+          const jobId = String(newRows[0]?.fields?.[0] ?? '').trim();
+          beamEdLog('OK', `Job submitted — Job ID: ${jobId}`);
+          toast(`Pipeline started: ${jobId.slice(0,8)}…`, 'ok');
+          // Auto-refresh jobs in sidebar
+          beamJgRefreshJobs();
+          const sbCount = document.getElementById('sb-editor-count');
+          if (sbCount) { sbCount.style.display = 'inline'; sbCount.textContent = '▶'; }
+          return;
+        }
+
+        // Detect DDL/SET status row
+        const isDDL = /^\s*(CREATE|DROP|ALTER|USE|SET|RESET|INSERT|EXECUTE)\b/i.test(sql.trim());
+        const isStatusOk = isDDL && beamEd.columns.length <= 1 && newRows.length > 0 &&
+                newRows.every(r => { const v = String(r?.fields?.[0]??'').trim().toUpperCase(); return v==='OK'||v==='TRUE'||v===''; });
+        if (isStatusOk) {
+          const verb = sql.trim().split(/\s+/)[0].toUpperCase();
+          beamEdLog('OK', `${verb} — OK`);
+          beamSwitchResultTab('log');
+          return;
+        }
+
+        // Normal data rows
+        if (firstRows) {
+          firstRows = false;
+          beamSwitchResultTab('data');
+        }
+        const remaining = beamEd.maxRows - beamEd.results.length;
+        if (remaining > 0) {
+          beamEd.results.push(...newRows.slice(0, remaining));
+          beamEdRenderResults();
+        }
+        if (beamEd.results.length >= beamEd.maxRows) {
+          beamEdLog('WARN', `Display capped at ${beamEd.maxRows.toLocaleString()} rows`);
+        }
+      } else {
+        emptyPolls++;
+        if (isInsert && emptyPolls > 0 && emptyPolls % 20 === 0) {
+          beamEdLog('INFO', `Streaming… ${beamEd.results.length} rows so far`);
+        }
+      }
+
+      if (isEOS) {
+        const n = beamEd.results.length;
+        if (n === 0 && firstRows) {
+          beamEdLog('OK', 'Statement executed successfully (no rows returned).');
+        } else {
+          beamEdLog('OK', `Query complete — ${n} row(s)`);
+          toast(`Done — ${n} rows`, 'ok');
+        }
+        return;
+      }
+      polls++;
+    }
+  }
+
+  function beamEditorStop() {
+    beamEd.polling = false;
+    const sid = beamEd.sessionId;
+    const opId = beamEd.currentOpId;
+    if (sid && opId) {
+      _beamApi('DELETE', `/api/v1/sessions/${sid}/statements/${opId}`).catch(() => {});
+    }
+    beamEdLog('WARN', 'Operation cancelled by user');
+    beamEdSetRunning(false);
+    beamEd.currentOpId = null;
+    setTimeout(() => { beamEd.polling = null; }, 200);
+  }
+
+  function beamClearResults() {
+    beamEd.results = []; beamEd.columns = [];
+    beamEd.logLines = []; beamEd.logBadge = 0; beamEd.rowBadge = 0;
+    const logEl = document.getElementById('beam-result-log');
+    const dataEl = document.getElementById('beam-result-data');
+    if (logEl) logEl.innerHTML = '';
+    if (dataEl) dataEl.innerHTML = '<div class="beam-empty-state"><div class="icon">⚡</div><div>Results cleared.</div></div>';
+    const b1 = document.getElementById('beam-log-badge');
+    const b2 = document.getElementById('beam-row-badge');
+    if (b1) b1.textContent = '0';
+    if (b2) b2.textContent = '0';
+  }
+
+  // ── Format SQL (basic beautifier) ────────────────────────────────────────────
+  function beamEditorFormatSQL() {
+    const ed = document.getElementById('beam-sql-editor');
+    if (!ed) return;
+    let sql = ed.value.trim();
+    if (!sql) return;
+    const TOP = /\b(FROM|WHERE|GROUP\s+BY|HAVING|ORDER\s+BY|LIMIT|JOIN|LEFT\s+JOIN|RIGHT\s+JOIN|INNER\s+JOIN|UNION\s+ALL|UNION|ON|INSERT\s+INTO|VALUES|WITH)\b/gi;
+    sql = sql.replace(TOP, m => '\n' + m);
+    const lines = sql.split('\n');
+    const KW = /^(SELECT|FROM|WHERE|GROUP|HAVING|ORDER|LIMIT|JOIN|LEFT|RIGHT|INNER|UNION|ON|INSERT|VALUES|WITH|CREATE|ALTER|DROP|SET|SHOW|USE|DESCRIBE)\b/i;
+    ed.value = lines.map(l => l.trim()).filter(Boolean).map((l,i) => (i>0 && !KW.test(l) ? '    ' : '') + l).join('\n');
+    beamEdUpdateLineNumbers();
+    toast('SQL formatted', 'ok');
+  }
+
+  // ── Export CSV ────────────────────────────────────────────────────────────────
+  function beamEditorExportCSV() {
+    if (!beamEd.results.length) { toast('No results to export', 'err'); return; }
+    const cols = beamEd.columns.map(c => c.name || c);
+    const rows = beamEd.results.map(row => {
+      const f = Array.isArray(row?.fields) ? row.fields : Object.values(row?.fields || row || {});
+      return f.map(v => '"' + String(v==null?'':v).replace(/"/g,'""') + '"').join(',');
+    });
+    const csv = [cols.join(','), ...rows].join('\n');
+    const a = document.createElement('a');
+    a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+    a.download = 'beam-results-' + new Date().toISOString().slice(0,19).replace(/[T:]/g,'-') + '.csv';
+    a.click();
+    toast(`Exported ${beamEd.results.length} rows`, 'ok');
+  }
+
+  // ── SQL splitter ──────────────────────────────────────────────────────────────
+  function _beamSplitSQL(raw) {
+    const stmts = []; let cur = '', inStr = false, strChar = '', inDollar = false, i = 0;
+    while (i < raw.length) {
+      const ch = raw[i];
+      if (!inStr && ch === '$' && raw[i+1] === '$') { inDollar = !inDollar; cur += '$$'; i+=2; continue; }
+      if (inDollar) { cur += ch; i++; continue; }
+      if (!inStr && (ch==="'"||ch==='"'||ch==='`')) { inStr=true; strChar=ch; cur+=ch; i++; continue; }
+      if (inStr && ch===strChar && raw[i-1]!=='\\') { inStr=false; cur+=ch; i++; continue; }
+      if (inStr) { cur+=ch; i++; continue; }
+      if (ch==='-' && raw[i+1]==='-') { i+=2; while(i<raw.length && raw[i]!=='\n')i++; i++; continue; }
+      if (ch==='/' && raw[i+1]==='*') { i+=2; while(i<raw.length&&!(raw[i]==='*'&&raw[i+1]=='/'))i++; i+=2; continue; }
+      if (ch===';') { const s=cur.trim(); if(s) stmts.push(s); cur=''; i++; continue; }
+      cur+=ch; i++;
+    }
+    const t=cur.trim(); if(t) stmts.push(t);
+    return stmts;
+  }
+
+  function _beamSleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  function _beamParseError(raw) {
+    if (!raw) return 'Unknown error';
+    const s = String(raw);
+    if (s.includes('does not exist') && s.includes('Session')) return 'Session expired — return to Overview to reconnect';
+    const m = s.match(/(?:Caused by:|Exception|Error)[^:\r\n]*:[\s]*([^\r\n]{5,200})/);
+    if (m) return m[1].trim();
+    return s.replace(/[\r\n]+/g,' ').slice(0,200);
+  }
+
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     JOB GRAPH ENGINE
+     Renders the Flink DAG using Beam's /api/v1/jobs/* endpoints.
+     Reuses the same visual style as Studio's jobgraph.js but self-contained.
+     ═══════════════════════════════════════════════════════════════════════════ */
+
+  const beamJg = {
+    currentJid:  null,
+    liveTimer:   null,
+    liveRunning: false,
+    jobList:     [],
+    scaleVal:    1.0,
+    panX: 0, panY: 0,
+  };
+
+  // ── Refresh job list ──────────────────────────────────────────────────────────
+  async function beamJgRefreshJobs() {
+    try {
+      const data = await _beamApi('GET', '/api/v1/jobs');
+      const jobs = Array.isArray(data) ? data : (data?.jobs || []);
+      beamJg.jobList = jobs;
+
+      // Update sidebar count badge
+      const cnt = document.getElementById('sb-jobview-count');
+      if (cnt) cnt.textContent = jobs.length;
+
+      // Populate select
+      const sel = document.getElementById('beam-jg-job-select');
+      if (sel) {
+        const prev = sel.value;
+        sel.innerHTML = '<option value="">— Select a job —</option>';
+        jobs.forEach(j => {
+          const opt = document.createElement('option');
+          opt.value = j.jid || j.id || '';
+          const st = j.state || j.status || '';
+          const dur = j.duration ? _bFmtDur(j.duration) : '';
+          opt.textContent = `[${st}] ${(j.name||'').slice(0,40)} ${dur ? '('+dur+')' : ''}`;
+          sel.appendChild(opt);
+        });
+        if (prev && jobs.find(j => (j.jid||j.id) === prev)) {
+          sel.value = prev;
+        } else {
+          // Auto-select first RUNNING
+          const running = jobs.find(j => (j.state||j.status||'').toUpperCase()==='RUNNING');
+          if (running) { sel.value = running.jid||running.id||''; }
+        }
+        if (sel.value) beamJgLoadJob(sel.value);
+      }
+
+      // Render job list sidebar
+      beamJgRenderSidebar(jobs);
+    } catch(e) {
+      toast('Could not load jobs: ' + e.message, 'err');
+    }
+  }
+
+  function beamJgRenderSidebar(jobs) {
+    const el = document.getElementById('beam-jv-job-list');
+    if (!el) return;
+    if (!jobs.length) {
+      el.innerHTML = '<div style="padding:12px;font-size:11px;color:var(--text-muted);">No jobs found on this cluster.</div>';
+      return;
+    }
+    el.innerHTML = jobs.map(j => {
+      const jid = j.jid || j.id || '';
+      const st  = (j.state || j.status || 'UNKNOWN').toUpperCase();
+      const isActive = jid === beamJg.currentJid;
+      const dur = j.duration ? _bFmtDur(j.duration) : '';
+      return `<div class="beam-job-item ${isActive?'active':''}" onclick="beamJgSelectFromSidebar('${jid}')">
+      <div style="display:flex;align-items:center;gap:7px;">
+        <div class="beam-job-state-dot ${st}"></div>
+        <div class="beam-job-item-name" title="${_bEsc(j.name||jid)}">${_bEsc((j.name||jid).slice(0,30))}</div>
+      </div>
+      <div class="beam-job-item-meta">
+        <span style="color:${st==='RUNNING'?'var(--green)':st==='FAILED'?'var(--accent)':'var(--text-tertiary)'}">${st}</span>
+        ${dur ? `<span>${dur}</span>` : ''}
+        <span style="color:var(--text-muted);">${jid.slice(0,8)}…</span>
+      </div>
+    </div>`;
+    }).join('');
+  }
+
+  function beamJgSelectFromSidebar(jid) {
+    const sel = document.getElementById('beam-jg-job-select');
+    if (sel) sel.value = jid;
+    beamJgLoadJob(jid);
+  }
+
+  // ── Load and render a job's DAG ───────────────────────────────────────────────
+  async function beamJgLoadJob(jid) {
+    if (!jid) return;
+    beamJg.currentJid = jid;
+    beamJgRenderSidebar(beamJg.jobList); // update active state
+
+    const wrap = document.getElementById('beam-jg-canvas-wrap');
+    if (!wrap) return;
+    wrap.innerHTML = `<div class="beam-empty-state"><div style="font-size:24px;opacity:0.4;">◈</div><div>Loading job graph…</div></div>`;
+    document.getElementById('beam-jv-detail')?.classList.remove('open');
+
+    try {
+      const [plan, jobDetail] = await Promise.all([
+        _beamApi('GET', `/api/v1/jobs/${jid}/plan`),
+        _beamApi('GET', `/api/v1/jobs/${jid}`),
+      ]);
+
+      if (!jobDetail) {
+        wrap.innerHTML = `<div class="beam-empty-state"><div class="icon" style="font-size:32px;">◈</div><div>Job details unavailable — job may have been evicted from memory.</div></div>`;
+        return;
+      }
+      if (!plan?.plan) {
+        wrap.innerHTML = `<div class="beam-empty-state"><div>No execution plan returned for this job.</div></div>`;
+        return;
+      }
+
+      // Status badge
+      const st = (jobDetail.state || 'UNKNOWN').toUpperCase();
+      const badge = document.getElementById('beam-jv-status-badge');
+      if (badge) {
+        badge.textContent = st;
+        badge.className = 'beam-jv-badge ' + st;
+        badge.style.display = 'inline-flex';
+      }
+      // Cancel button
+      const cancelBtn = document.getElementById('beam-jg-cancel-btn');
+      if (cancelBtn) cancelBtn.style.display = ['RUNNING','RESTARTING','CREATED','INITIALIZING'].includes(st) ? 'inline-flex' : 'none';
+
+      // Vertex metrics for RUNNING jobs
+      let vertexMetrics = {};
+      if (st === 'RUNNING' && plan.plan?.nodes) {
+        const vertices = jobDetail.vertices || [];
+        for (const node of (plan.plan.nodes || []).slice(0, 8)) {
+          try {
+            const listR = await _beamApi('GET', `/api/v1/jobs/${jid}/vertices/${node.id}/metrics`);
+            if (listR && Array.isArray(listR)) {
+              const names = listR.map(m => m.id);
+              const wantedSufs = ['numRecordsInPerSecond','numRecordsOutPerSecond','backPressuredTimeMsPerSecond'];
+              const fetchIds = names.filter(id => { const s = id.includes('.')?id.slice(id.lastIndexOf('.')+1):id; return wantedSufs.includes(s); });
+              if (fetchIds.length) {
+                const vm = await _beamApi('GET', `/api/v1/jobs/${jid}/vertices/${node.id}/metrics?get=${encodeURIComponent(fetchIds.join(','))}`);
+                if (vm && Array.isArray(vm)) {
+                  vertexMetrics[node.id] = {};
+                  vm.forEach(m => {
+                    const seg = m.id.includes('.')?m.id.slice(m.id.lastIndexOf('.')+1):m.id;
+                    if (!vertexMetrics[node.id][seg]) vertexMetrics[node.id][seg] = 0;
+                    vertexMetrics[node.id][seg] += parseFloat(m.value||0);
+                  });
+                }
+              }
+            }
+          } catch(_) {}
+        }
+      }
+
+      beamJgRenderDAG(wrap, plan.plan, jobDetail, vertexMetrics);
+
+      // Auto-live for running jobs
+      if (st === 'RUNNING') beamJgStartLive();
+      else beamJgStopLive();
+
+    } catch(e) {
+      wrap.innerHTML = `<div class="beam-empty-state" style="color:var(--accent);"><div style="font-size:28px;opacity:0.5;">⚠</div><div>${_bEsc(e.message)}</div></div>`;
+    }
+  }
+
+  function beamJgReload() {
+    if (beamJg.currentJid) beamJgLoadJob(beamJg.currentJid);
+  }
+
+  // ── DAG renderer ──────────────────────────────────────────────────────────────
+  function beamJgRenderDAG(wrap, plan, jobDetail, vertexMetrics) {
+    const nodes    = plan.nodes || [];
+    const vertices = jobDetail.vertices || [];
+    const jobState = (jobDetail.state || 'UNKNOWN').toUpperCase();
+    if (!nodes.length) {
+      wrap.innerHTML = '<div class="beam-empty-state"><div>No graph data available</div></div>';
+      return;
+    }
+
+    // Build edges
+    const edges = [];
+    nodes.forEach(n => (n.inputs||[]).forEach(inp => edges.push({ from: inp.id, to: n.id, ship: inp.ship_strategy||'' })));
+
+    // Topological layering
+    const inDeg = {}, children = {};
+    nodes.forEach(n => { inDeg[n.id] = 0; children[n.id] = []; });
+    edges.forEach(e => { inDeg[e.to]++; children[e.from].push(e.to); });
+    const layers = [];
+    let queue = nodes.filter(n => inDeg[n.id]===0).map(n=>n.id);
+    const visited = new Set();
+    while (queue.length) {
+      layers.push([...queue]);
+      const next = [];
+      queue.forEach(id => {
+        visited.add(id);
+        children[id].forEach(cid => { inDeg[cid]--; if(inDeg[cid]===0&&!visited.has(cid)) next.push(cid); });
+      });
+      queue = next;
+    }
+    nodes.forEach(n => { if (!visited.has(n.id)) layers.push([n.id]); });
+
+    // Positions
+    const NODE_W=200, NODE_H=72, H_GAP=80, V_GAP=36;
+    const positions = {};
+    layers.forEach((layer, li) => layer.forEach((id, ri) => {
+      positions[id] = { x: li*(NODE_W+H_GAP)+24, y: ri*(NODE_H+V_GAP)+24 };
+    }));
+    const svgW = layers.length*(NODE_W+H_GAP)+48;
+    const maxNodes = Math.max(...layers.map(l=>l.length));
+    const svgH = maxNodes*(NODE_H+V_GAP)+48;
+
+    const faultStatuses = new Set(['FAILED','ERROR','FAILING','CANCELING']);
+
+    let edgesSVG = '', nodesSVG = '';
+
+    // Edges
+    edges.forEach(e => {
+      const from = positions[e.from], to = positions[e.to];
+      if (!from || !to) return;
+      const fVtx = vertices.find(v=>v.id===e.from)||{};
+      const tVtx = vertices.find(v=>v.id===e.to)||{};
+      const hasErr = faultStatuses.has(fVtx.status)||faultStatuses.has(tVtx.status);
+      const x1=from.x+NODE_W, y1=from.y+NODE_H/2, x2=to.x, y2=to.y+NODE_H/2;
+      const cx1=x1+(x2-x1)*0.45, cx2=x1+(x2-x1)*0.55;
+      const strokeColor = hasErr ? 'var(--accent)' : jobState==='RUNNING' ? 'var(--green)' : 'var(--border-med)';
+      const markId = hasErr ? 'bm-arr-err' : jobState==='RUNNING' ? 'bm-arr-active' : 'bm-arr';
+      edgesSVG += `<path d="M${x1},${y1} C${cx1},${y1} ${cx2},${y2} ${x2},${y2}"
+      stroke="${strokeColor}" stroke-width="1.8" fill="none" opacity="0.75"
+      marker-end="url(#${markId})"/>`;
+      if (e.ship) {
+        const mx=(x1+x2)/2, my=(y1+y2)/2-7;
+        edgesSVG += `<text x="${mx}" y="${my}" text-anchor="middle"
+        style="font-family:var(--font-mono);font-size:8px;fill:var(--text-muted);">${_bEsc(e.ship)}</text>`;
+      }
+    });
+
+    // Nodes
+    nodes.forEach(n => {
+      const pos = positions[n.id];
+      if (!pos) return;
+      const { x, y } = pos;
+      const vtx    = vertices.find(v=>v.id===n.id)||{};
+      const vSt    = (vtx.status||jobState||'UNKNOWN').toUpperCase();
+      const isFault = faultStatuses.has(vSt);
+      const isSource = (n.inputs||[]).length===0;
+      const isSink   = !nodes.some(o=>(o.inputs||[]).some(inp=>inp.id===n.id));
+
+      const vm = vertexMetrics[n.id]||{};
+      const recIn  = vm['numRecordsInPerSecond']  != null ? Math.round(vm['numRecordsInPerSecond'])  : null;
+      const recOut = vm['numRecordsOutPerSecond'] != null ? Math.round(vm['numRecordsOutPerSecond']) : null;
+      const bp     = vm['backPressuredTimeMsPerSecond'] != null ? Math.min(100,Math.round(vm['backPressuredTimeMsPerSecond']/10)) : null;
+
+      const isIdle = (isSource ? recOut : recIn) === 0 && vSt==='RUNNING';
+
+      // Node fill colour
+      let fillColor, labelColor;
+      if (isFault)       { fillColor='rgba(232,51,74,0.15)';   labelColor='var(--accent)'; }
+      else if (isSource) { fillColor='rgba(0,115,230,0.12)';  labelColor='var(--blue)'; }
+      else if (isSink)   { fillColor='rgba(0,160,180,0.12)';  labelColor='var(--green)'; }
+      else               { fillColor='rgba(160,120,220,0.10)'; labelColor='var(--text-secondary)'; }
+      if (isIdle && !isFault) { fillColor='rgba(120,120,120,0.08)'; }
+
+      const stColors = { RUNNING:'var(--green)', FINISHED:'var(--text-muted)', FAILED:'var(--accent)', CANCELED:'var(--orange)', CREATED:'var(--orange)' };
+      const dotColor = stColors[vSt] || 'var(--text-muted)';
+
+      const cleanName = (n.description||n.id||'').replace(/<br\s*\/?>/gi,' ').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().slice(0,28);
+      const typeLabel = isFault?'ERROR':isSource?'SOURCE':isSink?'SINK':'PROCESS';
+      const par = n.parallelism||vtx.parallelism||'';
+
+      const fmtR = r => r!=null?(r>999?_bFmtN(r)+'/s':r+'/s'):'—';
+      let metricLine = '';
+      if (isSource && recOut!=null) metricLine = `OUT ${fmtR(recOut)}`;
+      else if (isSink && recIn!=null) metricLine = `IN ${fmtR(recIn)}`;
+      else if (!isSource && !isSink && (recIn!=null||recOut!=null)) metricLine = `↓${fmtR(recIn)} ↑${fmtR(recOut)}`;
+      if (bp!=null && bp>20) metricLine += (metricLine?' · ':'') + `BP ${bp}%`;
+
+      nodesSVG += `
+<g class="bm-jg-node" data-id="${_bEsc(n.id)}" style="cursor:pointer;">
+  <rect x="${x}" y="${y}" width="${NODE_W}" height="${NODE_H}" rx="4"
+    fill="${fillColor}" stroke="${isFault?'var(--accent)':isSource?'rgba(0,115,230,0.4)':isSink?'rgba(0,160,180,0.4)':'rgba(160,120,220,0.3)'}"
+    stroke-width="${isFault?2:1.5}"/>
+  <circle cx="${x+12}" cy="${y+12}" r="4" fill="${dotColor}"${vSt==='RUNNING'?' style="animation:blink 2s ease-in-out infinite"':''}/>
+  <text x="${x+22}" y="${y+16}"
+    style="font-family:var(--font-mono);font-size:8px;fill:${labelColor};font-weight:700;">
+    ${_bEsc(typeLabel)}${par?' ×'+par:''}
+  </text>
+  <text x="${x+8}" y="${y+35}"
+    style="font-family:var(--font-mono);font-size:11px;fill:var(--text-primary);font-weight:600;">
+    ${_bEsc(cleanName.slice(0,26))}
+  </text>
+  <text x="${x+8}" y="${y+54}"
+    style="font-family:var(--font-mono);font-size:9px;fill:${isFault?'var(--accent)':'var(--text-tertiary)'};">
+    ${isFault ? 'VERTEX FAILED' : _bEsc(metricLine || n.id.slice(0,12)+'…')}
+  </text>
+</g>`;
+    });
+
+    const svg = `<svg id="bm-jg-svg" width="${Math.max(svgW,600)}" height="${Math.max(svgH+20,400)}"
+    xmlns="http://www.w3.org/2000/svg" style="display:block;">
+  <defs>
+    <marker id="bm-arr" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="var(--border-med)"/>
+    </marker>
+    <marker id="bm-arr-active" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="var(--green)"/>
+    </marker>
+    <marker id="bm-arr-err" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="var(--accent)"/>
+    </marker>
+  </defs>
+  <g id="bm-jg-pan">${edgesSVG}${nodesSVG}</g>
+</svg>`;
+
+    wrap.innerHTML = svg;
+
+    // Pan + zoom
+    const svgEl  = wrap.querySelector('#bm-jg-svg');
+    const panGrp = wrap.querySelector('#bm-jg-pan');
+    beamJg.panX = 0; beamJg.panY = 0; beamJg.scaleVal = 1.0;
+    const applyTransform = () => {
+      panGrp.setAttribute('transform',`translate(${beamJg.panX},${beamJg.panY}) scale(${beamJg.scaleVal})`);
+    };
+    let dragging=false, startX=0, startY=0;
+    wrap.addEventListener('mousedown', e => {
+      if (e.target.closest('.bm-jg-node')) return;
+      dragging=true; startX=e.clientX-beamJg.panX; startY=e.clientY-beamJg.panY;
+      wrap.classList.add('dragging'); e.preventDefault();
+    });
+    window.addEventListener('mousemove', e => {
+      if (!dragging) return;
+      beamJg.panX=e.clientX-startX; beamJg.panY=e.clientY-startY; applyTransform();
+    });
+    window.addEventListener('mouseup', () => { if(dragging){dragging=false;wrap.classList.remove('dragging');} });
+
+    wrap.addEventListener('wheel', e => {
+      e.preventDefault();
+      const delta = e.deltaY>0?-0.1:0.1;
+      beamJg.scaleVal = Math.min(4,Math.max(0.2,beamJg.scaleVal+delta));
+      const rect=wrap.getBoundingClientRect();
+      const mx=e.clientX-rect.left, my=e.clientY-rect.top;
+      beamJg.panX = mx-(mx-beamJg.panX)*(beamJg.scaleVal/(beamJg.scaleVal-delta));
+      beamJg.panY = my-(my-beamJg.panY)*(beamJg.scaleVal/(beamJg.scaleVal-delta));
+      applyTransform();
+    }, { passive:false });
+
+    svgEl.addEventListener('dblclick', e => {
+      if (e.target===svgEl||e.target.id==='bm-jg-pan'||e.target.tagName==='svg') {
+        beamJg.scaleVal=1.0; beamJg.panX=0; beamJg.panY=0; applyTransform();
+      }
+    });
+
+    // Node click → show detail
+    wrap.querySelectorAll('.bm-jg-node').forEach(g => {
+      g.addEventListener('click', e => { e.stopPropagation(); beamJgSelectNode(g.dataset.id, nodes, vertices, vertexMetrics); });
+      g.addEventListener('dblclick', e => { e.stopPropagation(); beamJgShowNodeDetail(g.dataset.id, nodes, vertices, vertexMetrics); });
+    });
+  }
+
+  // ── Node selection + detail ───────────────────────────────────────────────────
+  function beamJgSelectNode(nid, nodes, vertices, vertexMetrics) {
+    document.querySelectorAll('#beam-jg-canvas-wrap .bm-jg-node rect').forEach(r => {
+      r.setAttribute('stroke-width', '1.5');
+    });
+    const g = document.querySelector(`#beam-jg-canvas-wrap .bm-jg-node[data-id="${nid}"]`);
+    if (g) g.querySelector('rect')?.setAttribute('stroke-width','3');
+    beamJgShowNodeDetail(nid, nodes, vertices, vertexMetrics);
+  }
+
+  function beamJgShowNodeDetail(nid, nodes, vertices, vertexMetrics) {
+    const node   = nodes.find(n=>n.id===nid)||{};
+    const vtx    = vertices.find(v=>v.id===nid)||{};
+    const vm     = vertexMetrics[nid]||{};
+    const detail = document.getElementById('beam-jv-detail');
+    if (!detail) return;
+
+    const cleanName = (node.description||nid||'Vertex').replace(/<br\s*\/?>/gi,' ').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim();
+    const titleEl = document.getElementById('beam-jv-detail-title-text');
+    if (titleEl) titleEl.textContent = cleanName.slice(0,60);
+
+    const isSource = (node.inputs||[]).length===0;
+    const isSink   = !nodes.some(o=>(o.inputs||[]).some(inp=>inp.id===nid));
+    const st = (vtx.status||'UNKNOWN').toUpperCase();
+
+    const recIn  = vm['numRecordsInPerSecond']  != null ? Math.round(vm['numRecordsInPerSecond'])  : null;
+    const recOut = vm['numRecordsOutPerSecond'] != null ? Math.round(vm['numRecordsOutPerSecond']) : null;
+    const bp     = vm['backPressuredTimeMsPerSecond'] != null ? Math.min(100,Math.round(vm['backPressuredTimeMsPerSecond']/10)) : null;
+
+    const mk = (label, val, unit, cls='') => `
+    <div class="beam-metric-card ${cls}">
+      <div class="mc-label">${label}</div>
+      <div class="mc-val">${val}</div>
+      <div class="mc-unit">${unit}</div>
+    </div>`;
+
+    const stColors = { RUNNING:'highlight', FAILED:'danger', CANCELED:'', FINISHED:'' };
+    const grid = document.getElementById('beam-jv-metric-grid');
+    if (grid) grid.innerHTML = [
+      mk('Status',   st,  '', stColors[st]||''),
+      mk('Parallel', node.parallelism||vtx.parallelism||'—', 'tasks'),
+      mk('Rec In/s', recIn!=null?_bFmtN(recIn):'—',  'rec/s', recIn!=null&&recIn>0?'highlight':''),
+      mk('Rec Out/s',recOut!=null?_bFmtN(recOut):'—','rec/s', recOut!=null&&recOut>0?'highlight':''),
+      mk('Backpressure', bp!=null?bp+'%':'—', '', bp!=null&&bp>70?'danger':bp!=null&&bp>20?'':'' ),
+      mk('Duration', vtx.duration?_bFmtDur(vtx.duration):'—', ''),
+    ].join('');
+
+    const kvTable = document.getElementById('beam-jv-kv-table');
+    if (kvTable) {
+      const rows = [
+        ['Vertex ID',    nid.slice(0,16)+'…'],
+        ['Type',         isSource?'Source':isSink?'Sink':'Process'],
+        ['Write Records',vtx.metrics?.['write-records']??'—'],
+        ['Read Records', vtx.metrics?.['read-records']??'—'],
+        ['Host',         (vtx.subtasks?.[0]?.host)||'—'],
+      ];
+      kvTable.innerHTML = rows.map(([k,v])=>`<tr><td class="kk">${k}</td><td class="vv">${_bEsc(String(v))}</td></tr>`).join('');
+    }
+
+    detail.classList.add('open');
+  }
+
+  // ── Live refresh ──────────────────────────────────────────────────────────────
+  function beamJgStartLive() {
+    beamJgStopLive();
+    beamJg.liveRunning = true;
+    const btn = document.getElementById('beam-jg-live-btn');
+    if (btn) btn.innerHTML = '<span class="beam-live-dot"></span>Live';
+    beamJg.liveTimer = setInterval(() => {
+      if (beamJg.currentJid) beamJgLoadJob(beamJg.currentJid);
+    }, 4000);
+  }
+  function beamJgStopLive() {
+    beamJg.liveRunning = false;
+    if (beamJg.liveTimer) { clearInterval(beamJg.liveTimer); beamJg.liveTimer = null; }
+    const btn = document.getElementById('beam-jg-live-btn');
+    if (btn) btn.innerHTML = '▶ Live';
+  }
+  function beamJgToggleLive() {
+    beamJg.liveRunning ? beamJgStopLive() : beamJgStartLive();
+  }
+
+  // ── Cancel job ────────────────────────────────────────────────────────────────
+  async function beamJgCancelJob() {
+    const jid = beamJg.currentJid;
+    if (!jid) { toast('No job selected', 'err'); return; }
+    if (!confirm(`Cancel Flink job ${jid.slice(0,8)}…? This cannot be undone.`)) return;
+    try {
+      await _beamApi('DELETE', `/api/v1/jobs/${jid}`);
+      toast(`Job ${jid.slice(0,8)}… cancel requested`, 'ok');
+      setTimeout(() => beamJgLoadJob(jid), 1500);
+    } catch(e) {
+      toast('Cancel failed: ' + e.message, 'err');
+    }
+  }
+
+  // ── "Open in Studio" button in topnav connects to Studio with current session ─
+  // Already handled by existing connectToStudio() — we just add a shortcut button.
+
+  // ── Wire up "Open in Studio" quick link in editor session bar ─────────────────
+  document.addEventListener('DOMContentLoaded', function() {
+    // When the editor section is first shown, update session bar
+    // Keyboard shortcut: Escape closes node detail
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        document.getElementById('beam-jv-detail')?.classList.remove('open');
+      }
+    });
+  });
+
+  // ── Sidebar item counter: running jobs indicator ──────────────────────────────
+  // Poll every 30s to keep the running job count in the sidebar fresh
+  setInterval(() => {
+    if (!getJwt()) return;
+    _beamApi('GET', '/api/v1/jobs').then(data => {
+      const jobs = Array.isArray(data) ? data : (data?.jobs || []);
+      const cnt = document.getElementById('sb-jobview-count');
+      if (cnt) cnt.textContent = jobs.length;
+      // Update running indicator on editor button
+      const edCount = document.getElementById('sb-editor-count');
+      const running = jobs.filter(j=>(j.state||j.status||'').toUpperCase()==='RUNNING').length;
+      if (edCount && running > 0) {
+        edCount.style.display = 'inline';
+        edCount.textContent = running + ' ▶';
+      } else if (edCount) {
+        edCount.style.display = 'none';
+      }
+      beamJg.jobList = jobs;
+    }).catch(() => {});
+  }, 30000);
+</script>
+
+<script id="beam-workspace-js">
+  /* ═══════════════════════════════════════════════════════════════════════════
+     BEAM EMBEDDED WORKSPACE  —  SQL Editor + Job Graph
+     All identifiers prefixed "beamEd" / "beamJg" / "_bw" to avoid collisions.
+     Talks to Beam engine via JWT+session established by beamOpenSession().
+     ═══════════════════════════════════════════════════════════════════════════ */
+
+  /* ── tiny helpers ─────────────────────────────────────────────────────────── */
+  const _bwEsc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const _bwSleep = ms => new Promise(r=>setTimeout(r,ms));
+  function _bwFmtDur(ms){
+    if(!ms||ms<=0)return'—';
+    if(ms<1000)return ms+'ms';
+    if(ms<60000)return(ms/1000).toFixed(1)+'s';
+    return Math.floor(ms/60000)+'m '+Math.round((ms%60000)/1000)+'s';
+  }
+  function _bwFmtN(n){
+    if(n==null)return'—';n=parseFloat(n);
+    if(isNaN(n))return'—';
+    if(n>=1e6)return(n/1e6).toFixed(1)+'M';
+    if(n>=1e3)return(n/1e3).toFixed(1)+'k';
+    return String(Math.round(n));
+  }
+
+  /* ── Beam API ─────────────────────────────────────────────────────────────── */
+  async function _bwApi(method, path, body){
+    const base = (getBaseUrl()||'http://localhost:8090').replace(/\/$/,'');
+    const jwt  = getJwt();
+    if(!jwt) throw new Error('Not authenticated');
+    const opts = { method, headers:{ 'Authorization':'Bearer '+jwt, 'Accept':'application/json' } };
+    if(body){ opts.headers['Content-Type']='application/json'; opts.body=JSON.stringify(body); }
+    const r = await fetch(base+path, opts);
+    if(!r.ok){
+      let msg='HTTP '+r.status;
+      try{ const j=await r.json(); msg=j.message||j.error||msg; }catch(_){}
+      throw new Error(msg);
+    }
+    if(r.status===204)return null;
+    return r.json();
+  }
+
+  /* ── Section routing (extends existing showSection) ──────────────────────── */
+  (function(){
+    const _orig = window.showSection;
+    const TOOL_SECTIONS = ['editor','jobview'];
+    const STANDARD_SECTIONS = ['overview','credentials','integration','jobs','plan','apikeys','docs'];
+
+    window.showSection = function(name){
+      // Hide all standard sections
+      STANDARD_SECTIONS.forEach(s=>{
+        const el=document.getElementById('section-'+s);
+        if(el) el.style.display='none';
+      });
+      // Hide tool sections too
+      TOOL_SECTIONS.forEach(s=>{
+        const el=document.getElementById('section-'+s);
+        if(el){ el.style.display='none'; el.classList.remove('active'); }
+      });
+      // Remove all sidebar active states
+      document.querySelectorAll('.sidebar-item').forEach(b=>b.classList.remove('active'));
+
+      if(TOOL_SECTIONS.includes(name)){
+        const sec=document.getElementById('section-'+name);
+        if(sec){ sec.style.display='flex'; sec.classList.add('active'); }
+        const sbBtn=document.getElementById('sb-'+name+'-btn');
+        if(sbBtn) sbBtn.classList.add('active');
+        window.scrollTo({top:0});
+        if(name==='editor'){ beamEdInit(); }
+        if(name==='jobview'){ beamJgRefresh(); if(!beamJg.liveTimer) beamJgStartLive(); }
+      } else {
+        if(typeof _orig==='function') _orig(name);
+      }
+    };
+  })();
+
+  window.showBeamTool = name => showSection(name);
+
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     SYNTAX HIGHLIGHTER  (mirror-div technique from sql-highlight.js)
+     ═══════════════════════════════════════════════════════════════════════════ */
+  (function(){
+    /* token regex definitions — ordered: first match wins */
+    const TOKENS = [
+      { cls:'bsh-cmt', rx:/--[^\n]*/g },
+      { cls:'bsh-str', rx:/'(?:[^'\\]|\\.)*'/g },
+      { cls:'bsh-id',  rx:/`[^`]*`/g },
+      { cls:'bsh-kw',  rx:/\b(CREATE|ALTER|DROP|INSERT|UPSERT|UPDATE|DELETE|TRUNCATE|EXECUTE|EXPLAIN|DESCRIBE|DESC|SHOW|USE|SET|RESET|TEMPORARY|TEMP|EXTERNAL|IF\s+NOT\s+EXISTS|IF\s+EXISTS|NOT\s+ENFORCED|NOT\s+NULL|PRIMARY\s+KEY|WATERMARK\s+FOR|EXCLUDING\s+ALL|OVERWRITE|ADD\s+JAR)\b/gi },
+      { cls:'bsh-cl',  rx:/\b(SELECT|DISTINCT|ALL|FROM|WHERE|GROUP\s+BY|HAVING|ORDER\s+BY|LIMIT|OFFSET|INTO|VALUES|RETURNING|WITH|AS|ON|USING|JOIN|INNER\s+JOIN|LEFT\s+(?:OUTER\s+)?JOIN|RIGHT\s+(?:OUTER\s+)?JOIN|FULL\s+(?:OUTER\s+)?JOIN|CROSS\s+JOIN|UNION\s+ALL|UNION|INTERSECT|EXCEPT|PARTITION\s+BY|OVER|WINDOW|WHEN|THEN|ELSE|END|CASE|AND|OR|NOT|IN|EXISTS|BETWEEN|LIKE|IS\s+NULL|IS\s+NOT\s+NULL|TABLE|VIEW|DATABASE|CATALOG|FUNCTION)\b/gi },
+      { cls:'bsh-st',  rx:/\b(TUMBLE|HOP|SESSION|CUMULATE|DESCRIPTOR|MATCH_RECOGNIZE|PATTERN|DEFINE|MEASURES|WATERMARK|PROCTIME|ROWTIME|UNBOUNDED\s+PRECEDING|UNBOUNDED\s+FOLLOWING|CURRENT\s+ROW|SOURCE|SINK)\b/gi },
+      { cls:'bsh-tp',  rx:/\b(BIGINT|INT|INTEGER|SMALLINT|TINYINT|FLOAT|DOUBLE|DECIMAL|NUMERIC|VARCHAR|CHAR|STRING|BOOLEAN|BYTES|BINARY|DATE|TIMESTAMP(?:\s*\(\s*\d\s*\))?|TIME|TIMESTAMP_LTZ|INTERVAL|ARRAY|MAP|ROW|NULL)\b/gi },
+      { cls:'bsh-fn',  rx:/\b(COUNT|SUM|AVG|MIN|MAX|COALESCE|NULLIF|CAST|TRY_CAST|TRIM|UPPER|LOWER|LENGTH|CONCAT|REPLACE|REGEXP_EXTRACT|REGEXP_REPLACE|JSON_VALUE|JSON_QUERY|TO_TIMESTAMP|DATE_FORMAT|CURRENT_TIMESTAMP|NOW|ROW_NUMBER|RANK|DENSE_RANK|LAG|LEAD|FIRST_VALUE|LAST_VALUE|ROUND|FLOOR|CEIL|ABS|SQRT|MOD|TUMBLE_START|TUMBLE_END|HOP_START|HOP_END|SESSION_START|SESSION_END|WINDOW_START|WINDOW_END|PROCTIME|EXTRACT|SUBSTRING|OVERLAY|POSITION|LPAD|RPAD)\b(?=\s*\()/gi },
+      { cls:'bsh-num', rx:/\b(0x[\da-fA-F]+|\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)\b/g },
+      { cls:'bsh-op',  rx:/(<>|!=|<=|>=|=>|\|\||::|\*|\/|\+|-|=|<|>|;)/g },
+    ];
+
+    function _esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    function _highlight(text){
+      if(!text) return '';
+      const spans=[];
+      TOKENS.forEach(({cls,rx})=>{
+        rx.lastIndex=0;
+        let m;
+        while((m=rx.exec(text))!==null){
+          spans.push({start:m.index,end:m.index+m[0].length,cls});
+          if(!rx.global) break;
+        }
+      });
+      spans.sort((a,b)=>a.start-b.start||b.end-a.end);
+      const out=[]; let pos=0;
+      for(const sp of spans){
+        if(sp.start<pos) continue;
+        if(sp.start>pos) out.push('<span class="bsh-pl">'+_esc(text.slice(pos,sp.start))+'</span>');
+        out.push('<span class="'+sp.cls+'">'+_esc(text.slice(sp.start,sp.end))+'</span>');
+        pos=sp.end;
+      }
+      if(pos<text.length) out.push('<span class="bsh-pl">'+_esc(text.slice(pos))+'</span>');
+      return out.join('');
+    }
+
+    function _update(){
+      const ed=document.getElementById('beam-sql-editor');
+      const mirror=document.getElementById('beam-hl-mirror');
+      if(!ed||!mirror) return;
+      mirror.innerHTML = _highlight(ed.value+'\n');
+      mirror.scrollTop  = ed.scrollTop;
+      mirror.scrollLeft = ed.scrollLeft;
+    }
+
+    function _syncScroll(){
+      const ed=document.getElementById('beam-sql-editor');
+      const mirror=document.getElementById('beam-hl-mirror');
+      if(ed&&mirror){ mirror.scrollTop=ed.scrollTop; mirror.scrollLeft=ed.scrollLeft; }
+    }
+
+    /* expose so the editor engine can trigger updates */
+    window._bwHlUpdate = _update;
+    window._bwHlSync   = _syncScroll;
+
+    /* wire up once DOM ready */
+    document.addEventListener('DOMContentLoaded',()=>{
+      const ed=document.getElementById('beam-sql-editor');
+      if(!ed) return;
+      ed.addEventListener('input',  _update);
+      ed.addEventListener('change', _update);
+      ed.addEventListener('scroll', _syncScroll);
+      /* intercept programmatic .value sets */
+      const proto=Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value');
+      if(proto&&proto.set){
+        Object.defineProperty(ed,'value',{
+          get(){ return proto.get.call(this); },
+          set(v){ proto.set.call(this,v); requestAnimationFrame(_update); },
+          configurable:true,
+        });
+      }
+      _update();
+    });
+  })();
+
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     MULTI-TAB EDITOR ENGINE
+     ═══════════════════════════════════════════════════════════════════════════ */
+
+  const beamEd = {
+    tabs: [
+      { id:'bt-1', name:'Query 1', sql:'', saved:true }
+    ],
+    activeId: 'bt-1',
+    tabCounter: 1,
+    /* execution state */
+    sessionId:   null,
+    currentOpId: null,
+    polling:     true,
+    results:     [],
+    columns:     [],
+    logBadge:    0,
+    maxRows:     5000,
+  };
+
+  /* ── Tab management ──────────────────────────────────────────────────────── */
+  function beamEdNextNum(){
+    const used=new Set(beamEd.tabs.map(t=>{ const m=t.id.match(/bt-(\d+)/); return m?+m[1]:0; }));
+    let n=1; while(used.has(n))n++; return n;
+  }
+
+  function beamEdAddTab(name){
+    /* save current tab content first */
+    const cur=beamEd.tabs.find(t=>t.id===beamEd.activeId);
+    const ed=document.getElementById('beam-sql-editor');
+    if(cur&&ed) cur.sql=ed.value;
+
+    const n=beamEdNextNum();
+    beamEd.tabCounter=Math.max(beamEd.tabCounter,n);
+    const tab={ id:'bt-'+n, name:name||'Query '+n, sql:'', saved:true };
+    beamEd.tabs.push(tab);
+    beamEdActivate(tab.id);
+  }
+
+  function beamEdActivate(id){
+    /* save current */
+    const cur=beamEd.tabs.find(t=>t.id===beamEd.activeId);
+    const ed=document.getElementById('beam-sql-editor');
+    if(cur&&ed) cur.sql=ed.value;
+
+    beamEd.activeId=id;
+    const tab=beamEd.tabs.find(t=>t.id===id);
+    if(tab&&ed){
+      ed.value=tab.sql||'';
+      if(window._bwHlUpdate) window._bwHlUpdate();
+      beamEdUpdateLN();
+      beamEdUpdateCursor();
+    }
+    beamEdRenderTabs();
+  }
+
+  function beamEdCloseTab(id, evt){
+    evt&&evt.stopPropagation();
+    if(beamEd.tabs.length===1){ toast('Cannot close last tab','err'); return; }
+    const idx=beamEd.tabs.findIndex(t=>t.id===id);
+    beamEd.tabs.splice(idx,1);
+    if(beamEd.activeId===id){
+      const next=beamEd.tabs[Math.min(idx,beamEd.tabs.length-1)];
+      beamEdActivate(next.id);
+    } else {
+      beamEdRenderTabs();
+    }
+  }
+
+  function beamEdRenderTabs(){
+    const bar=document.getElementById('beam-tabs-bar');
+    if(!bar) return;
+    /* keep the + button, rebuild everything before it */
+    const addBtn=bar.querySelector('.beam-tab-add');
+    bar.innerHTML='';
+    beamEd.tabs.forEach(t=>{
+      const btn=document.createElement('button');
+      btn.className='beam-tab'+(t.id===beamEd.activeId?' active':'')+(!t.saved?' unsaved':'');
+      btn.dataset.id=t.id;
+      btn.innerHTML=
+              `<span class="beam-tab-dot"></span>`+
+              `<span class="beam-tab-label" title="${_bwEsc(t.name)}">${_bwEsc(t.name)}</span>`+
+              `<span class="beam-tab-close" title="Close tab">×</span>`;
+      /* click = activate */
+      btn.addEventListener('click', e=>{
+        if(e.target.classList.contains('beam-tab-close')){ beamEdCloseTab(t.id,e); return; }
+        beamEdActivate(t.id);
+      });
+      /* double-click label = rename */
+      btn.querySelector('.beam-tab-label').addEventListener('dblclick', e=>{
+        e.stopPropagation();
+        beamEdRenameTab(t.id, btn.querySelector('.beam-tab-label'));
+      });
+      bar.appendChild(btn);
+    });
+    if(addBtn) bar.appendChild(addBtn);
+    else{
+      const ab=document.createElement('button');
+      ab.className='beam-tab-add'; ab.title='New tab'; ab.textContent='+';
+      ab.onclick=()=>beamEdAddTab();
+      bar.appendChild(ab);
+    }
+  }
+
+  function beamEdRenameTab(id, labelEl){
+    const tab=beamEd.tabs.find(t=>t.id===id);
+    if(!tab||labelEl.querySelector('input')) return;
+    const inp=document.createElement('input');
+    inp.value=tab.name;
+    inp.style.cssText='width:100%;font:inherit;background:var(--surface-3,var(--surface-2));border:1px solid var(--accent-border);border-radius:2px;padding:0 3px;color:var(--text-primary);outline:none;';
+    inp.maxLength=24;
+    labelEl.innerHTML='';
+    labelEl.appendChild(inp);
+    inp.focus(); inp.select();
+    const finish=()=>{
+      const v=inp.value.trim()||tab.name;
+      tab.name=v.slice(0,24);
+      beamEdRenderTabs();
+    };
+    inp.addEventListener('blur', finish, {once:true});
+    inp.addEventListener('keydown', e=>{
+      if(e.key==='Enter'){ e.preventDefault(); inp.blur(); }
+      if(e.key==='Escape'){ inp.value=tab.name; inp.blur(); }
+      e.stopPropagation();
+    });
+  }
+
+  function beamEdSave(){
+    const tab=beamEd.tabs.find(t=>t.id===beamEd.activeId);
+    const ed=document.getElementById('beam-sql-editor');
+    if(tab&&ed){ tab.sql=ed.value; tab.saved=true; beamEdRenderTabs(); toast('Tab saved','ok'); }
+  }
+
+  /* ── Editor utilities ────────────────────────────────────────────────────── */
+  function beamEdUpdateLN(){
+    const ed=document.getElementById('beam-sql-editor');
+    const ln=document.getElementById('beam-line-nums');
+    if(!ed||!ln) return;
+    const n=ed.value.split('\n').length;
+    ln.innerHTML=Array.from({length:n},(_,i)=>`<span>${i+1}</span>`).join('');
+    ln.scrollTop=ed.scrollTop;
+  }
+
+  function beamEdUpdateCursor(){
+    const ed=document.getElementById('beam-sql-editor');
+    const el=document.getElementById('beam-cursor-pos');
+    if(!ed||!el) return;
+    const txt=ed.value.slice(0,ed.selectionStart);
+    const lines=txt.split('\n');
+    el.textContent=`Ln ${lines.length}, Col ${lines[lines.length-1].length+1}`;
+  }
+
+  /* Format SQL — basic clause-per-line beautifier */
+  function beamEdFormat(){
+    const ed=document.getElementById('beam-sql-editor');
+    if(!ed||!ed.value.trim()) return;
+    let sql=ed.value.trim();
+    const TOP=/\b(FROM|WHERE|GROUP\s+BY|HAVING|ORDER\s+BY|LIMIT|LEFT\s+JOIN|RIGHT\s+JOIN|INNER\s+JOIN|CROSS\s+JOIN|JOIN|UNION\s+ALL|UNION|ON|INSERT\s+INTO|VALUES|WITH)\b/gi;
+    sql=sql.replace(TOP,m=>'\n'+m.toUpperCase());
+    const KW_TOPLEVEL=/^(SELECT|FROM|WHERE|GROUP|HAVING|ORDER|LIMIT|JOIN|LEFT|RIGHT|INNER|UNION|ON|INSERT|VALUES|WITH|CREATE|ALTER|DROP|SET|SHOW|USE|DESCRIBE|EXPLAIN)\b/i;
+    const lines=sql.split('\n');
+    ed.value=lines.map(l=>l.trim()).filter(Boolean)
+            .map((l,i)=>(i>0&&!KW_TOPLEVEL.test(l)?'    ':'')+l).join('\n');
+    if(window._bwHlUpdate) window._bwHlUpdate();
+    beamEdUpdateLN();
+    toast('SQL formatted','ok');
+  }
+
+  /* Toggle comment */
+  function beamEdComment(){
+    const ed=document.getElementById('beam-sql-editor');
+    if(!ed) return;
+    const s=ed.selectionStart, end=ed.selectionEnd;
+    const lines=ed.value.split('\n');
+    let pos=0, sl=0, el=0;
+    for(let i=0;i<lines.length;i++){
+      if(pos<=s&&sl===0) sl=i;
+      if(pos<=end) el=i;
+      pos+=lines[i].length+1;
+    }
+    const allC=lines.slice(sl,el+1).every(l=>l.trimStart().startsWith('--'));
+    for(let i=sl;i<=el;i++) lines[i]=allC?lines[i].replace(/^(\s*)--\s?/,'$1'):'-- '+lines[i];
+    ed.value=lines.join('\n');
+    if(window._bwHlUpdate) window._bwHlUpdate();
+    beamEdUpdateLN();
+  }
+
+  /* Snippets */
+  const _BW_SNIPPETS = {
+    show:   'SHOW TABLES;',
+    select: 'SELECT\n    *\nFROM\n    your_table\nLIMIT 100;',
+    tumble: `SELECT
+    window_start,
+    window_end,
+    COUNT(*) AS cnt
+FROM TABLE(
+    TUMBLE(TABLE your_source, DESCRIPTOR(event_time), INTERVAL '1' MINUTE)
+)
+GROUP BY window_start, window_end;`,
+    insert: `INSERT INTO your_sink
+SELECT *
+FROM your_source;`,
+    create: `CREATE TABLE my_source (
+    id         STRING,
+    amount     DOUBLE,
+    event_time TIMESTAMP(3),
+    WATERMARK FOR event_time AS event_time - INTERVAL '5' SECOND
+) WITH (
+    'connector' = 'kafka',
+    'topic'     = 'my-topic',
+    'properties.bootstrap.servers' = 'localhost:9092',
+    'format'    = 'json'
+);`,
+    udf: `CREATE TEMPORARY FUNCTION classify(score DOUBLE)
+RETURNS STRING
+LANGUAGE SQL AS \$\$
+    CASE
+        WHEN score >= 0.8 THEN 'HIGH'
+        WHEN score >= 0.5 THEN 'MED'
+        ELSE 'LOW'
+    END
+\$\$;`,
+  };
+
+  function beamEdSnippet(key){
+    const ed=document.getElementById('beam-sql-editor');
+    if(!ed) return;
+    const snip=_BW_SNIPPETS[key]||'';
+    const pos=ed.selectionStart;
+    const before=ed.value.slice(0,pos), after=ed.value.slice(ed.selectionEnd);
+    const sep=(before&&!before.endsWith('\n\n'))?'\n\n':'';
+    ed.value=before+sep+snip+'\n'+after;
+    ed.selectionStart=ed.selectionEnd=pos+sep.length+snip.length+1;
+    ed.focus();
+    if(window._bwHlUpdate) window._bwHlUpdate();
+    beamEdUpdateLN(); beamEdUpdateCursor();
+  }
+
+  function beamEdClear(){
+    const ed=document.getElementById('beam-sql-editor');
+    if(ed){ ed.value=''; if(window._bwHlUpdate)window._bwHlUpdate(); beamEdUpdateLN(); }
+    const tab=beamEd.tabs.find(t=>t.id===beamEd.activeId);
+    if(tab){ tab.sql=''; tab.saved=false; beamEdRenderTabs(); }
+  }
+
+  /* ── Result tabs ────────────────────────────────────────────────────────── */
+  function beamEdSwitchRTab(name){
+    ['data','log'].forEach(t=>{
+      document.getElementById('beam-res-'+t)?.classList.toggle('on',t===name);
+      document.getElementById('beam-rtab-'+t)?.classList.toggle('active',t===name);
+    });
+  }
+
+  /* ── Logging ─────────────────────────────────────────────────────────────── */
+  function beamEdLog(level, msg){
+    beamEd.logBadge++;
+    const badge=document.getElementById('beam-log-badge');
+    if(badge) badge.textContent=beamEd.logBadge>99?'99+':beamEd.logBadge;
+    const logEl=document.getElementById('beam-res-log');
+    if(!logEl) return;
+    const time=new Date().toLocaleTimeString('en-US',{hour12:false});
+    const div=document.createElement('div');
+    div.className='b-log-line';
+    div.innerHTML=
+            `<span class="b-log-time">${time}</span>`+
+            `<span class="b-log-${level.toLowerCase()}">[${level}]</span> `+
+            _bwEsc(msg);
+    logEl.appendChild(div);
+    logEl.scrollTop=logEl.scrollHeight;
+  }
+
+  /* ── Results rendering ───────────────────────────────────────────────────── */
+  function beamEdRenderResults(){
+    const dataEl=document.getElementById('beam-res-data');
+    if(!dataEl) return;
+    const emptyEl=document.getElementById('beam-res-empty');
+    if(emptyEl) emptyEl.style.display='none';
+
+    const cols=beamEd.columns, rows=beamEd.results;
+    if(!rows.length){
+      dataEl.innerHTML='<div class="beam-empty"><div class="ei">✓</div><div>Query returned no rows.</div></div>';
+      return;
+    }
+    let html='<table class="beam-res-table"><thead><tr><th style="width:36px;">#</th>';
+    cols.forEach(c=>{ html+=`<th>${_bwEsc(c.name||String(c))}</th>`; });
+    html+='</tr></thead><tbody>';
+    rows.forEach((row,ri)=>{
+      const fields=Array.isArray(row?.fields)?row.fields:Object.values(row?.fields||row||{});
+      html+=`<tr><td class="b-rn">${ri+1}</td>`;
+      fields.forEach((v,ci)=>{
+        const ct=(cols[ci]?.logicalType?.type||cols[ci]?.type||'').toUpperCase();
+        const isNum=['INT','BIGINT','DOUBLE','FLOAT','DECIMAL','INTEGER','TINYINT','SMALLINT'].some(t=>ct.includes(t));
+        const isNull=v===null||v===undefined;
+        const cls=isNull?'b-null':isNum?'b-num':'';
+        html+=`<td class="${cls}" title="${_bwEsc(v)}">${isNull?'NULL':_bwEsc(String(v))}</td>`;
+      });
+      html+='</tr>';
+    });
+    html+='</tbody></table>';
+    dataEl.innerHTML=html;
+
+    const badge=document.getElementById('beam-row-badge');
+    if(badge) badge.textContent=rows.length>999?'999+':rows.length;
+  }
+
+  /* ── Set executing state ────────────────────────────────────────────────── */
+  function beamEdSetExec(yes){
+    const run=document.getElementById('beam-run-btn');
+    const stop=document.getElementById('beam-stop-btn');
+    const spin=document.getElementById('beam-spin');
+    const dot=document.getElementById('beam-ed-dot');
+    if(run)  run.disabled=yes;
+    if(stop) stop.classList.toggle('visible',yes);
+    if(spin) spin.classList.toggle('on',yes);
+    if(dot){ if(yes){dot.className='beam-session-dot run';}else{dot.className='beam-session-dot ok';} }
+  }
+
+  /* ── Session bar init ───────────────────────────────────────────────────── */
+  function beamEdInit(){
+    const sid=_beamSessionId;
+    const dot=document.getElementById('beam-ed-dot');
+    const lbl=document.getElementById('beam-ed-session-lbl');
+    if(sid){
+      beamEd.sessionId=sid;
+      if(dot) dot.className='beam-session-dot ok';
+      if(lbl) lbl.textContent='Session: '+sid.slice(0,8)+'…  ·  '+
+              (getTenant().tenantKey||'—')+'  ·  '+
+              (getTenant().tier||'FREE');
+    } else {
+      if(dot) dot.className='beam-session-dot';
+      if(lbl) lbl.textContent='No active session — return to Overview';
+    }
+    beamEdRenderTabs();
+    beamEdActivate(beamEd.activeId);
+  }
+
+  /* ── Run ────────────────────────────────────────────────────────────────── */
+  async function beamEdRun(){
+    const ed=document.getElementById('beam-sql-editor');
+    /* save to active tab */
+    const curTab=beamEd.tabs.find(t=>t.id===beamEd.activeId);
+    if(curTab&&ed) curTab.sql=ed.value;
+
+    const sql=ed?.value?.trim();
+    if(!sql){ toast('Editor is empty','err'); return; }
+
+    const sid=_beamSessionId;
+    if(!sid){
+      toast('No session — reconnect first','err');
+      beamEdLog('ERR','No active session. Return to Overview and reconnect.');
+      beamEdSwitchRTab('log'); return;
+    }
+    beamEd.sessionId=sid;
+
+    const stmts=_bwSplit(sql).filter(s=>s.trim());
+    if(!stmts.length) return;
+
+    /* reset results */
+    beamEd.results=[]; beamEd.columns=[]; beamEd.logBadge=0;
+    document.getElementById('beam-res-log').innerHTML='';
+    document.getElementById('beam-res-data').innerHTML='';
+    const lb=document.getElementById('beam-log-badge'), rb=document.getElementById('beam-row-badge');
+    if(lb) lb.textContent='0'; if(rb) rb.textContent='0';
+    beamEd.polling=true;
+
+    beamEdSetExec(true);
+    beamEdLog('INFO',`Running ${stmts.length} statement(s) on session ${sid.slice(0,8)}…`);
+
+    for(let i=0;i<stmts.length;i++){
+      const stmt=stmts[i];
+      beamEdLog('SQL',`[${i+1}/${stmts.length}] ${stmt.replace(/\s+/g,' ').slice(0,120)}`);
+      try{
+        await _bwExecStmt(sid,stmt);
+      }catch(e){
+        beamEdLog('ERR',_bwParseError(e.message));
+        beamEdSwitchRTab('log');
+        break;
+      }
+    }
+    beamEdSetExec(false);
+    beamEd.currentOpId=null;
+  }
+
+  async function _bwExecStmt(sid,sql){
+    const resp=await _bwApi('POST',`/api/v1/sessions/${sid}/statements`,{statement:sql.replace(/;+$/, '')});
+    const opId=resp.operationId||resp.operationHandle;
+    if(!opId) throw new Error('No operationId returned');
+    beamEd.currentOpId=opId;
+
+    let token=0, polls=0, firstRows=true, emptyPolls=0;
+    const isInsert=/^\s*(INSERT|EXECUTE\s+STATEMENT)/i.test(sql.trim());
+
+    while(polls<7200 && beamEd.polling){
+      await _bwSleep(400);
+
+      let opStatus='RUNNING';
+      try{
+        const st=await _bwApi('GET',`/api/v1/sessions/${sid}/statements/${opId}/status`);
+        opStatus=((st.operationStatus||st.status||'RUNNING')+'').toUpperCase();
+      }catch(_){}
+
+      if(opStatus==='ERROR'){
+        let errMsg='Operation failed';
+        try{
+          const er=await _bwApi('GET',`/api/v1/sessions/${sid}/statements/${opId}/result/0`);
+          if(er?.errors?.length) errMsg=er.errors.join(' | ');
+          else if(er?.message)   errMsg=er.message;
+        }catch(_){}
+        throw new Error(errMsg);
+      }
+      if(opStatus==='CANCELED') throw new Error('Operation cancelled');
+      if(['NOT_READY','PENDING','INITIALIZED','ACCEPTED'].includes(opStatus)){polls++;continue;}
+
+      let result;
+      try{
+        result=await _bwApi('GET',`/api/v1/sessions/${sid}/statements/${opId}/result/${token}`);
+      }catch(fe){
+        if((fe.message+'').includes('404')){ beamEdLog('OK',`Stream ended — ${beamEd.results.length} row(s)`); return; }
+        polls++; continue;
+      }
+
+      if(result.nextResultUri){
+        const m=(result.nextResultUri+'').match(/\/result\/(\d+)/);
+        token=m?parseInt(m[1]):token+1;
+      } else { token++; }
+
+      if(result.results?.columns?.length) beamEd.columns=result.results.columns;
+
+      const rawData=result.results?.data||result.data||[];
+      const newRows=rawData.map(row=>{
+        if(row==null) return{fields:[]};
+        if(!Array.isArray(row)&&row.fields!==undefined) return{fields:Array.isArray(row.fields)?row.fields:Object.values(row.fields)};
+        if(Array.isArray(row)) return{fields:row};
+        return{fields:Object.values(row)};
+      });
+
+      const isEOS=result.resultType==='EOS'||(!result.nextResultUri&&opStatus==='FINISHED'&&result.resultType!=='PAYLOAD');
+
+      if(newRows.length){
+        emptyPolls=0;
+        /* job-ID result → streaming job submitted */
+        const isJobId=beamEd.columns.length===1&&/^job.?id$/i.test(beamEd.columns[0]?.name||'');
+        if(isJobId){
+          const jobId=String(newRows[0]?.fields?.[0]??'').trim();
+          beamEdLog('OK','Job submitted — ID: '+jobId);
+          toast('Pipeline running: '+jobId.slice(0,8)+'…','ok');
+          beamJgRefresh();
+          const cnt=document.getElementById('sb-editor-count');
+          if(cnt){cnt.style.display='inline';cnt.textContent='▶';}
+          return;
+        }
+        /* DDL status row */
+        const isDDL=/^\s*(CREATE|DROP|ALTER|USE|SET|RESET|INSERT|EXECUTE)\b/i.test(sql.trim());
+        const isStatus=isDDL&&beamEd.columns.length<=1&&newRows.every(r=>{
+          const v=String(r?.fields?.[0]??'').trim().toUpperCase();
+          return v==='OK'||v==='TRUE'||v==='';
+        });
+        if(isStatus){
+          beamEdLog('OK',sql.trim().split(/\s+/)[0].toUpperCase()+' — OK');
+          beamEdSwitchRTab('log'); return;
+        }
+        /* normal data */
+        if(firstRows){firstRows=false;beamEdSwitchRTab('data');}
+        const rem=beamEd.maxRows-beamEd.results.length;
+        if(rem>0){
+          beamEd.results.push(...newRows.slice(0,rem));
+          beamEdRenderResults();
+        }
+      } else {
+        emptyPolls++;
+        if(isInsert&&emptyPolls%20===0&&emptyPolls>0)
+          beamEdLog('INFO','Streaming… '+beamEd.results.length+' rows so far');
+      }
+
+      if(isEOS){
+        const n=beamEd.results.length;
+        if(n===0&&firstRows) beamEdLog('OK','Statement executed — no rows returned.');
+        else { beamEdLog('OK','Complete — '+n+' row(s)'); toast('Done — '+n+' rows','ok'); }
+        return;
+      }
+      polls++;
+    }
+  }
+
+  function beamEdStop(){
+    beamEd.polling=false;
+    const{sessionId,currentOpId}=beamEd;
+    if(sessionId&&currentOpId)
+      _bwApi('DELETE',`/api/v1/sessions/${sessionId}/statements/${currentOpId}`).catch(()=>{});
+    beamEdLog('WARN','Stopped by user');
+    beamEdSetExec(false);
+    beamEd.currentOpId=null;
+    setTimeout(()=>{beamEd.polling=true;},300);
+  }
+
+  function beamEdClearResults(){
+    beamEd.results=[]; beamEd.columns=[]; beamEd.logBadge=0;
+    document.getElementById('beam-res-log').innerHTML='';
+    document.getElementById('beam-res-data').innerHTML=
+            '<div class="beam-empty"><div class="ei">⚡</div><div>Results cleared.</div></div>';
+    const lb=document.getElementById('beam-log-badge'),rb=document.getElementById('beam-row-badge');
+    if(lb)lb.textContent='0';if(rb)rb.textContent='0';
+  }
+
+  /* Export results as CSV */
+  function beamEdExportCSV(){
+    if(!beamEd.results.length){toast('No results to export','err');return;}
+    const cols=beamEd.columns.map(c=>c.name||String(c));
+    const rows=beamEd.results.map(row=>{
+      const f=Array.isArray(row?.fields)?row.fields:Object.values(row?.fields||row||{});
+      return f.map(v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"').join(',');
+    });
+    const csv=[cols.join(','),...rows].join('\n');
+    const a=document.createElement('a');
+    a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+    a.download='beam-results-'+new Date().toISOString().slice(0,19).replace(/[T:]/g,'-')+'.csv';
+    a.click();
+    toast('Exported '+beamEd.results.length+' rows','ok');
+  }
+
+  /* Open current session directly in Studio */
+  function beamEdConnectStudio(){
+    if(typeof connectToStudio==='function') connectToStudio();
+    else toast('Use the Connect to Studio button in the top-right','info');
+  }
+
+  /* ── SQL splitter ────────────────────────────────────────────────────────── */
+  function _bwSplit(raw){
+    const stmts=[]; let cur='', inStr=false, strChar='', inDollar=false, i=0;
+    while(i<raw.length){
+      const ch=raw[i];
+      if(!inStr&&ch==='$'&&raw[i+1]==='$'){inDollar=!inDollar;cur+='$$';i+=2;continue;}
+      if(inDollar){cur+=ch;i++;continue;}
+      if(!inStr&&(ch==="'"||ch==='"'||ch==='`')){inStr=true;strChar=ch;cur+=ch;i++;continue;}
+      if(inStr&&ch===strChar&&raw[i-1]!=='\\'){inStr=false;cur+=ch;i++;continue;}
+      if(inStr){cur+=ch;i++;continue;}
+      if(ch==='-'&&raw[i+1]==='-'){i+=2;while(i<raw.length&&raw[i]!=='\n')i++;i++;continue;}
+      if(ch==='/'&&raw[i+1]==='*'){i+=2;while(i<raw.length&&!(raw[i]==='*'&&raw[i+1]=='/'))i++;i+=2;continue;}
+      if(ch===';'){const s=cur.trim();if(s)stmts.push(s);cur='';i++;continue;}
+      cur+=ch;i++;
+    }
+    const t=cur.trim();if(t)stmts.push(t);
+    return stmts;
+  }
+
+  function _bwParseError(raw){
+    if(!raw)return'Unknown error';
+    const s=String(raw);
+    if(s.includes('does not exist')&&s.includes('Session')) return'Session expired — return to Overview to reconnect';
+    if(s.includes('information_schema')) return"Flink doesn't support information_schema — use SHOW TABLES; or DESCRIBE <table>;";
+    const m=s.match(/(?:Caused by:|Exception|Error)[^:\r\n]*:[\s]*([^\r\n]{5,200})/);
+    if(m) return m[1].trim();
+    return s.replace(/[\r\n]+/g,' ').slice(0,200);
+  }
+
+  /* ── Keyboard shortcuts for editor ──────────────────────────────────────── */
+  document.addEventListener('DOMContentLoaded',()=>{
+    const ed=document.getElementById('beam-sql-editor');
+    if(!ed) return;
+
+    ed.addEventListener('input',()=>{
+      beamEdUpdateLN(); beamEdUpdateCursor();
+      /* mark tab unsaved */
+      const tab=beamEd.tabs.find(t=>t.id===beamEd.activeId);
+      if(tab){ tab.sql=ed.value; tab.saved=false; beamEdRenderTabs(); }
+    });
+    ed.addEventListener('keyup', beamEdUpdateCursor);
+    ed.addEventListener('click', beamEdUpdateCursor);
+    ed.addEventListener('scroll',()=>{
+      const ln=document.getElementById('beam-line-nums');
+      if(ln) ln.scrollTop=ed.scrollTop;
+      if(window._bwHlSync) window._bwHlSync();
+    });
+    ed.addEventListener('keydown',e=>{
+      if(e.ctrlKey&&e.key==='Enter'){e.preventDefault();beamEdRun();return;}
+      if(e.ctrlKey&&e.key.toLowerCase()==='s'){e.preventDefault();beamEdSave();return;}
+      if(e.ctrlKey&&e.key==='/'){ e.preventDefault();beamEdComment();return;}
+      if(e.key==='Tab'){
+        e.preventDefault();
+        const s=ed.selectionStart,end=ed.selectionEnd;
+        if(s===end){
+          ed.value=ed.value.slice(0,s)+'    '+ed.value.slice(end);
+          ed.selectionStart=ed.selectionEnd=s+4;
+        } else {
+          const lines=ed.value.split('\n');
+          let pos=0,sl=0,el=0;
+          for(let i=0;i<lines.length;i++){
+            if(pos<=s&&sl===0)sl=i;if(pos<=end)el=i;pos+=lines[i].length+1;
+          }
+          for(let i=sl;i<=el;i++) lines[i]='    '+lines[i];
+          ed.value=lines.join('\n');
+        }
+        if(window._bwHlUpdate) window._bwHlUpdate();
+        beamEdUpdateLN();
+      }
+      /* smart newline with indent */
+      if(e.key==='Enter'&&!e.ctrlKey){
+        e.preventDefault();
+        const pos=ed.selectionStart;
+        const before=ed.value.slice(0,pos), after=ed.value.slice(pos);
+        const lastLine=before.split('\n').pop();
+        let indent=(lastLine.match(/^(\s*)/)||[])[1]||'';
+        const INDENT_AFTER=/^(SELECT|FROM|WHERE|WITH|JOIN|ON|GROUP\s+BY|HAVING|ORDER\s+BY|CASE|WHEN|THEN|ELSE)\b/i;
+        if(INDENT_AFTER.test(lastLine.trimStart())) indent+='    ';
+        ed.value=before+'\n'+indent+after;
+        ed.selectionStart=ed.selectionEnd=pos+1+indent.length;
+        if(window._bwHlUpdate) window._bwHlUpdate();
+        beamEdUpdateLN(); beamEdUpdateCursor();
+      }
+    });
+
+    /* v-resizer */
+    const resizer=document.getElementById('beam-v-resizer');
+    const resultsPanel=document.getElementById('beam-results-panel');
+    if(resizer&&resultsPanel){
+      let dragging=false,startY=0,startH=0;
+      resizer.addEventListener('mousedown',e=>{
+        dragging=true;startY=e.clientY;startH=resultsPanel.offsetHeight;
+        document.body.style.userSelect='none';e.preventDefault();
+      });
+      document.addEventListener('mousemove',e=>{
+        if(!dragging)return;
+        const delta=startY-e.clientY;
+        resultsPanel.style.height=Math.max(80,Math.min(600,startH+delta))+'px';
+      });
+      document.addEventListener('mouseup',()=>{if(dragging){dragging=false;document.body.style.userSelect='';}});
+    }
+
+    /* Escape closes node detail */
+    document.addEventListener('keydown',e=>{
+      if(e.key==='Escape') document.getElementById('beam-jv-detail')?.classList.remove('open');
+    });
+  });
+
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     JOB GRAPH ENGINE
+     ═══════════════════════════════════════════════════════════════════════════ */
+
+  const beamJg = {
+    currentJid: null,
+    jobList:    [],
+    liveTimer:  null,
+    liveOn:     false,
+    panX: 0, panY: 0, scale: 1.0,
+    /* keep references to nodes/vertices for re-use in detail panel */
+    _nodes: [], _vertices: [], _metrics: {},
+  };
+
+  /* ── Refresh job list ─────────────────────────────────────────────────────── */
+  async function beamJgRefresh(){
+    try{
+      const data=await _bwApi('GET','/api/v1/jobs');
+      const jobs=Array.isArray(data)?data:(data?.jobs||[]);
+      beamJg.jobList=jobs;
+
+      const cnt=document.getElementById('sb-jobview-count');
+      if(cnt) cnt.textContent=jobs.length;
+
+      const sel=document.getElementById('beam-jg-sel');
+      if(sel){
+        const prev=sel.value;
+        sel.innerHTML='<option value="">— Select a job —</option>';
+        jobs.forEach(j=>{
+          const opt=document.createElement('option');
+          opt.value=j.jid||j.id||'';
+          const st=j.state||j.status||'';
+          const dur=j.duration?_bwFmtDur(j.duration):'';
+          opt.textContent=`[${st}] ${(j.name||'').slice(0,42)} ${dur?'('+dur+')':''}`;
+          sel.appendChild(opt);
+        });
+        if(prev&&jobs.find(j=>(j.jid||j.id)===prev)){ sel.value=prev; }
+        else{
+          const run=jobs.find(j=>(j.state||j.status||'').toUpperCase()==='RUNNING');
+          if(run) sel.value=run.jid||run.id||'';
+        }
+        if(sel.value) beamJgLoad(sel.value);
+      }
+
+      beamJgRenderSidebar(jobs);
+    }catch(e){
+      toast('Could not load jobs: '+e.message,'err');
+    }
+  }
+
+  function beamJgRenderSidebar(jobs){
+    const el=document.getElementById('beam-jv-list');
+    if(!el) return;
+    if(!jobs.length){
+      el.innerHTML='<div style="padding:12px;font-size:11px;color:var(--text-muted);">No jobs found.</div>';
+      return;
+    }
+    el.innerHTML=jobs.map(j=>{
+      const jid=j.jid||j.id||'';
+      const st=(j.state||j.status||'UNKNOWN').toUpperCase();
+      const isActive=jid===beamJg.currentJid;
+      return `<div class="beam-job-row ${isActive?'active':''}" onclick="beamJgSidebarPick('${jid}')">
+      <div style="display:flex;align-items:center;gap:6px;">
+        <div class="b-state-dot ${st}"></div>
+        <div class="beam-job-row-name" title="${_bwEsc(j.name||jid)}">${_bwEsc((j.name||jid).slice(0,28))}</div>
+      </div>
+      <div class="beam-job-row-meta">
+        <span style="color:${st==='RUNNING'?'var(--green)':st==='FAILED'?'var(--accent)':'var(--text-tertiary)'}">${st}</span>
+        ${j.duration?`<span>${_bwFmtDur(j.duration)}</span>`:''}
+        <span style="color:var(--text-muted);">${jid.slice(0,8)}…</span>
+      </div>
+    </div>`;
+    }).join('');
+  }
+
+  function beamJgSidebarPick(jid){
+    const sel=document.getElementById('beam-jg-sel');
+    if(sel) sel.value=jid;
+    beamJgLoad(jid);
+  }
+
+  /* ── Load a job's DAG ────────────────────────────────────────────────────── */
+  async function beamJgLoad(jid){
+    if(!jid) return;
+    beamJg.currentJid=jid;
+    beamJgRenderSidebar(beamJg.jobList);
+
+    const canvas=document.getElementById('beam-jg-canvas');
+    if(!canvas) return;
+    canvas.innerHTML=`<div class="beam-empty" style="height:100%;">
+    <div class="ei">◈</div><div>Loading job graph…</div>
+  </div>`;
+    document.getElementById('beam-jv-detail')?.classList.remove('open');
+
+    try{
+      const[plan,jobDetail]=await Promise.all([
+        _bwApi('GET',`/api/v1/jobs/${jid}/plan`),
+        _bwApi('GET',`/api/v1/jobs/${jid}`),
+      ]);
+
+      if(!jobDetail){
+        canvas.innerHTML=`<div class="beam-empty" style="height:100%;">
+        <div class="ei" style="font-size:32px;">◈</div>
+        <div>Job details unavailable — may have been evicted from JobManager memory.</div>
+      </div>`; return;
+      }
+      if(!plan?.plan){
+        canvas.innerHTML=`<div class="beam-empty" style="height:100%;">
+        <div>No execution plan returned for this job.</div>
+      </div>`; return;
+      }
+
+      const st=(jobDetail.state||'UNKNOWN').toUpperCase();
+      /* status badge */
+      const badge=document.getElementById('beam-jv-status');
+      if(badge){ badge.textContent=st; badge.className='beam-jv-badge '+st; }
+      /* cancel button */
+      const cancelBtn=document.getElementById('beam-jg-cancel-btn');
+      if(cancelBtn) cancelBtn.style.display=['RUNNING','RESTARTING','CREATED','INITIALIZING'].includes(st)?'inline-flex':'none';
+
+      /* fetch vertex metrics for RUNNING jobs */
+      let metrics={};
+      if(st==='RUNNING'&&plan.plan?.nodes){
+        const WANTED=['numRecordsInPerSecond','numRecordsOutPerSecond','backPressuredTimeMsPerSecond'];
+        for(const node of(plan.plan.nodes||[]).slice(0,8)){
+          try{
+            const listR=await _bwApi('GET',`/api/v1/jobs/${jid}/vertices/${node.id}/metrics`);
+            if(listR&&Array.isArray(listR)){
+              const names=listR.map(m=>m.id);
+              const fetchIds=names.filter(id=>{
+                const seg=id.includes('.')?id.slice(id.lastIndexOf('.')+1):id;
+                return WANTED.includes(seg);
+              });
+              if(fetchIds.length){
+                const vm=await _bwApi('GET',`/api/v1/jobs/${jid}/vertices/${node.id}/metrics?get=${encodeURIComponent(fetchIds.join(','))}`);
+                if(vm&&Array.isArray(vm)){
+                  metrics[node.id]={};
+                  vm.forEach(m=>{
+                    const seg=m.id.includes('.')?m.id.slice(m.id.lastIndexOf('.')+1):m.id;
+                    if(!metrics[node.id][seg]) metrics[node.id][seg]=0;
+                    metrics[node.id][seg]+=parseFloat(m.value||0);
+                  });
+                }
+              }
+            }
+          }catch(_){}
+        }
+      }
+
+      /* store for detail panel */
+      beamJg._nodes=plan.plan.nodes||[];
+      beamJg._vertices=jobDetail.vertices||[];
+      beamJg._metrics=metrics;
+
+      beamJgDrawDAG(canvas, plan.plan, jobDetail, metrics);
+      if(st==='RUNNING') beamJgStartLive(); else beamJgStopLive();
+
+    }catch(e){
+      canvas.innerHTML=`<div class="beam-empty" style="height:100%;color:var(--accent);">
+      <div style="font-size:28px;opacity:0.5;">⚠</div>
+      <div>${_bwEsc(e.message)}</div>
+    </div>`;
+    }
+  }
+
+  function beamJgReload(){ if(beamJg.currentJid) beamJgLoad(beamJg.currentJid); }
+
+  /* ── DAG renderer ─────────────────────────────────────────────────────────── */
+  function beamJgDrawDAG(canvas, plan, jobDetail, metrics){
+    const nodes=plan.nodes||[];
+    const vertices=jobDetail.vertices||[];
+    const jobState=(jobDetail.state||'UNKNOWN').toUpperCase();
+    if(!nodes.length){
+      canvas.innerHTML='<div class="beam-empty" style="height:100%;">No graph data</div>'; return;
+    }
+
+    /* build edges */
+    const edges=[];
+    nodes.forEach(n=>(n.inputs||[]).forEach(inp=>edges.push({from:inp.id,to:n.id,ship:inp.ship_strategy||''})));
+
+    /* topological layer assignment */
+    const inDeg={}, children={};
+    nodes.forEach(n=>{inDeg[n.id]=0;children[n.id]=[];});
+    edges.forEach(e=>{inDeg[e.to]++;children[e.from].push(e.to);});
+    const layers=[]; let queue=nodes.filter(n=>inDeg[n.id]===0).map(n=>n.id);
+    const visited=new Set();
+    while(queue.length){
+      layers.push([...queue]);
+      const next=[];
+      queue.forEach(id=>{
+        visited.add(id);
+        children[id].forEach(cid=>{inDeg[cid]--;if(inDeg[cid]===0&&!visited.has(cid))next.push(cid);});
+      });
+      queue=next;
+    }
+    nodes.forEach(n=>{if(!visited.has(n.id))layers.push([n.id]);});
+
+    /* positions */
+    const NW=210,NH=74,HG=86,VG=38;
+    const pos={};
+    layers.forEach((layer,li)=>layer.forEach((id,ri)=>{
+      pos[id]={x:li*(NW+HG)+24, y:ri*(NH+VG)+24};
+    }));
+    const svgW=layers.length*(NW+HG)+48;
+    const maxNodes=Math.max(...layers.map(l=>l.length));
+    const svgH=maxNodes*(NH+VG)+48;
+
+    const FAULT=new Set(['FAILED','ERROR','FAILING','CANCELING']);
+
+    let eSVG='', nSVG='';
+
+    /* ── EDGES ── */
+    edges.forEach(e=>{
+      const fp=pos[e.from],tp=pos[e.to]; if(!fp||!tp) return;
+      const fv=vertices.find(v=>v.id===e.from)||{}, tv=vertices.find(v=>v.id===e.to)||{};
+      const hasErr=FAULT.has(fv.status)||FAULT.has(tv.status);
+      const x1=fp.x+NW,y1=fp.y+NH/2, x2=tp.x,y2=tp.y+NH/2;
+      const cx1=x1+(x2-x1)*0.45, cx2=x1+(x2-x1)*0.55;
+      const stroke=hasErr?'#e8334a':jobState==='RUNNING'?'#57c764':'#4a5568';
+      const mId=hasErr?'bm-ae':jobState==='RUNNING'?'bm-aa':'bm-ad';
+      eSVG+=`<path d="M${x1},${y1} C${cx1},${y1} ${cx2},${y2} ${x2},${y2}"
+      stroke="${stroke}" stroke-width="1.8" fill="none" opacity="0.7"
+      marker-end="url(#${mId})"/>`;
+      if(e.ship){
+        const mx=(x1+x2)/2, my=(y1+y2)/2-7;
+        eSVG+=`<text x="${mx}" y="${my}" text-anchor="middle"
+        style="font-family:var(--font-mono);font-size:8px;fill:var(--text-muted);">${_bwEsc(e.ship)}</text>`;
+      }
+    });
+
+    /* ── NODES ── */
+    nodes.forEach(n=>{
+      const p=pos[n.id]; if(!p) return;
+      const{x,y}=p;
+      const vtx=vertices.find(v=>v.id===n.id)||{};
+      const vSt=(vtx.status||jobState||'UNKNOWN').toUpperCase();
+      const isFault=FAULT.has(vSt);
+      const isSource=(n.inputs||[]).length===0;
+      const isSink=!nodes.some(o=>(o.inputs||[]).some(inp=>inp.id===n.id));
+
+      const vm=metrics[n.id]||{};
+      const rIn  =vm.numRecordsInPerSecond !=null?Math.round(vm.numRecordsInPerSecond) :null;
+      const rOut =vm.numRecordsOutPerSecond!=null?Math.round(vm.numRecordsOutPerSecond):null;
+      const bp   =vm.backPressuredTimeMsPerSecond!=null?Math.min(100,Math.round(vm.backPressuredTimeMsPerSecond/10)):null;
+
+      const relR=isSource?rOut:rIn;
+      const isIdle=relR===0&&vSt==='RUNNING';
+
+      /* colours */
+      const fillMap={
+        fault:  'rgba(232,51,74,0.14)',
+        source: isIdle?'rgba(0,0,0,0.04)':'rgba(0,115,230,0.10)',
+        sink:   isIdle?'rgba(0,0,0,0.04)':'rgba(0,160,180,0.10)',
+        proc:   isIdle?'rgba(0,0,0,0.04)':'rgba(160,100,230,0.08)',
+      };
+      const strokeMap={
+        fault:'rgba(232,51,74,0.7)',source:'rgba(0,115,230,0.45)',
+        sink:'rgba(0,160,180,0.45)',proc:'rgba(160,100,230,0.35)',
+      };
+      const kind=isFault?'fault':isSource?'source':isSink?'sink':'proc';
+      const labelColor={
+        fault:'#e8334a',source:'#4e9de8',sink:'#57c764',proc:'#a0a0b8'
+      }[kind];
+
+      const stDotColor={
+        RUNNING:'#57c764',FINISHED:'#6b7280',FAILED:'#e8334a',
+        CANCELED:'#f59e0b',RESTARTING:'#f59e0b',CREATED:'#f59e0b'
+      }[vSt]||'#6b7280';
+
+      const clean=(n.description||n.id||'')
+              .replace(/<br\s*\/?>/gi,' ').replace(/<[^>]+>/g,' ')
+              .replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/\s+/g,' ').trim();
+      const label=(isFault?'ERROR':isSource?'SOURCE':isSink?'SINK':'PROCESS')+(isIdle&&!isFault?' · IDLE':'');
+      const par=n.parallelism||vtx.parallelism||'';
+
+      const fmt=r=>r!=null?(r>999?_bwFmtN(r)+'/s':r+'/s'):'—';
+      let metricLine='';
+      if(isSource&&rOut!=null)      metricLine=`OUT ${fmt(rOut)}`;
+      else if(isSink&&rIn!=null)    metricLine=`IN  ${fmt(rIn)}`;
+      else if(rIn!=null||rOut!=null) metricLine=`↓${fmt(rIn)}  ↑${fmt(rOut)}`;
+      if(bp!=null&&bp>20) metricLine+=(metricLine?' · ':'')+`BP ${bp}%`;
+
+      nSVG+=`
+<g class="bm-node" data-id="${_bwEsc(n.id)}" style="cursor:pointer;">
+  <rect x="${x}" y="${y}" width="${NW}" height="${NH}" rx="5"
+    fill="${fillMap[kind]}" stroke="${strokeMap[kind]}"
+    stroke-width="${isFault?2:1.5}"/>
+  <circle cx="${x+13}" cy="${y+13}" r="4.5" fill="${stDotColor}"
+    ${vSt==='RUNNING'?' style="animation:blink 2.5s ease-in-out infinite"':''}/>
+  <text x="${x+24}" y="${y+17}"
+    style="font-family:var(--font-mono);font-size:8.5px;fill:${labelColor};font-weight:700;letter-spacing:0.2px;">
+    ${_bwEsc(label)}${par?' ×'+par:''}
+  </text>
+  <text x="${x+9}" y="${y+37}"
+    style="font-family:var(--font-mono);font-size:11px;fill:var(--text-primary);font-weight:600;">
+    ${_bwEsc(clean.slice(0,26))}
+  </text>
+  <text x="${x+9}" y="${y+56}"
+    style="font-family:var(--font-mono);font-size:9px;fill:${isFault?'#e8334a':'var(--text-tertiary)'};">
+    ${isFault?'▲ VERTEX FAILED':_bwEsc(metricLine||n.id.slice(0,14)+'…')}
+  </text>
+  <text x="${x+NW-8}" y="${y+14}" text-anchor="end"
+    style="font-family:var(--font-mono);font-size:7.5px;fill:var(--text-muted);opacity:0.5;">
+    ${_bwEsc(n.id.slice(0,8))}
+  </text>
+</g>`;
+    });
+
+    const svgHtml=`
+<svg id="bm-jg-svg" width="${Math.max(svgW,600)}" height="${Math.max(svgH+20,400)}"
+  xmlns="http://www.w3.org/2000/svg" style="display:block;">
+<defs>
+  <marker id="bm-ad" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+    <path d="M0,0 L0,6 L8,3 z" fill="#4a5568"/>
+  </marker>
+  <marker id="bm-aa" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+    <path d="M0,0 L0,6 L8,3 z" fill="#57c764"/>
+  </marker>
+  <marker id="bm-ae" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+    <path d="M0,0 L0,6 L8,3 z" fill="#e8334a"/>
+  </marker>
+</defs>
+<g id="bm-jg-pan">${eSVG}${nSVG}</g>
+</svg>`;
+
+    canvas.innerHTML=svgHtml;
+
+    /* ── pan + scroll-zoom ── */
+    const svgEl=canvas.querySelector('#bm-jg-svg');
+    const panG =canvas.querySelector('#bm-jg-pan');
+    beamJg.panX=0; beamJg.panY=0; beamJg.scale=1.0;
+
+    const applyT=()=>panG.setAttribute('transform',
+            `translate(${beamJg.panX},${beamJg.panY}) scale(${beamJg.scale})`);
+
+    let dragging=false,sx=0,sy=0;
+    canvas.addEventListener('mousedown',e=>{
+      if(e.target.closest('.bm-node')) return;
+      dragging=true; sx=e.clientX-beamJg.panX; sy=e.clientY-beamJg.panY;
+      canvas.classList.add('dragging'); e.preventDefault();
+    });
+    window.addEventListener('mousemove',e=>{
+      if(!dragging) return;
+      beamJg.panX=e.clientX-sx; beamJg.panY=e.clientY-sy; applyT();
+    });
+    window.addEventListener('mouseup',()=>{ if(dragging){dragging=false;canvas.classList.remove('dragging');} });
+
+    canvas.addEventListener('wheel',e=>{
+      e.preventDefault();
+      const d=e.deltaY>0?-0.1:0.1;
+      beamJg.scale=Math.min(4,Math.max(0.2,beamJg.scale+d));
+      const r=canvas.getBoundingClientRect();
+      const mx=e.clientX-r.left, my=e.clientY-r.top;
+      beamJg.panX=mx-(mx-beamJg.panX)*(beamJg.scale/(beamJg.scale-d));
+      beamJg.panY=my-(my-beamJg.panY)*(beamJg.scale/(beamJg.scale-d));
+      applyT();
+    },{passive:false});
+
+    /* double-click canvas bg → reset */
+    svgEl.addEventListener('dblclick',e=>{
+      if(e.target===svgEl||e.target===panG||e.target.tagName.toLowerCase()==='svg'){
+        beamJg.scale=1;beamJg.panX=0;beamJg.panY=0;applyT();
+      }
+    });
+
+    /* touch pan */
+    let tSX=0,tSY=0;
+    canvas.addEventListener('touchstart',e=>{
+      if(e.touches.length===1){tSX=e.touches[0].clientX-beamJg.panX;tSY=e.touches[0].clientY-beamJg.panY;}
+    },{passive:true});
+    canvas.addEventListener('touchmove',e=>{
+      if(e.touches.length===1){beamJg.panX=e.touches[0].clientX-tSX;beamJg.panY=e.touches[0].clientY-tSY;applyT();}
+    },{passive:true});
+
+    /* node click → detail */
+    canvas.querySelectorAll('.bm-node').forEach(g=>{
+      g.addEventListener('click',e=>{e.stopPropagation();beamJgNodeDetail(g.dataset.id);});
+      g.addEventListener('dblclick',e=>{e.stopPropagation();beamJgNodeDetail(g.dataset.id);});
+    });
+  }
+
+  /* ── Node detail panel ───────────────────────────────────────────────────── */
+  function beamJgNodeDetail(nid){
+    const nodes=beamJg._nodes, vertices=beamJg._vertices, metrics=beamJg._metrics;
+    const node=nodes.find(n=>n.id===nid)||{};
+    const vtx=vertices.find(v=>v.id===nid)||{};
+    const vm=metrics[nid]||{};
+
+    /* highlight selected node */
+    document.querySelectorAll('#beam-jg-canvas .bm-node rect').forEach(r=>r.setAttribute('stroke-width','1.5'));
+    const g=document.querySelector(`#beam-jg-canvas .bm-node[data-id="${nid}"]`);
+    if(g) g.querySelector('rect')?.setAttribute('stroke-width','3');
+
+    const st=(vtx.status||'UNKNOWN').toUpperCase();
+    const isSource=(node.inputs||[]).length===0;
+    const isSink=!nodes.some(o=>(o.inputs||[]).some(inp=>inp.id===nid));
+
+    const rIn =vm.numRecordsInPerSecond !=null?Math.round(vm.numRecordsInPerSecond) :null;
+    const rOut=vm.numRecordsOutPerSecond!=null?Math.round(vm.numRecordsOutPerSecond):null;
+    const bp  =vm.backPressuredTimeMsPerSecond!=null?Math.min(100,Math.round(vm.backPressuredTimeMsPerSecond/10)):null;
+
+    const clean=(node.description||nid||'Vertex')
+            .replace(/<br\s*\/?>/gi,' ').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim();
+    const ttl=document.getElementById('beam-jv-detail-ttl');
+    if(ttl) ttl.textContent=clean.slice(0,56);
+
+    const stCls={RUNNING:'hi',FAILED:'bad',CANCELED:'',FINISHED:''}[st]||'';
+    const mk=(l,v,u,cls='')=>`<div class="beam-mc ${cls}">
+    <div class="mc-l">${l}</div><div class="mc-v">${v}</div><div class="mc-u">${u}</div>
+  </div>`;
+
+    const mg=document.getElementById('beam-jv-metrics');
+    if(mg) mg.innerHTML=[
+      mk('Status',   st,  '', stCls),
+      mk('Parallel', node.parallelism||vtx.parallelism||'—','tasks'),
+      mk('Rec In/s', rIn !=null?_bwFmtN(rIn) :'—','rec/s',rIn !=null&&rIn >0?'hi':''),
+      mk('Rec Out/s',rOut!=null?_bwFmtN(rOut):'—','rec/s',rOut!=null&&rOut>0?'hi':''),
+      mk('Backpress',bp  !=null?bp+'%':'—',    '', bp!=null&&bp>70?'bad':bp!=null&&bp>20?'':'' ),
+      mk('Duration', vtx.duration?_bwFmtDur(vtx.duration):'—',''),
+    ].join('');
+
+    const kv=document.getElementById('beam-jv-kv');
+    if(kv) kv.innerHTML=[
+      ['Vertex ID',   nid.slice(0,16)+'…'],
+      ['Type',        isSource?'SOURCE':isSink?'SINK':'PROCESS'],
+      ['Written',     vtx.metrics?.['write-records']??'—'],
+      ['Read',        vtx.metrics?.['read-records']??'—'],
+      ['Host',        vtx.subtasks?.[0]?.host||'—'],
+    ].map(([k,v])=>`<tr><td class="kk">${k}</td><td class="vv">${_bwEsc(String(v))}</td></tr>`).join('');
+
+    document.getElementById('beam-jv-detail')?.classList.add('open');
+  }
+
+  /* ── Live refresh ──────────────────────────────────────────────────────────── */
+  function beamJgStartLive(){
+    beamJgStopLive();
+    beamJg.liveOn=true;
+    const btn=document.getElementById('beam-jg-live-btn');
+    if(btn) btn.innerHTML='<span class="beam-live-dot"></span>Live';
+    beamJg.liveTimer=setInterval(()=>{ if(beamJg.currentJid) beamJgLoad(beamJg.currentJid); },4000);
+  }
+  function beamJgStopLive(){
+    beamJg.liveOn=false;
+    if(beamJg.liveTimer){clearInterval(beamJg.liveTimer);beamJg.liveTimer=null;}
+    const btn=document.getElementById('beam-jg-live-btn');
+    if(btn) btn.innerHTML='▶ Live';
+  }
+  function beamJgToggleLive(){ beamJg.liveOn?beamJgStopLive():beamJgStartLive(); }
+
+  /* ── Cancel job ───────────────────────────────────────────────────────────── */
+  async function beamJgCancel(){
+    const jid=beamJg.currentJid;
+    if(!jid){toast('No job selected','err');return;}
+    if(!confirm(`Cancel Flink job ${jid.slice(0,8)}…? This cannot be undone.`)) return;
+    try{
+      await _bwApi('DELETE',`/api/v1/jobs/${jid}`);
+      toast('Job cancel requested','ok');
+      setTimeout(()=>beamJgLoad(jid),1500);
+    }catch(e){ toast('Cancel failed: '+e.message,'err'); }
+  }
+
+  /* ── Sidebar count refresh (every 30 s) ──────────────────────────────────── */
+  setInterval(()=>{
+    if(!getJwt()) return;
+    _bwApi('GET','/api/v1/jobs').then(data=>{
+      const jobs=Array.isArray(data)?data:(data?.jobs||[]);
+      const cnt=document.getElementById('sb-jobview-count');
+      if(cnt) cnt.textContent=jobs.length;
+      const running=jobs.filter(j=>(j.state||j.status||'').toUpperCase()==='RUNNING').length;
+      const edC=document.getElementById('sb-editor-count');
+      if(edC){
+        if(running>0){edC.style.display='inline';edC.textContent=running+' ▶';}
+        else edC.style.display='none';
+      }
+      beamJg.jobList=jobs;
+    }).catch(()=>{});
+  },30000);
 </script>
 </body>
 </html>

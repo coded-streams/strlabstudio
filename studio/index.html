@@ -1624,6 +1624,7 @@
             <option value="profiler">⏺ SQL Profiler</option>
             <option value="feature-engineering">⬡ Feature Engineering</option>
             <option value="inference-manager">⚙ Inference Manager</option>
+            <option value="agent-manager">⚛ Agent Manager</option>
           </select>
           <span style="font-size: 8px; color: var(--text3); pointer-events: none;">▼</span>
         </div>
@@ -2202,6 +2203,8 @@ SHOW CATALOGS;"></textarea>
 <script src="js/sql-profiler.js"></script>
 <script src="js/feature-engineering-manager.js"></script>
 <script src="js/inference-manager.js"></script>
+<script src="js/agent-manager.js"></script>
+<script src="js/agent-manager-extensions.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 
 
@@ -2277,6 +2280,9 @@ SHOW CATALOGS;"></textarea>
           break;
         case 'inference-manager':
           if (typeof openInferenceManager === 'function') openInferenceManager();
+          break;
+        case 'agent-manager':
+          if (typeof openAgentManager === 'function') openAgentManager();
           break;
       }
     }
