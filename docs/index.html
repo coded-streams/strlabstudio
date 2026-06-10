@@ -3,592 +3,627 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Str:::lab Studio — Documentation</title>
+  <title>Str:::lab Studio — Documentation v0.0.26</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;500;600&family=Source+Sans+3:ital,wght@0,300;0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
   <style>
-    :root {
-      --bg0:#080b0f; --bg1:#0c1018; --bg2:#111820; --bg3:#172030; --bg4:#1d2840;
-      --border:#1e2d3d; --border2:#253348; --border3:#2e3f56;
-      --accent:#00d4aa; --accent2:#00a884; --accent3:#7ee8d0;
-      --blue:#4fa3e0; --blue2:#3d8bc7; --purple:#9b72cf;
-      --orange:#f0a500; --red:#e05c5c; --green:#3fb950; --yellow:#f0c040;
-      --text0:#f0f6fc; --text1:#c9d1d9; --text2:#8b949e; --text3:#4a5568; --text4:#2d3748;
-      --mono:'IBM Plex Mono',monospace; --sans:'IBM Plex Sans',sans-serif;
-      --radius:6px; --nav-h:56px;
-      --logo-clip:polygon(0 0,82% 0,100% 18%,100% 100%,18% 100%,0 82%);
+    /* ══════════════════════════════════════════════════════════════
+       DESIGN TOKENS — Ververica muted green palette on light base
+       Primary:  #00b89c  (Ververica teal-green, muted not neon)
+       Surface:  #f5faf8  (lightest green-tinted white)
+       Sidebar:  #edf5f2
+       Border:   #c9e4db
+       Text:     #1a2e28  (deep green-black)
+       Secondary:#3d6b5e
+       Code bg:  #e8f4f0
+    ══════════════════════════════════════════════════════════════ */
+    :root{
+      --primary:#00b89c;
+      --primary-dark:#008f79;
+      --primary-light:#33cbaf;
+      --primary-xlight:#e8f6f3;
+      --primary-xxlight:#f2faf8;
+      --surface:#f5faf8;
+      --surface-raised:#ffffff;
+      --sidebar-bg:#edf5f2;
+      --sidebar-active:#d4ede7;
+      --border:#c9e4db;
+      --border-strong:#a8d4c8;
+      --text0:#1a2e28;
+      --text1:#2c4a40;
+      --text2:#3d6b5e;
+      --text3:#6b9488;
+      --text4:#9dbdb6;
+      --code-bg:#e8f4f0;
+      --code-border:#b8ddd6;
+      --warn-bg:#fffbf0;
+      --warn-border:#f0c040;
+      --warn-text:#7a5c00;
+      --danger-bg:#fff5f5;
+      --danger-border:#f08080;
+      --danger-text:#8b0000;
+      --info-bg:#f0f7ff;
+      --info-border:#90bce0;
+      --info-text:#1a4a7a;
+      --tip-bg:#f2faf8;
+      --tip-border:#00b89c;
+      --tip-text:#1a2e28;
+      --new-bg:#f0faf5;
+      --new-border:#3fb950;
+      --new-text:#1a5c2a;
+      --mono:'Source Code Pro',monospace;
+      --sans:'Source Sans 3',sans-serif;
+      --nav-h:52px;
+      --sidebar-w:270px;
+      --content-max:860px;
+      --radius:4px;
     }
     *{box-sizing:border-box;margin:0;padding:0}
-    html{scroll-behavior:smooth;font-size:15px}
-    body{font-family:var(--sans);background:var(--bg0);color:var(--text1);line-height:1.7}
-    a{color:var(--accent);text-decoration:none;transition:color .15s}
-    a:hover{color:var(--accent3)}
-    ::selection{background:rgba(0,212,170,0.2)}
-    ::-webkit-scrollbar{width:5px;height:5px}
-    ::-webkit-scrollbar-track{background:var(--bg1)}
-    ::-webkit-scrollbar-thumb{background:var(--border3);border-radius:3px}
-    ::-webkit-scrollbar-thumb:hover{background:var(--accent2)}
+    html{font-size:15px;scroll-behavior:smooth}
+    body{font-family:var(--sans);background:var(--surface);color:var(--text1);line-height:1.7}
+    a{color:var(--primary-dark);text-decoration:none;transition:color .13s}
+    a:hover{color:var(--primary);text-decoration:underline}
+    ::selection{background:rgba(0,184,156,0.18)}
+    ::-webkit-scrollbar{width:6px;height:6px}
+    ::-webkit-scrollbar-track{background:var(--sidebar-bg)}
+    ::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:3px}
+    ::-webkit-scrollbar-thumb:hover{background:var(--primary)}
 
-    /* ── NAV ── */
-    .nav{
-      position:sticky;top:0;z-index:200;height:var(--nav-h);
-      background:rgba(8,11,15,0.96);backdrop-filter:blur(16px);
-      border-bottom:1px solid var(--border);
-      display:flex;align-items:center;padding:0 28px;gap:0;
+    /* ── TOPBAR (Flink docs style: white bar, logo left, search right) ── */
+    .topbar{
+      position:sticky;top:0;z-index:300;height:var(--nav-h);
+      background:var(--surface-raised);
+      border-bottom:2px solid var(--primary);
+      display:flex;align-items:center;padding:0 0 0 20px;gap:0;
+      box-shadow:0 1px 4px rgba(0,184,156,0.08);
     }
-    .nav-logo{display:flex;align-items:center;gap:9px;margin-right:32px;flex-shrink:0}
-    .logo-mark{
-      width:26px;height:26px;
-      background:var(--bg2);border:1px solid rgba(0,212,170,0.4);
-      clip-path:var(--logo-clip);
-      display:flex;align-items:center;justify-content:center;flex-shrink:0;
+    .topbar-logo{
+      display:flex;align-items:center;gap:10px;
+      padding-right:20px;margin-right:8px;
+      border-right:1px solid var(--border);flex-shrink:0;
     }
-    .logo-text{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--text0);letter-spacing:-.3px}
-    .logo-text .dots{color:var(--accent)}
-    .logo-ver{font-size:9px;color:var(--text3);font-weight:400;margin-left:3px;letter-spacing:.5px}
-    .nav-tabs{display:flex;align-items:center;list-style:none;gap:0;flex:1;overflow-x:auto}
-    .nav-tabs a{
-      display:flex;align-items:center;gap:5px;
-      font-size:12px;font-weight:500;color:var(--text2);
-      padding:0 12px;height:var(--nav-h);
-      border-bottom:2px solid transparent;
-      transition:color .15s,border-color .15s;white-space:nowrap;
-    }
-    .nav-tabs a:hover{color:var(--text0);border-bottom-color:var(--border2)}
-    .nav-tabs a.active{color:var(--accent);border-bottom-color:var(--accent)}
-    .nav-right{display:flex;align-items:center;gap:6px;margin-left:auto;flex-shrink:0}
-    .nav-btn{
-      display:inline-flex;align-items:center;gap:5px;
-      font-family:var(--mono);font-size:11px;font-weight:500;
-      padding:5px 13px;border-radius:var(--radius);
-      border:1px solid var(--border2);background:var(--bg2);color:var(--text1);
-      cursor:pointer;transition:all .15s;
-    }
-    .nav-btn:hover{border-color:var(--accent);color:var(--accent)}
-    .nav-btn.primary{background:var(--accent);color:#000;border-color:var(--accent);font-weight:700}
-    .nav-btn.primary:hover{background:var(--accent3);border-color:var(--accent3);color:#000}
-
-    /* ── HERO ── */
-    .hero{
-      background:var(--bg0);
-      padding:72px 32px 60px;
-      text-align:center;position:relative;overflow:hidden;
-      border-bottom:1px solid var(--border);
-    }
-    .hero::before{
-      content:'';position:absolute;inset:0;
-      background:
-              radial-gradient(ellipse 80% 50% at 50% -10%,rgba(0,212,170,0.08) 0%,transparent 65%),
-              radial-gradient(ellipse 40% 30% at 80% 80%,rgba(79,163,224,0.04) 0%,transparent 60%);
-      pointer-events:none;
-    }
-    .hero-logo{display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:22px}
-    .hero-logo-mark{
-      width:56px;height:56px;
-      background:var(--bg2);border:1px solid rgba(0,212,170,0.5);
-      clip-path:var(--logo-clip);
+    .topbar-logo-mark{
+      width:32px;height:32px;
+      background:var(--primary);
       display:flex;align-items:center;justify-content:center;
-      box-shadow:0 0 40px rgba(0,212,170,0.12);
+      border-radius:var(--radius);flex-shrink:0;
     }
-    .hero-title{font-family:var(--mono);font-size:40px;font-weight:700;color:var(--text0);letter-spacing:-2px;line-height:1.1}
-    .hero-title .dots{color:var(--accent)}
-    .hero-title .studio{color:var(--accent);font-weight:300}
-    .hero-sub{font-size:15px;color:var(--text2);max-width:600px;margin:14px auto 0;line-height:1.85}
-    .hero-meta{
-      display:flex;align-items:center;justify-content:center;gap:16px;
-      margin-top:22px;flex-wrap:wrap;
-      font-family:var(--mono);font-size:11px;color:var(--text3);
+    .topbar-wordmark{font-family:var(--mono);font-size:14px;font-weight:700;color:var(--text0);letter-spacing:-.3px;white-space:nowrap}
+    .topbar-wordmark .dots{color:var(--primary)}
+    .topbar-ver{
+      font-size:10px;font-family:var(--mono);font-weight:600;
+      background:var(--primary-xlight);color:var(--primary-dark);
+      border:1px solid var(--border);padding:2px 7px;border-radius:20px;
+      white-space:nowrap;flex-shrink:0;
     }
-    .hero-meta span{display:flex;align-items:center;gap:5px}
-    .hero-meta span::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--border3);flex-shrink:0}
-    .hero-meta span.green::before{background:var(--green)}
-    .hero-meta span.blue::before{background:var(--blue)}
-    .hero-meta span.teal::before{background:var(--accent)}
-    .hero-cta{display:flex;gap:10px;justify-content:center;margin-top:28px;flex-wrap:wrap}
-    .btn{
-      display:inline-flex;align-items:center;gap:7px;
-      padding:9px 22px;border-radius:var(--radius);
-      font-size:13px;font-weight:600;cursor:pointer;
-      transition:all .15s;text-decoration:none;border:1px solid transparent;
+    .topbar-nav{display:flex;align-items:center;gap:0;flex:1;overflow-x:auto;height:var(--nav-h)}
+    .topbar-nav a{
+      font-size:13px;font-weight:600;color:var(--text2);
+      padding:0 14px;height:var(--nav-h);display:flex;align-items:center;
+      border-bottom:3px solid transparent;white-space:nowrap;
+      transition:color .13s,border-color .13s;text-decoration:none;
     }
-    .btn-primary{background:var(--accent);color:#000;border-color:var(--accent)}
-    .btn-primary:hover{background:var(--accent3);border-color:var(--accent3);color:#000}
-    .btn-outline{background:transparent;border-color:var(--border2);color:var(--text1)}
-    .btn-outline:hover{border-color:var(--accent);color:var(--accent)}
+    .topbar-nav a:hover{color:var(--primary-dark);border-bottom-color:var(--border)}
+    .topbar-nav a.active{color:var(--primary-dark);border-bottom-color:var(--primary);font-weight:700}
+    .topbar-right{display:flex;align-items:center;gap:8px;padding:0 16px;flex-shrink:0}
+    .topbar-btn{
+      font-family:var(--mono);font-size:12px;font-weight:600;
+      padding:5px 14px;border-radius:var(--radius);
+      border:1.5px solid var(--border-strong);background:var(--surface-raised);
+      color:var(--text1);cursor:pointer;transition:all .13s;text-decoration:none;
+      display:flex;align-items:center;gap:6px;white-space:nowrap;
+    }
+    .topbar-btn:hover{border-color:var(--primary);color:var(--primary-dark);background:var(--primary-xxlight);text-decoration:none}
+    .topbar-btn.primary{background:var(--primary);color:#fff;border-color:var(--primary)}
+    .topbar-btn.primary:hover{background:var(--primary-dark);border-color:var(--primary-dark);color:#fff}
 
-    /* ── PAGE LAYOUT ── */
-    .page{display:flex;max-width:1320px;margin:0 auto}
+    /* ── PAGE SHELL ── */
+    .shell{display:flex;min-height:calc(100vh - var(--nav-h))}
 
-    /* ── SIDEBAR TOC ── */
-    .toc{
-      width:234px;flex-shrink:0;
-      position:sticky;top:var(--nav-h);
-      height:calc(100vh - var(--nav-h));
-      overflow-y:auto;padding:20px 0;
+    /* ── SIDEBAR (Flink docs: white/light, tree nav, indented) ── */
+    .sidebar{
+      width:var(--sidebar-w);flex-shrink:0;
+      position:sticky;top:var(--nav-h);height:calc(100vh - var(--nav-h));
+      overflow-y:auto;
+      background:var(--sidebar-bg);
       border-right:1px solid var(--border);
+      padding:16px 0 40px;
     }
-    .toc-group{padding:0 12px;margin-bottom:2px}
-    .toc-group-label{
-      display:block;font-family:var(--mono);font-size:10px;font-weight:700;
-      color:var(--text4);letter-spacing:1.8px;text-transform:uppercase;
-      padding:10px 8px 4px;margin-top:6px;
+    .sidebar-section{margin-bottom:4px}
+    .sidebar-label{
+      display:block;font-size:10px;font-weight:700;
+      letter-spacing:1.8px;text-transform:uppercase;
+      color:var(--text3);font-family:var(--mono);
+      padding:10px 18px 4px;
     }
-    .toc a{
-      display:flex;align-items:center;gap:7px;
-      font-size:12px;color:var(--text3);
-      padding:4px 8px;border-radius:4px;
-      border-left:2px solid transparent;
-      transition:all .12s;line-height:1.5;
+    .sidebar a{
+      display:flex;align-items:center;gap:6px;
+      font-size:13px;color:var(--text2);
+      padding:5px 18px 5px 24px;
+      border-left:3px solid transparent;
+      transition:all .1s;line-height:1.45;text-decoration:none;
     }
-    .toc a:hover{color:var(--text1);background:rgba(255,255,255,0.03)}
-    .toc a.active{color:var(--accent);border-left-color:var(--accent);background:rgba(0,212,170,0.05)}
-    .toc a .toc-icon{font-size:11px;opacity:.5;flex-shrink:0;font-style:normal}
-    .toc-new{position:relative}
-    .toc-new::after{
-      content:'NEW';position:absolute;right:4px;top:50%;transform:translateY(-50%);
-      font-size:8px;font-family:var(--mono);font-weight:700;letter-spacing:.5px;
-      color:var(--green);background:rgba(63,185,80,0.12);
-      border:1px solid rgba(63,185,80,0.3);padding:1px 4px;border-radius:2px;
+    .sidebar a:hover{color:var(--text0);background:var(--sidebar-active);text-decoration:none}
+    .sidebar a.active{
+      color:var(--primary-dark);font-weight:700;
+      border-left-color:var(--primary);
+      background:var(--sidebar-active);
     }
-    .toc-divider{height:1px;background:var(--border);margin:10px 12px}
+    .sidebar a.sub{padding-left:36px;font-size:12.5px}
+    .sidebar-divider{height:1px;background:var(--border);margin:10px 16px}
+    .sidebar-new::after{
+      content:'NEW';font-size:8px;font-family:var(--mono);font-weight:700;
+      letter-spacing:.6px;color:var(--new-text);
+      background:var(--new-bg);border:1px solid var(--new-border);
+      padding:1px 5px;border-radius:2px;margin-left:auto;flex-shrink:0;
+    }
+    .sidebar-updated::after{
+      content:'v0.0.26';font-size:8px;font-family:var(--mono);font-weight:700;
+      letter-spacing:.4px;color:var(--primary-dark);
+      background:var(--primary-xlight);border:1px solid var(--border);
+      padding:1px 5px;border-radius:2px;margin-left:auto;flex-shrink:0;
+    }
 
-    /* ── CONTENT ── */
-    .content{flex:1;min-width:0;padding:40px 52px 120px}
-
-    /* ── SECTION ── */
-    .doc-section{margin-bottom:72px;scroll-margin-top:calc(var(--nav-h) + 16px)}
-    .section-label{
-      display:flex;align-items:center;gap:8px;margin-bottom:6px;
-      font-family:var(--mono);font-size:10px;font-weight:700;
-      letter-spacing:2px;text-transform:uppercase;color:var(--text3);
+    /* ── MAIN CONTENT ── */
+    .content{
+      flex:1;min-width:0;
+      padding:36px 52px 100px;
+      max-width:calc(var(--content-max) + 104px);
     }
-    .section-label::after{content:'';flex:1;height:1px;background:var(--border)}
+    .content-inner{max-width:var(--content-max)}
 
+    /* ── PAGE HEADER (breadcrumb + title like Flink docs) ── */
+    .page-header{margin-bottom:32px;padding-bottom:20px;border-bottom:1px solid var(--border)}
+    .breadcrumb{font-size:12px;color:var(--text3);font-family:var(--mono);margin-bottom:8px;display:flex;align-items:center;gap:5px}
+    .breadcrumb a{color:var(--text3);text-decoration:none}
+    .breadcrumb a:hover{color:var(--primary-dark)}
+    .breadcrumb-sep{color:var(--text4)}
+    .page-title{font-size:28px;font-weight:700;color:var(--text0);letter-spacing:-.5px;line-height:1.2;margin-bottom:10px}
+    .page-meta{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+
+    /* ── SECTION ANCHORS ── */
+    .doc-section{margin-bottom:52px;scroll-margin-top:calc(var(--nav-h) + 20px)}
+
+    /* ── HEADINGS (Flink docs style: left-bordered h2, plain h3) ── */
     h2{
-      font-size:22px;font-weight:700;color:var(--text0);
-      letter-spacing:-.4px;margin-bottom:12px;
+      font-size:20px;font-weight:700;color:var(--text0);
+      letter-spacing:-.3px;margin:44px 0 12px;
+      padding-bottom:8px;
+      border-bottom:2px solid var(--border);
       display:flex;align-items:center;gap:10px;flex-wrap:wrap;
     }
-    .h2-icon{
-      width:32px;height:32px;border-radius:8px;flex-shrink:0;
-      background:rgba(0,212,170,0.08);border:1px solid rgba(0,212,170,0.18);
-      display:flex;align-items:center;justify-content:center;
-    }
-    h3{font-size:15px;font-weight:600;color:var(--text0);margin:28px 0 10px}
-    h4{font-size:13px;font-weight:600;color:var(--text1);margin:18px 0 7px}
-    p{color:var(--text2);margin-bottom:12px;font-size:13.5px;line-height:1.82}
-    strong{color:var(--text1)}
+    h2:first-of-type{margin-top:0}
+    h3{font-size:16px;font-weight:700;color:var(--text0);margin:30px 0 10px;display:flex;align-items:center;gap:7px}
+    h4{font-size:14px;font-weight:600;color:var(--text1);margin:20px 0 7px}
+    p{font-size:14px;color:var(--text1);margin-bottom:14px;line-height:1.8}
+    strong{color:var(--text0);font-weight:600}
 
+    /* ── ANCHOR LINKS ── */
+    .anchor{color:var(--text4);margin-left:6px;font-size:14px;opacity:0;transition:opacity .13s}
+    h2:hover .anchor,h3:hover .anchor{opacity:1}
+
+    /* ── BADGES ── */
     .badge{
-      display:inline-flex;align-items:center;gap:4px;
-      font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;
-      padding:2px 7px;border-radius:3px;
+      display:inline-flex;align-items:center;gap:3px;
+      font-family:var(--mono);font-size:10px;font-weight:700;
+      letter-spacing:.5px;text-transform:uppercase;
+      padding:2px 8px;border-radius:3px;flex-shrink:0;
     }
-    .badge-new{background:rgba(63,185,80,0.1);border:1px solid rgba(63,185,80,0.3);color:var(--green)}
-    .badge-updated{background:rgba(79,163,224,0.1);border:1px solid rgba(79,163,224,0.3);color:var(--blue)}
-    .badge-ver{background:rgba(0,212,170,0.1);border:1px solid rgba(0,212,170,0.25);color:var(--accent)}
+    .badge-new{background:var(--new-bg);border:1px solid var(--new-border);color:var(--new-text)}
+    .badge-updated{background:var(--primary-xlight);border:1px solid var(--border);color:var(--primary-dark)}
+    .badge-ver{background:var(--primary-xlight);border:1px solid var(--border-strong);color:var(--primary-dark)}
+    .badge-current{background:#f0faf5;border:1px solid #3fb950;color:#1a5c2a}
 
-    /* ── LISTS ── */
-    ul.doc-ul{margin:6px 0 14px 0;list-style:none}
-    ul.doc-ul li{
-      font-size:13.5px;color:var(--text2);margin-bottom:7px;
-      padding-left:16px;position:relative;line-height:1.72;
+    /* ── CALLOUTS (Flink docs style: left border, icon, tight padding) ── */
+    .callout{
+      display:flex;gap:12px;align-items:flex-start;
+      border-radius:var(--radius);padding:12px 16px;margin:16px 0;
+      font-size:13.5px;line-height:1.75;
     }
-    ul.doc-ul li::before{
-      content:'';position:absolute;left:0;top:9px;
-      width:5px;height:5px;border-radius:50%;background:var(--border3);flex-shrink:0;
-    }
-    ol.doc-ol{margin:8px 0 14px 18px}
-    ol.doc-ol li{font-size:13.5px;color:var(--text2);margin-bottom:8px;line-height:1.75;padding-left:4px}
+    .callout-icon{font-size:16px;flex-shrink:0;margin-top:1px}
+    .callout-body{flex:1;color:var(--text1)}
+    .callout-body strong{display:block;margin-bottom:3px;font-size:13.5px}
+    .callout-body p{margin:0;font-size:13.5px}
+    .callout-body code{font-size:12px}
+    .tip{background:var(--tip-bg);border:1px solid var(--tip-border);border-left:4px solid var(--primary)}
+    .tip .callout-body strong{color:var(--primary-dark)}
+    .warn{background:var(--warn-bg);border:1px solid var(--warn-border);border-left:4px solid var(--warn-border)}
+    .warn .callout-body strong{color:var(--warn-text)}
+    .info{background:var(--info-bg);border:1px solid var(--info-border);border-left:4px solid var(--info-border)}
+    .info .callout-body strong{color:var(--info-text)}
+    .danger{background:var(--danger-bg);border:1px solid var(--danger-border);border-left:4px solid var(--danger-border)}
+    .danger .callout-body strong{color:var(--danger-text)}
 
     /* ── CODE ── */
     code{
-      font-family:var(--mono);font-size:11.5px;color:var(--accent);
-      background:rgba(0,212,170,0.07);border:1px solid rgba(0,212,170,0.13);
-      padding:1px 6px;border-radius:3px;
+      font-family:var(--mono);font-size:12px;color:var(--primary-dark);
+      background:var(--code-bg);border:1px solid var(--code-border);
+      padding:1px 5px;border-radius:3px;word-break:break-word;
     }
     pre{
-      background:var(--bg1);border:1px solid var(--border);
-      border-left:3px solid var(--accent);border-radius:var(--radius);
-      padding:16px 20px;overflow-x:auto;margin:12px 0;position:relative;
+      background:var(--text0);border:1px solid var(--text1);
+      border-radius:var(--radius);padding:18px 20px;
+      overflow-x:auto;margin:14px 0;
+      position:relative;
     }
     pre code{
       background:none;border:none;padding:0;
-      font-size:12px;color:var(--text1);line-height:1.75;
+      font-size:12.5px;color:#c9e4db;line-height:1.8;
     }
-    .code-label{
+    .pre-label{
       font-family:var(--mono);font-size:10px;color:var(--text3);
-      letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;display:block;
+      letter-spacing:1.2px;text-transform:uppercase;
+      margin-bottom:6px;display:block;
     }
-
-    /* ── CALLOUTS ── */
-    .callout{
-      border-radius:var(--radius);padding:13px 16px;margin:14px 0;
-      font-size:13px;line-height:1.75;display:flex;gap:12px;align-items:flex-start;
+    .pre-copy{
+      position:absolute;top:10px;right:10px;
+      font-family:var(--mono);font-size:10px;padding:3px 8px;
+      border:1px solid rgba(201,228,219,0.2);border-radius:3px;
+      background:rgba(201,228,219,0.06);color:rgba(201,228,219,0.5);
+      cursor:pointer;transition:all .13s;
     }
-    .callout-icon{font-size:14px;flex-shrink:0;margin-top:2px;font-style:normal}
-    .callout-body{flex:1}
-    .callout-body strong{display:block;margin-bottom:3px;font-size:13px}
-    .callout.tip{background:rgba(0,212,170,0.05);border:1px solid rgba(0,212,170,0.18);color:var(--text1)}
-    .callout.tip strong{color:var(--accent)}
-    .callout.warn{background:rgba(240,165,0,0.05);border:1px solid rgba(240,165,0,0.2);color:var(--text1)}
-    .callout.warn strong{color:var(--orange)}
-    .callout.info{background:rgba(79,163,224,0.05);border:1px solid rgba(79,163,224,0.18);color:var(--text1)}
-    .callout.info strong{color:var(--blue)}
-    .callout.danger{background:rgba(224,92,92,0.05);border:1px solid rgba(224,92,92,0.18);color:var(--text1)}
-    .callout.danger strong{color:var(--red)}
+    .pre-copy:hover{background:rgba(0,184,156,0.15);border-color:rgba(0,184,156,0.4);color:var(--primary-light)}
 
-    /* ── TABLES ── */
-    .table-wrap{overflow-x:auto;margin:12px 0;border-radius:var(--radius);border:1px solid var(--border)}
-    table{width:100%;border-collapse:collapse;font-size:13px}
-    thead tr{background:var(--bg2)}
+    /* ── TABLES (Flink docs: clean, no heavy borders) ── */
+    .table-wrap{overflow-x:auto;margin:14px 0;border-radius:var(--radius);border:1px solid var(--border)}
+    table{width:100%;border-collapse:collapse;font-size:13.5px;background:var(--surface-raised)}
+    thead tr{background:var(--primary-xxlight)}
     th{
-      text-align:left;padding:9px 13px;color:var(--text0);
-      font-weight:600;font-family:var(--mono);font-size:10px;
-      letter-spacing:.8px;text-transform:uppercase;border-bottom:1px solid var(--border);
+      text-align:left;padding:9px 14px;color:var(--text0);
+      font-weight:700;font-family:var(--mono);font-size:10.5px;
+      letter-spacing:.8px;text-transform:uppercase;
+      border-bottom:2px solid var(--border);
+      white-space:nowrap;
     }
-    td{padding:8px 13px;border-bottom:1px solid var(--border);color:var(--text2);vertical-align:top;line-height:1.6}
+    td{padding:9px 14px;border-bottom:1px solid var(--border);color:var(--text1);vertical-align:top;line-height:1.65}
     tr:last-child td{border-bottom:none}
-    tr:hover td{background:rgba(255,255,255,0.015)}
-    td code{font-size:11px}
-    td strong{color:var(--text1)}
+    tr:hover td{background:var(--primary-xxlight)}
+    td code{font-size:11.5px}
 
-    /* ── TABS ── */
-    .tab-group{margin:16px 0}
-    .tab-nav{display:flex;gap:0;border-bottom:1px solid var(--border);overflow-x:auto}
-    .tab-btn{
-      font-family:var(--mono);font-size:11.5px;padding:7px 14px;
-      border-radius:5px 5px 0 0;border:1px solid transparent;border-bottom:none;
-      background:transparent;color:var(--text3);cursor:pointer;transition:all .12s;white-space:nowrap;
+    /* ── LISTS ── */
+    ul.doc-list{margin:8px 0 14px 0;list-style:none}
+    ul.doc-list li{
+      font-size:14px;color:var(--text1);margin-bottom:8px;
+      padding-left:18px;position:relative;line-height:1.75;
     }
-    .tab-btn.active{background:var(--bg1);border-color:var(--border);color:var(--accent);border-bottom-color:var(--bg1)}
-    .tab-btn:hover:not(.active){color:var(--text1);background:rgba(255,255,255,0.02)}
+    ul.doc-list li::before{
+      content:'';position:absolute;left:0;top:10px;
+      width:6px;height:6px;border-radius:50%;
+      background:var(--primary);flex-shrink:0;
+    }
+    ol.doc-list{margin:8px 0 14px 20px}
+    ol.doc-list li{font-size:14px;color:var(--text1);margin-bottom:9px;line-height:1.78;padding-left:4px}
+
+    /* ── TABS (code tabs like Flink docs) ── */
+    .tab-group{margin:16px 0}
+    .tab-nav{display:flex;gap:0;border-bottom:2px solid var(--border);overflow-x:auto;background:var(--surface)}
+    .tab-btn{
+      font-family:var(--mono);font-size:12px;font-weight:600;
+      padding:7px 16px;background:transparent;
+      border:none;border-bottom:2px solid transparent;margin-bottom:-2px;
+      color:var(--text3);cursor:pointer;transition:all .12s;white-space:nowrap;
+    }
+    .tab-btn.active{color:var(--primary-dark);border-bottom-color:var(--primary);background:var(--surface-raised)}
+    .tab-btn:hover:not(.active){color:var(--text1);background:var(--primary-xxlight)}
     .tab-pane{display:none}
     .tab-pane.active{display:block}
 
-    /* ── MERMAID ── */
-    .mermaid-wrap{
-      background:var(--bg1);border:1px solid var(--border);
-      border-radius:var(--radius);padding:24px;margin:14px 0;
-      overflow-x:auto;display:flex;justify-content:center;
-    }
-
-    /* ── FEATURE GRID ── */
-    .feature-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin:16px 0}
-    .feature-card{
-      background:var(--bg2);border:1px solid var(--border);
-      border-radius:var(--radius);padding:18px;
-      position:relative;overflow:hidden;transition:border-color .15s;
-    }
-    .feature-card:hover{border-color:var(--border3)}
-    .feature-card::before{
-      content:'';position:absolute;top:0;left:0;right:0;height:2px;
-      background:linear-gradient(90deg,var(--accent),transparent);opacity:0;transition:opacity .2s;
-    }
-    .feature-card:hover::before{opacity:1}
-    .fc-icon{
-      width:28px;height:28px;margin-bottom:10px;
-      background:rgba(0,212,170,0.08);border:1px solid rgba(0,212,170,0.15);
-      border-radius:6px;display:flex;align-items:center;justify-content:center;
-    }
-    .feature-card h3{margin:0 0 6px;font-size:13.5px;color:var(--text0)}
-    .feature-card p{font-size:12.5px;margin:0;color:var(--text2);line-height:1.65}
-
-    /* ── STEPS ── */
-    .steps{margin:16px 0}
-    .step{display:flex;gap:14px;margin-bottom:24px;position:relative}
-    .step::before{content:'';position:absolute;left:15px;top:36px;width:1px;bottom:-4px;background:var(--border)}
+    /* ── STEPS (numbered process) ── */
+    .steps{margin:18px 0}
+    .step{display:flex;gap:14px;margin-bottom:22px;position:relative}
+    .step::before{content:'';position:absolute;left:15px;top:38px;width:1px;bottom:-4px;background:var(--border)}
     .step:last-child::before{display:none}
     .step-num{
       width:32px;height:32px;border-radius:50%;flex-shrink:0;z-index:1;
-      background:var(--bg2);border:1.5px solid var(--accent);
+      background:var(--primary);color:#fff;
       display:flex;align-items:center;justify-content:center;
-      font-family:var(--mono);font-size:12px;font-weight:700;color:var(--accent);
+      font-family:var(--mono);font-size:13px;font-weight:700;
     }
-    .step-body{flex:1;padding-top:4px}
-    .step-body h4{margin-top:0;margin-bottom:6px}
-    .step-body p{margin-bottom:0}
+    .step-body{flex:1;padding-top:5px}
+    .step-body h4{margin-top:0;margin-bottom:6px;font-size:14px;color:var(--text0)}
+    .step-body p{margin-bottom:0;font-size:13.5px}
 
-    /* ── TAGS ── */
-    .tag{
-      display:inline-block;font-family:var(--mono);font-size:9.5px;font-weight:700;
-      letter-spacing:.5px;text-transform:uppercase;padding:2px 7px;border-radius:3px;margin-right:3px;
+    /* ── FEATURE CARDS ── */
+    .card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin:16px 0}
+    .card{
+      background:var(--surface-raised);border:1px solid var(--border);
+      border-radius:var(--radius);padding:18px;
+      transition:border-color .15s,box-shadow .15s;
     }
-    .tag.setup{background:rgba(79,163,224,0.1);color:var(--blue);border:1px solid rgba(79,163,224,0.22)}
-    .tag.config{background:rgba(155,114,207,0.1);color:var(--purple);border:1px solid rgba(155,114,207,0.22)}
-    .tag.ddl{background:rgba(0,212,170,0.1);color:var(--accent);border:1px solid rgba(0,212,170,0.22)}
-    .tag.window{background:rgba(240,165,0,0.1);color:var(--orange);border:1px solid rgba(240,165,0,0.22)}
-    .tag.connector{background:rgba(63,185,80,0.1);color:var(--green);border:1px solid rgba(63,185,80,0.22)}
-    .tag.pattern{background:rgba(224,92,92,0.1);color:var(--red);border:1px solid rgba(224,92,92,0.22)}
-    .tag.perf{background:rgba(240,165,0,0.08);color:var(--orange);border:1px solid rgba(240,165,0,0.18)}
-    .tag.admin{background:rgba(240,192,64,0.1);color:var(--yellow);border:1px solid rgba(240,192,64,0.25)}
-    .tag.ml{background:rgba(155,114,207,0.12);color:var(--purple);border:1px solid rgba(155,114,207,0.28)}
+    .card:hover{border-color:var(--border-strong);box-shadow:0 2px 8px rgba(0,184,156,0.08)}
+    .card-icon{
+      width:30px;height:30px;margin-bottom:10px;
+      background:var(--primary-xlight);border:1px solid var(--border);
+      border-radius:var(--radius);display:flex;align-items:center;justify-content:center;
+    }
+    .card h3{margin:0 0 6px;font-size:13.5px;color:var(--text0)}
+    .card p{font-size:13px;margin:0;color:var(--text2);line-height:1.65}
+
+    /* ── OPERATOR TABLE TAGS ── */
+    .tag{display:inline-block;font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;padding:2px 7px;border-radius:3px;margin-right:3px}
+    .tag-source{background:#e8f6f3;color:var(--primary-dark);border:1px solid var(--border)}
+    .tag-transform{background:#f0f7ff;color:#1a4a7a;border:1px solid var(--info-border)}
+    .tag-sink{background:#f5f0ff;color:#4a1a7a;border:1px solid #c0a8e0}
+    .tag-window{background:var(--warn-bg);color:var(--warn-text);border:1px solid var(--warn-border)}
+    .tag-cep{background:var(--danger-bg);color:var(--danger-text);border:1px solid var(--danger-border)}
+    .tag-agg{background:var(--new-bg);color:var(--new-text);border:1px solid var(--new-border)}
+    .tag-ml{background:#faf0ff;color:#5a1a8a;border:1px solid #d0a8e8}
+
+    /* ── MERMAID ── */
+    .mermaid-wrap{background:var(--surface-raised);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin:16px 0;overflow-x:auto;display:flex;justify-content:center}
 
     /* ── VERSION CARDS ── */
-    .version-list{display:flex;flex-direction:column;gap:10px;margin:14px 0}
-    .version-card{
-      background:var(--bg2);border:1px solid var(--border);
-      border-radius:var(--radius);padding:16px 18px;
+    .version-list{display:flex;flex-direction:column;gap:12px;margin:16px 0}
+    .version-card{background:var(--surface-raised);border:1px solid var(--border);border-radius:var(--radius);padding:20px}
+    .version-card.current{border-color:var(--primary);border-left:4px solid var(--primary)}
+    .ver-header{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+    .ver-tag{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--primary-dark)}
+    .ver-date{font-size:12px;color:var(--text3);font-family:var(--mono)}
+    .version-card ul{margin-left:18px;margin-top:4px}
+    .version-card li{font-size:13.5px;color:var(--text1);margin-bottom:7px;line-height:1.7;padding-left:2px}
+    .version-card li strong{color:var(--text0)}
+
+    /* ── HERO (compact, Flink-docs-style page hero) ── */
+    .doc-hero{
+      background:var(--surface-raised);
+      border-bottom:1px solid var(--border);
+      padding:52px 52px 40px;
+      position:relative;overflow:hidden;
     }
-    .version-card.current{border-color:rgba(0,212,170,0.3)}
-    .version-header{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
-    .ver-tag{
-      font-family:var(--mono);font-size:12px;font-weight:700;
-      color:var(--accent);background:rgba(0,212,170,0.08);
-      border:1px solid rgba(0,212,170,0.22);padding:2px 9px;border-radius:3px;
+    .doc-hero::before{
+      content:'';position:absolute;top:0;right:0;
+      width:360px;height:100%;pointer-events:none;
+      background:linear-gradient(135deg,transparent 0%,rgba(0,184,156,0.04) 60%,rgba(0,184,156,0.08) 100%);
     }
-    .ver-date{font-size:11px;color:var(--text3);font-family:var(--mono)}
-    .ver-label{
-      font-size:10px;font-family:var(--mono);font-weight:700;
-      padding:2px 7px;border-radius:3px;margin-left:auto;
+    .doc-hero-eyebrow{
+      font-family:var(--mono);font-size:11px;font-weight:700;
+      letter-spacing:2px;text-transform:uppercase;color:var(--primary-dark);
+      margin-bottom:10px;display:flex;align-items:center;gap:8px;
     }
-    .ver-label.current{background:rgba(63,185,80,0.1);color:var(--green);border:1px solid rgba(63,185,80,0.25)}
-    .version-card ul{margin-left:16px}
-    .version-card li{font-size:13px;color:var(--text2);margin-bottom:4px;line-height:1.65}
-
-    /* ── DEPLOY GRID ── */
-    .deploy-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin:16px 0}
-    .deploy-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:18px}
-    .deploy-card h3{margin:0 0 8px;font-size:14px;color:var(--text0)}
-    .deploy-card p{font-size:12.5px;margin-bottom:10px;color:var(--text2)}
-
-    /* ── ABOUT GRID ── */
-    .about-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin:16px 0}
-    .about-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:18px}
-    .about-card h3{margin:0 0 8px;font-size:14px;color:var(--text0)}
-    .about-card p{font-size:13px;color:var(--text2);margin:0;line-height:1.75}
-
-    /* ── PARAM TABLE ── */
-    .param-table{width:100%;border-collapse:collapse;font-size:12.5px;margin:10px 0}
-    .param-table th{text-align:left;padding:7px 12px;color:var(--text3);font-weight:600;font-family:var(--mono);font-size:10px;letter-spacing:.6px;text-transform:uppercase;border-bottom:1px solid var(--border);background:var(--bg2)}
-    .param-table td{padding:7px 12px;border-bottom:1px solid var(--border);vertical-align:top;color:var(--text2)}
-    .param-table tr:last-child td{border-bottom:none}
-
-    /* ── SVG ICONS ── */
-    .icon-svg{display:inline-block;vertical-align:middle;flex-shrink:0}
-
-    /* ── WORKFLOW STRIP ── */
-    .workflow-strip{display:flex;flex-direction:column;gap:0;margin:14px 0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
-    .workflow-row{display:flex;align-items:flex-start;gap:12px;padding:11px 14px;border-bottom:1px solid var(--border);background:var(--bg2)}
-    .workflow-row:last-child{border-bottom:none}
-    .workflow-num{
-      width:22px;height:22px;border-radius:50%;flex-shrink:0;margin-top:1px;
-      background:var(--accent);color:#000;
-      display:flex;align-items:center;justify-content:center;
-      font-size:10px;font-weight:700;font-family:var(--mono);
+    .doc-hero-eyebrow::before{content:'';width:24px;height:2px;background:var(--primary);flex-shrink:0}
+    .doc-hero-title{font-size:36px;font-weight:700;color:var(--text0);letter-spacing:-1px;line-height:1.15;margin-bottom:14px}
+    .doc-hero-title .studio{color:var(--primary-dark)}
+    .doc-hero-title .dots{color:var(--primary)}
+    .doc-hero-sub{font-size:15px;color:var(--text2);max-width:600px;line-height:1.85;margin-bottom:20px}
+    .doc-hero-meta{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:24px}
+    .doc-hero-pill{
+      font-family:var(--mono);font-size:11px;font-weight:600;
+      padding:4px 12px;border-radius:20px;
+      background:var(--primary-xlight);color:var(--primary-dark);
+      border:1px solid var(--border);display:flex;align-items:center;gap:5px;
     }
+    .doc-hero-pill::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--primary);flex-shrink:0}
+    .doc-hero-cta{display:flex;gap:10px;flex-wrap:wrap}
+    .btn{display:inline-flex;align-items:center;gap:7px;padding:9px 22px;border-radius:var(--radius);font-size:13.5px;font-weight:600;cursor:pointer;transition:all .15s;text-decoration:none;border:1.5px solid transparent}
+    .btn-primary{background:var(--primary);color:#fff;border-color:var(--primary)}
+    .btn-primary:hover{background:var(--primary-dark);border-color:var(--primary-dark);color:#fff;text-decoration:none}
+    .btn-outline{background:var(--surface-raised);border-color:var(--border-strong);color:var(--text1)}
+    .btn-outline:hover{border-color:var(--primary);color:var(--primary-dark);text-decoration:none}
+
+    /* ── RIGHT-SIDE TOC (on-this-page like Flink docs) ── */
+    .on-this-page{
+      width:200px;flex-shrink:0;
+      position:sticky;top:calc(var(--nav-h) + 20px);
+      height:calc(100vh - var(--nav-h) - 40px);
+      overflow-y:auto;padding:0 0 0 20px;
+      display:none;
+    }
+    @media(min-width:1280px){.on-this-page{display:block}}
+    .otp-label{font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);font-family:var(--mono);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+    .otp-list{list-style:none}
+    .otp-list li{margin-bottom:6px}
+    .otp-list a{font-size:12px;color:var(--text3);text-decoration:none;line-height:1.5;display:block;transition:color .12s}
+    .otp-list a:hover{color:var(--primary-dark)}
+    .otp-list a.active{color:var(--primary-dark);font-weight:600}
+    .otp-list .sub{padding-left:10px;font-size:11.5px}
 
     /* ── FOOTER ── */
-    footer{border-top:1px solid var(--border);background:var(--bg1);padding:36px 32px;text-align:center}
-    .footer-logo{display:flex;align-items:center;justify-content:center;gap:9px;margin-bottom:12px}
-    footer p{font-size:12.5px;color:var(--text3);margin-bottom:5px}
+    footer{
+      border-top:1px solid var(--border);
+      background:var(--surface-raised);
+      padding:32px 52px;
+      display:flex;align-items:flex-start;justify-content:space-between;
+      gap:20px;flex-wrap:wrap;
+    }
+    .footer-logo{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+    .footer-logo-mark{width:24px;height:24px;background:var(--primary);border-radius:var(--radius);display:flex;align-items:center;justify-content:center}
+    .footer-wordmark{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--text0)}
+    .footer-wordmark .dots{color:var(--primary)}
+    footer p{font-size:12px;color:var(--text3);margin-bottom:4px;line-height:1.7}
     footer a{color:var(--text2)}
-    footer a:hover{color:var(--accent)}
+    footer a:hover{color:var(--primary-dark)}
+    .footer-links{display:flex;flex-direction:column;gap:5px}
+    .footer-links a{font-size:12.5px;color:var(--text2);text-decoration:none}
+    .footer-links a:hover{color:var(--primary-dark);text-decoration:underline}
 
-    @media(max-width:960px){.toc{display:none}.content{padding:24px 18px 80px}}
-    @media(max-width:600px){.hero-title{font-size:28px}.feature-grid{grid-template-columns:1fr}}
+    /* ── LAYOUT HELPER ── */
+    .content-wrap{display:flex;flex:1}
+    .main-content{flex:1;min-width:0}
+
+    @media(max-width:960px){.sidebar{display:none}.content{padding:24px 20px 80px}}
+    @media(max-width:600px){.doc-hero-title{font-size:26px}.card-grid{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
-
-<!-- ═══ NAV ═══ -->
-<nav class="nav">
-  <a href="#" class="nav-logo">
-    <div class="logo-mark">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#00d4aa" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
-      </svg>
+<!-- ═══ TOPBAR ═══ -->
+<header class="topbar">
+  <a href="#" class="topbar-logo">
+    <div class="topbar-logo-mark">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
     </div>
-    <span class="logo-text">Str<span class="dots">:::</span>lab<span class="logo-ver">Studio</span></span>
+    <span class="topbar-wordmark">Str<span class="dots">:::</span>lab Studio</span>
   </a>
-  <ul class="nav-tabs">
-    <li><a href="#about" class="active">Overview</a></li>
-    <li><a href="#quickstart">Quickstart</a></li>
-    <li><a href="#architecture">Architecture</a></li>
-    <li><a href="#features">Features</a></li>
-    <li><a href="#pipeline-manager">Pipeline Manager</a></li>
-    <li><a href="#feature-engineering">Feature Engineering</a></li>
-    <li><a href="#inference-manager">Inference Manager</a></li>
-    <li><a href="#observability">Observability</a></li>
-    <li><a href="#admin">Admin</a></li>
-    <li><a href="#connectors">Connectors</a></li>
-    <li><a href="#operator">Kube Operator</a></li>
-    <li><a href="#changelog">Changelog</a></li>
-  </ul>
-  <div class="nav-right">
-    <a href="https://github.com/coded-streams/strlabstudio" target="_blank" class="nav-btn">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M12 2C6.48 2 2 6.48 2 12c0 4.42 2.87 8.17 6.84 9.49.5.09.68-.22.68-.48v-1.69c-2.78.6-3.37-1.34-3.37-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.89 1.52 2.34 1.08 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02A9.56 9.56 0 0112 6.8c.85.004 1.71.115 2.51.337 1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85v2.74c0 .27.18.58.69.48A10.01 10.01 0 0022 12c0-5.52-4.48-10-10-10z"/>
-      </svg>
+  <nav class="topbar-nav">
+    <a href="#about" class="active">Overview</a>
+    <a href="#quickstart">Quickstart</a>
+    <a href="#architecture">Architecture</a>
+    <a href="#pipeline-manager">Pipeline Manager</a>
+    <a href="#feature-engineering">Feature Engineering</a>
+    <a href="#inference-manager">Inference Manager</a>
+    <a href="#agent-manager">Agent Manager</a>
+    <a href="#observability">Observability</a>
+    <a href="#connectors">Connectors</a>
+    <a href="#changelog">Changelog</a>
+  </nav>
+  <div class="topbar-right">
+    <span class="topbar-ver">v0.0.26</span>
+    <a href="https://github.com/coded-streams/strlabstudio" target="_blank" class="topbar-btn">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12c0 4.42 2.87 8.17 6.84 9.49.5.09.68-.22.68-.48v-1.69c-2.78.6-3.37-1.34-3.37-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.89 1.52 2.34 1.08 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02A9.56 9.56 0 0112 6.8c.85.004 1.71.115 2.51.337 1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85v2.74c0 .27.18.58.69.48A10.01 10.01 0 0022 12c0-5.52-4.48-10-10-10z"/></svg>
       GitHub
     </a>
-    <a href="../studio/index.html" target="_blank" class="nav-btn primary">Open IDE</a>
+    <a href="../studio/index.html" target="_blank" class="topbar-btn primary">Open IDE →</a>
   </div>
-</nav>
+</header>
 
 <!-- ═══ HERO ═══ -->
-<div class="hero">
-  <div class="hero-logo">
-    <div class="hero-logo-mark">
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#00d4aa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
-      </svg>
-    </div>
-    <div class="hero-title">Str<span class="dots">:::</span>lab <span class="studio">Studio</span></div>
+<div class="doc-hero">
+  <div class="doc-hero-eyebrow">Str:::lab Studio Documentation</div>
+  <div class="doc-hero-title">Str<span class="dots">:::</span>lab <span class="studio">Studio</span></div>
+  <p class="doc-hero-sub">A zero-dependency, browser-based SQL IDE for Apache Flink. Write, execute, visualise, and monitor streaming pipelines. Now with Feature Engineering, ML Inference, and the new Flink Agent Manager for building event-driven AI agents.</p>
+  <div class="doc-hero-meta">
+    <span class="doc-hero-pill">v0.0.26</span>
+    <span class="doc-hero-pill">Apache Flink 1.16 – 2.x</span>
+    <span class="doc-hero-pill">Zero dependencies</span>
+    <span class="doc-hero-pill">MIT License</span>
+    <span class="doc-hero-pill">Docker · Kubernetes · Cloud</span>
+    <span class="doc-hero-pill">Flink Agents 0.2</span>
   </div>
-  <p class="hero-sub">
-    A zero-dependency, browser-based SQL IDE for Apache Flink — write, execute, visualise, and monitor
-    streaming pipelines. Connects to any Flink SQL Gateway. Now with real-time
-    Feature Engineering and ML Inference pipeline builders.
-  </p>
-  <div class="hero-meta">
-    <span class="teal">v0.0.23</span>
-    <span class="green">MIT License</span>
-    <span class="blue">Flink 1.16+</span>
-    <span class="teal">Zero dependencies</span>
-    <span class="blue">Docker · Kubernetes · Cloud</span>
-    <span class="green">Confluent · Ververica · AWS</span>
-  </div>
-  <div class="hero-cta">
+  <div class="doc-hero-cta">
     <a href="#quickstart" class="btn btn-primary">Get Started</a>
-    <a href="../studio/index.html" target="_blank" class="btn btn-outline">Open IDE</a>
+    <a href="#agent-manager" class="btn btn-outline">Agent Manager ↗</a>
     <a href="https://github.com/coded-streams/strlabstudio" target="_blank" class="btn btn-outline">GitHub</a>
   </div>
 </div>
 
-<!-- ═══ PAGE ═══ -->
-<div class="page">
+<!-- ═══ SHELL ═══ -->
+<div class="shell">
 
   <!-- SIDEBAR -->
-  <aside class="toc">
-    <div class="toc-group">
-      <span class="toc-group-label">Overview</span>
-      <a href="#about"><i class="toc-icon">◈</i> About</a>
-      <a href="#quickstart"><i class="toc-icon">⚡</i> Quickstart</a>
-      <a href="#connection-modes"><i class="toc-icon">⬡</i> Connection Modes</a>
-      <a href="#architecture"><i class="toc-icon">⊙</i> Architecture</a>
+  <aside class="sidebar">
+    <div class="sidebar-section">
+      <span class="sidebar-label">Overview</span>
+      <a href="#about">About Str:::lab Studio</a>
+      <a href="#quickstart">Quickstart</a>
+      <a href="#connection-modes" class="sub">Connection Modes</a>
+      <a href="#architecture">Architecture</a>
     </div>
-    <div class="toc-divider"></div>
-    <div class="toc-group">
-      <span class="toc-group-label">Core IDE</span>
-      <a href="#features"><i class="toc-icon">◈</i> All Features</a>
-      <a href="#editor"><i class="toc-icon">·</i> Editor</a>
-      <a href="#sessions"><i class="toc-icon">·</i> Sessions</a>
-      <a href="#job-graph"><i class="toc-icon">·</i> Job Graph</a>
-      <a href="#performance"><i class="toc-icon">·</i> Performance</a>
-      <a href="#snippets"><i class="toc-icon">·</i> Snippets</a>
-      <a href="#project-manager-s"><i class="toc-icon">·</i> Project Manager</a>
-      <a href="#udf-manager"><i class="toc-icon">·</i> UDF Manager</a>
-      <a href="#colour-describe"><i class="toc-icon">·</i> Colour Describe</a>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-section">
+      <span class="sidebar-label">Core IDE</span>
+      <a href="#features">All Features</a>
+      <a href="#editor" class="sub">Editor</a>
+      <a href="#sessions" class="sub">Sessions</a>
+      <a href="#job-graph" class="sub">Job Graph</a>
+      <a href="#performance" class="sub">Performance</a>
+      <a href="#snippets" class="sub">Snippets</a>
+      <a href="#project-manager" class="sub">Project Manager</a>
+      <a href="#udf-manager" class="sub">UDF Manager</a>
     </div>
-    <div class="toc-divider"></div>
-    <div class="toc-group">
-      <span class="toc-group-label">Pipeline Tools</span>
-      <a href="#pipeline-manager"><i class="toc-icon">◈</i> Pipeline Manager</a>
-      <a href="#feature-engineering" class="toc-new"><i class="toc-icon">⬡</i> Feature Engineering</a>
-      <a href="#inference-manager" class="toc-new"><i class="toc-icon">⨍</i> Inference Manager</a>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-section">
+      <span class="sidebar-label">Pipeline Tools</span>
+      <a href="#pipeline-manager">Pipeline Manager</a>
+      <a href="#feature-engineering" class="sidebar-updated">Feature Engineering</a>
+      <a href="#inference-manager" class="sidebar-updated">Inference Manager</a>
+      <a href="#agent-manager" class="sidebar-new">Flink Agent Manager</a>
+      <a href="#agent-canvas" class="sub">Visual Canvas</a>
+      <a href="#agent-wizard" class="sub">Guided Wizard</a>
+      <a href="#agent-schema-registry" class="sub">Schema Registry</a>
+      <a href="#agent-codegen" class="sub">Code Generation</a>
+      <a href="#agent-observability" class="sub">Observability</a>
+      <a href="#agent-extensions" class="sub">Extensions</a>
     </div>
-    <div class="toc-divider"></div>
-    <div class="toc-group">
-      <span class="toc-group-label">Observability</span>
-      <a href="#observability"><i class="toc-icon">◈</i> Overview</a>
-      <a href="#live-vis"><i class="toc-icon">·</i> Live Pipeline Vis.</a>
-      <a href="#schema-registry"><i class="toc-icon">·</i> Schema Registry</a>
-      <a href="#bp-analyser"><i class="toc-icon">·</i> BP Analyser</a>
-      <a href="#watermark-monitor"><i class="toc-icon">·</i> Watermark Monitor</a>
-      <a href="#dep-graph"><i class="toc-icon">·</i> Dep. Graph</a>
-      <a href="#sql-profiler"><i class="toc-icon">·</i> SQL Profiler</a>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-section">
+      <span class="sidebar-label">Observability</span>
+      <a href="#observability">Overview</a>
+      <a href="#live-vis" class="sub">Live Pipeline Vis.</a>
+      <a href="#schema-registry-browser" class="sub">Schema Registry</a>
+      <a href="#bp-analyser" class="sub">BP Analyser</a>
+      <a href="#watermark-monitor" class="sub">Watermark Monitor</a>
+      <a href="#dep-graph" class="sub">Dep. Graph</a>
+      <a href="#sql-profiler" class="sub">SQL Profiler</a>
     </div>
-    <div class="toc-divider"></div>
-    <div class="toc-group">
-      <span class="toc-group-label">Operations</span>
-      <a href="#admin"><i class="toc-icon">⊙</i> Admin Session</a>
-      <a href="#reports"><i class="toc-icon">·</i> Reports</a>
-      <a href="#connectors"><i class="toc-icon">·</i> Connector JARs</a>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-section">
+      <span class="sidebar-label">Deployment</span>
+      <a href="#connectors">Connector JARs</a>
+      <a href="#operator">Kube Operator</a>
+      <a href="#deploy-options" class="sub">Deploy Options</a>
+      <a href="#flink-compat" class="sub">Flink Compatibility</a>
     </div>
-    <div class="toc-divider"></div>
-    <div class="toc-group">
-      <span class="toc-group-label">Deployment</span>
-      <a href="#operator"><i class="toc-icon">⊙</i> Kube Operator</a>
-      <a href="#deploy"><i class="toc-icon">·</i> Deploy Options</a>
-      <a href="#flink-compat"><i class="toc-icon">·</i> Flink Compat.</a>
-    </div>
-    <div class="toc-divider"></div>
-    <div class="toc-group">
-      <span class="toc-group-label">Reference</span>
-      <a href="#changelog"><i class="toc-icon">·</i> Changelog</a>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-section">
+      <span class="sidebar-label">Reference</span>
+      <a href="#admin">Admin Session</a>
+      <a href="#changelog">Changelog</a>
     </div>
   </aside>
 
-  <!-- CONTENT -->
-  <main class="content">
+  <!-- CONTENT WRAP -->
+  <div class="content-wrap">
+    <main class="content">
+      <div class="content-inner">
 
-    <!-- ═══════════════════════════════════════════════════════════ ABOUT -->
-    <section class="doc-section" id="about">
-      <div class="section-label">Overview</div>
-      <h2>
-        <div class="h2-icon">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00d4aa" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
-        </div>
-        About Str:::lab Studio
-      </h2>
-      <p>Str:::lab Studio is a browser-based SQL IDE that connects directly to any Apache Flink SQL Gateway. It provides a complete development, monitoring, and administration experience — without the overhead of a full platform deployment. Works with local Docker, Kubernetes, and any self-hosted or managed Flink cluster.</p>
-      <div class="about-grid">
-        <div class="about-card">
-          <h3>What it is</h3>
-          <p>A zero-dependency, single-file HTML application served by nginx. All SQL execution is driven by the Flink SQL Gateway REST API. Results stream live into the browser. Session state is managed client-side in <code>localStorage</code>.</p>
-        </div>
-        <div class="about-card">
-          <h3>Who it is for</h3>
-          <p>Streaming data engineers and platform teams who want a proper IDE experience for Apache Flink SQL — query editing, live result streaming, real-time job monitoring, checkpoint tracking, ML inference pipelines, and professional reporting.</p>
-        </div>
-        <div class="about-card">
-          <h3>Open source</h3>
-          <p>Created by <strong>Nestor A. A</strong> — open source under the MIT license. Community contributions and issue reports welcome at <a href="https://github.com/coded-streams/strlabstudio" target="_blank">github.com/coded-streams/strlabstudio</a>.</p>
-        </div>
-        <div class="about-card">
-          <h3>Kube Operator</h3>
-          <p>The <strong>Str:::lab Studio Kube Operator</strong> manages Studio deployments as first-class Kubernetes CRDs. Install via Helm from <a href="https://github.com/coded-streams/strlabstudio-operator" target="_blank">strlabstudio-operator</a>.</p>
-        </div>
-      </div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:14px;">
-        <span class="badge badge-ver">v0.0.23</span>
-        <span class="badge badge-ver">Flink 1.16 – 2.x</span>
-        <span style="background:rgba(0,151,255,0.08);border:1px solid rgba(0,151,255,0.2);color:var(--blue);font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:2px 7px;border-radius:3px;font-family:var(--mono);">Zero dependencies</span>
-        <span class="badge badge-new">MIT License</span>
-        <span style="background:rgba(240,165,0,0.08);border:1px solid rgba(240,165,0,0.2);color:var(--orange);font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:2px 7px;border-radius:3px;font-family:var(--mono);">Docker · K8s · Cloud</span>
-      </div>
-    </section>
+        <!-- ══════════════════════════════════════════════════ ABOUT -->
+        <section class="doc-section" id="about">
+          <div class="page-header">
+            <div class="breadcrumb"><a href="#">Docs</a><span class="breadcrumb-sep">›</span>Overview</div>
+            <div class="page-title">About Str:::lab Studio</div>
+            <div class="page-meta">
+              <span class="badge badge-ver">v0.0.26</span>
+              <span class="badge badge-new">MIT License</span>
+              <span class="badge badge-updated">Flink Agents 0.2</span>
+            </div>
+          </div>
+          <p>Str:::lab Studio is a browser-based SQL IDE that connects directly to any Apache Flink SQL Gateway. It provides a complete development, monitoring, and administration experience — without the overhead of a full platform deployment. Works with local Docker, Kubernetes, and any self-hosted or managed Flink cluster.</p>
+          <div class="card-grid">
+            <div class="card">
+              <div class="card-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
+              <h3>What it is</h3>
+              <p>A zero-dependency, single-file HTML application served by nginx. All SQL execution is driven by the Flink SQL Gateway REST API. Results stream live into the browser. Session state is managed client-side in <code>localStorage</code>.</p>
+            </div>
+            <div class="card">
+              <div class="card-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div>
+              <h3>Who it is for</h3>
+              <p>Streaming data engineers and platform teams who want a proper IDE for Apache Flink SQL — query editing, live result streaming, real-time job monitoring, ML inference pipelines, and AI agent builders.</p>
+            </div>
+            <div class="card">
+              <div class="card-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3"/></svg></div>
+              <h3>Agent Manager (v0.0.26)</h3>
+              <p>Build event-driven AI agents on Flink Agents 0.2. Visual canvas, 9-step wizard with Schema Registry, 7-artefact code generation, live Kafka observability, and 6 extension features.</p>
+            </div>
+            <div class="card">
+              <div class="card-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+              <h3>Kube Operator</h3>
+              <p>The Str:::lab Studio Kube Operator manages Studio deployments as first-class Kubernetes CRDs. Install via Helm from <a href="https://github.com/coded-streams/strlabstudio-operator" target="_blank">strlabstudio-operator</a>.</p>
+            </div>
+          </div>
+        </section>
 
-    <!-- ═══════════════════════════════════════════ QUICKSTART -->
-    <section class="doc-section" id="quickstart">
-      <div class="section-label">Getting Started</div>
-      <h2>
-        <div class="h2-icon">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00d4aa" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-        </div>
-        Quickstart
-      </h2>
-      <div class="tab-group">
-        <div class="tab-nav">
-          <button class="tab-btn active" onclick="switchTab(this,'qs-docker')">Docker Compose</button>
-          <button class="tab-btn" onclick="switchTab(this,'qs-standalone')">Standalone HTML</button>
-          <button class="tab-btn" onclick="switchTab(this,'qs-k8s')">Kubernetes</button>
-        </div>
-        <div id="qs-docker" class="tab-pane active">
-      <pre><code>git clone https://github.com/coded-streams/strlabstudio
+        <!-- ══════════════════════════════════════════════ QUICKSTART -->
+        <section class="doc-section" id="quickstart">
+          <h2>Quickstart <a class="anchor" href="#quickstart">#</a></h2>
+          <div class="tab-group">
+            <div class="tab-nav">
+              <button class="tab-btn active" onclick="switchTab(this,'qs-docker')">Docker Compose</button>
+              <button class="tab-btn" onclick="switchTab(this,'qs-standalone')">Standalone HTML</button>
+              <button class="tab-btn" onclick="switchTab(this,'qs-k8s')">Kubernetes</button>
+            </div>
+            <div id="qs-docker" class="tab-pane active">
+      <pre><button class="pre-copy" onclick="copyCode(this)">Copy</button><code>git clone https://github.com/coded-streams/strlabstudio
 cd strlabstudio
 docker compose up -d
 open http://localhost:3030</code></pre>
-          <p>Starts: JobManager, TaskManager(s), SQL Gateway, CORS proxy, and the Studio nginx container. On first load, a Tips &amp; Concepts modal walks through key features.</p>
-        </div>
-        <div id="qs-standalone" class="tab-pane">
-      <pre><code>python3 -m http.server 8080
+              <p>Starts: JobManager, TaskManager(s), SQL Gateway, CORS proxy, and the Studio nginx container. On first load, a Tips &amp; Concepts modal walks through key features.</p>
+            </div>
+            <div id="qs-standalone" class="tab-pane">
+      <pre><button class="pre-copy" onclick="copyCode(this)">Copy</button><code>python3 -m http.server 8080
 # Open studio/index.html — use Direct Gateway mode</code></pre>
-        </div>
-        <div id="qs-k8s" class="tab-pane">
-      <pre><code>helm repo add strlabstudio https://coded-streams.github.io/strlabstudio-operator/charts
+            </div>
+            <div id="qs-k8s" class="tab-pane">
+      <pre><button class="pre-copy" onclick="copyCode(this)">Copy</button><code>helm repo add strlabstudio https://coded-streams.github.io/strlabstudio-operator/charts
 helm install strlabstudio-operator strlabstudio/strlabstudio-operator \
   --namespace flinksql-system --create-namespace
 
@@ -606,739 +641,438 @@ spec:
     host: flink-jobmanager
     port: 8081
 EOF</code></pre>
-        </div>
-      </div>
-      <div class="callout tip">
-        <i class="callout-icon">&#9670;</i>
-        <div class="callout-body">
-          <strong>First thing every session</strong>
-          Open Snippets &rarr; CONFIG &rarr; Recommended Streaming Config and click Insert. Sets runtime mode, parallelism, checkpointing, state TTL, and MiniBatch in one action.
-        </div>
-      </div>
-
-      <h3 id="connection-modes">Connection Modes</h3>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Mode</th><th>Best For</th><th>Authentication</th></tr></thead>
-          <tbody>
-          <tr><td><strong>Proxy Mode</strong></td><td>Local Docker or Kubernetes clusters. Routes through nginx — zero config required.</td><td>None</td></tr>
-          <tr><td><strong>Direct Gateway</strong></td><td>Remote clusters, Confluent Cloud, Ververica, AWS Managed Flink. Enter gateway URL directly.</td><td>Bearer token, Basic Auth, or None</td></tr>
-          <tr><td><strong>Confluent Cloud</strong></td><td>Managed Flink SQL on Confluent. Enter Org ID, Env ID, region, API key + secret.</td><td>Basic (API key : secret)</td></tr>
-          <tr><td><strong>Ververica</strong></td><td>VVP self-managed, Ververica Cloud, or BYOC. Enter base URL, namespace, API token.</td><td>Bearer token</td></tr>
-          <tr><td><strong>AWS Managed Flink</strong></td><td>Amazon Managed Service for Apache Flink. Studio notebooks via Zeppelin.</td><td>IAM / Access Keys</td></tr>
-          <tr><td><strong>Admin Session</strong></td><td>Platform operators. Full cluster job visibility, cross-session oversight, advanced reports.</td><td>Admin passcode (default: <code>admin1234</code>)</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- ═══════════════════════════════════════════ ARCHITECTURE -->
-    <section class="doc-section" id="architecture">
-      <div class="section-label">Core Concepts</div>
-      <h2>
-        <div class="h2-icon">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00d4aa" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-        </div>
-        Architecture
-      </h2>
-      <p>Str:::lab Studio is a static HTML application served by nginx. All SQL execution happens via the Flink SQL Gateway REST API. The browser manages all session state client-side.</p>
-      <div class="mermaid-wrap">
-        <div class="mermaid">
-          flowchart TD
-          B["Browser\nlocalhost:3030"]
-          N["nginx\nflink-studio container"]
-          GW["Flink SQL Gateway :8083"]
-          JM["Flink JobManager :8081"]
-          TM1["TaskManager 1"]
-          TM2["TaskManager 2"]
-          K["Apache Kafka"]
-          S["MinIO / S3"]
-          B-->|"/flink-api/"|N
-          B-->|"/jobmanager-api/"|N
-          N-->|"proxy"|GW
-          N-->|"proxy"|JM
-          GW-->JM
-          JM-->TM1
-          JM-->TM2
-          TM1-->K
-          TM2-->K
-          TM1-->S
-          style B fill:#111820,stroke:#00d4aa,color:#f0f6fc
-          style N fill:#111820,stroke:#4fa3e0,color:#f0f6fc
-          style GW fill:#111820,stroke:#9b72cf,color:#f0f6fc
-          style JM fill:#111820,stroke:#9b72cf,color:#f0f6fc
-          style TM1 fill:#111820,stroke:#3fb950,color:#f0f6fc
-          style TM2 fill:#111820,stroke:#3fb950,color:#f0f6fc
-          style K fill:#111820,stroke:#f0a500,color:#f0f6fc
-          style S fill:#111820,stroke:#f0a500,color:#f0f6fc
-        </div>
-      </div>
-      <h3>State Management</h3>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>State</th><th>Storage</th><th>Survives Reload</th></tr></thead>
-          <tbody>
-          <tr><td>Editor tabs and SQL content</td><td><code>localStorage</code> (auto-saved)</td><td>Yes</td></tr>
-          <tr><td>Query history</td><td><code>localStorage</code></td><td>Yes</td></tr>
-          <tr><td>Theme preference</td><td><code>localStorage</code></td><td>Yes</td></tr>
-          <tr><td>Feature Engineering history and output schema</td><td><code>localStorage</code> (<code>strlabstudio_fem_history</code>, <code>strlabstudio_fem_state</code>)</td><td>Yes</td></tr>
-          <tr><td>Inference Manager history</td><td><code>localStorage</code> (<code>strlabstudio_ifm_history</code>)</td><td>Yes</td></tr>
-          <tr><td>Pipeline Manager saved pipelines</td><td><code>localStorage</code> (<code>strlabstudio_pipelines</code>)</td><td>Yes</td></tr>
-          <tr><td>SQL Gateway session handle</td><td>In-memory only</td><td>No — reconnect required</td></tr>
-          <tr><td>Result rows and profiler recordings</td><td>In-memory only</td><td>No</td></tr>
-          <tr><td>Full workspace</td><td>JSON file (export/import)</td><td>Yes, via import</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- ═══════════════════════════════════════════ FEATURES -->
-    <section class="doc-section" id="features">
-      <div class="section-label">IDE Reference</div>
-      <h2>
-        <div class="h2-icon">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00d4aa" stroke-width="2"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
-        </div>
-        All Features
-      </h2>
-
-      <h3 id="editor">Editor</h3>
-      <div class="feature-grid">
-        <div class="feature-card">
-          <div class="fc-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#00d4aa" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/></svg></div>
-          <h3>Multi-Tab Editor</h3>
-          <p>Unlimited named tabs with isolated editor content, results, logs, and performance metrics per tab. Double-click to rename.</p>
-        </div>
-        <div class="feature-card">
-          <div class="fc-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#00d4aa" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg></div>
-          <h3>Run Selection</h3>
-          <p>Highlight any SQL fragment and click Run Selection to execute only that portion. Essential for multi-statement files.</p>
-        </div>
-        <div class="feature-card">
-          <div class="fc-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#00d4aa" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-5.01"/></svg></div>
-          <h3>Format and Explain</h3>
-          <p>Auto-format normalises whitespace. EXPLAIN Plan shows the logical and physical execution plan before job submission.</p>
-        </div>
-        <div class="feature-card">
-          <div class="fc-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#00d4aa" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg></div>
-          <h3>Duplicate Submission Guard</h3>
-          <p>Tracks running INSERT INTO statements. Resubmitting the same pipeline is blocked with a warning until the previous job is cancelled.</p>
-        </div>
-      </div>
-
-      <h3 id="sessions">Sessions</h3>
-      <div class="feature-grid">
-        <div class="feature-card">
-          <div class="fc-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#00d4aa" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
-          <h3>Session Persistence</h3>
-          <p>Sessions never expire from the IDE side — a heartbeat keeps them alive. Only explicit disconnect or connection loss ends a session.</p>
-        </div>
-        <div class="feature-card">
-          <div class="fc-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#00d4aa" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></div>
-          <h3>Load Existing Sessions</h3>
-          <p>After testing the connection the IDE fetches all existing sessions from the gateway and presents them in a dropdown — no UUID copy-paste needed.</p>
-        </div>
-        <div class="feature-card">
-          <div class="fc-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#00d4aa" stroke-width="2"><path d="M20 14.66V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5.34"/><polygon points="18 2 22 6 12 16 8 16 8 12 18 2"/></svg></div>
-          <h3>Job Tagging</h3>
-          <p>Every INSERT INTO pipeline automatically tags the Flink job name with the session label via <code>pipeline.name</code>, making jobs traceable in the Flink UI.</p>
-        </div>
-        <div class="feature-card">
-          <div class="fc-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#00d4aa" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
-          <h3>Session Isolation</h3>
-          <p>Each regular session sees only its own jobs. Admin sessions see all jobs across all sessions on the cluster.</p>
-        </div>
-      </div>
-
-      <h3 id="job-graph">Job Graph</h3>
-      <div class="feature-grid">
-        <div class="feature-card">
-          <div class="fc-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#00d4aa" stroke-width="2"><circle cx="5" cy="12" r="2"/><circle cx="19" cy="5" r="2"/><circle cx="19" cy="19" r="2"/><line x1="7" y1="12" x2="17" y2="5.5"/><line x1="7" y1="12" x2="17" y2="18.5"/></svg></div>
-          <h3>Live DAG</h3>
-          <p>Real-time directed acyclic graph of any running Flink job. Nodes show operator type, parallelism, and record counts updating live.</p>
-        </div>
-        <div class="feature-card">
-          <div class="fc-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#00d4aa" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
-          <h3>Node Detail Modal</h3>
-          <p>Double-click any node for full metrics: status, records in/out/s, backpressure, JVM heap, subtask table, and a live throughput streaming chart.</p>
-        </div>
-        <div class="feature-card">
-          <div class="fc-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#00d4aa" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg></div>
-          <h3>Vertex Timeline</h3>
-          <p>Gantt-style chart showing each operator state transitions (CREATED to RUNNING to FINISHED). Click any bar for subtask status detail.</p>
-        </div>
-        <div class="feature-card">
-          <div class="fc-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#00d4aa" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg></div>
-          <h3>Cancel Job</h3>
-          <p>Cancel button shows a confirmation dialog before sending the cancel signal to the JobManager. Admin sessions can cancel any job on the cluster.</p>
-        </div>
-      </div>
-
-      <h3 id="performance">Performance Monitoring</h3>
-      <div class="feature-grid">
-        <div class="feature-card">
-          <div class="fc-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#00d4aa" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
-          <h3>Per-Query Timing</h3>
-          <p>Every statement timed from submission to first result. Bar charts show relative query durations with row count and status.</p>
-        </div>
-        <div class="feature-card">
-          <div class="fc-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#00d4aa" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
-          <h3>Live Throughput</h3>
-          <p>Records in/out per second as animated sparklines with min/max labels. Toggle Live for auto-refresh every 2 seconds.</p>
-        </div>
-        <div class="feature-card">
-          <div class="fc-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#00d4aa" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
-          <h3>Checkpoint Health</h3>
-          <p>Shows total/completed/failed counts, last checkpoint duration and state size, and a history sparkline.</p>
-        </div>
-        <div class="feature-card">
-          <div class="fc-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#00d4aa" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div>
-          <h3>Cluster Resources</h3>
-          <p>CPU cores, physical memory, JVM heap, Flink version, task manager count, and slot utilisation gauges from the JobManager REST API.</p>
-        </div>
-      </div>
-
-      <h3 id="snippets">Snippets Library</h3>
-      <p>30+ built-in SQL templates accessible from the toolbar. Click any snippet to insert into the active editor tab.</p>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Category</th><th>Snippets</th></tr></thead>
-          <tbody>
-          <tr><td><span class="tag setup">Setup</span></td><td>Common Flink SQL Mistakes, Use Default Catalog, Create In-Memory Catalog, Use Hive Catalog</td></tr>
-          <tr><td><span class="tag config">Config</span></td><td>Recommended Streaming Config (all-in-one), Set Runtime Mode, Set Parallelism, Set State TTL</td></tr>
-          <tr><td><span class="tag ddl">DDL</span></td><td>Show Catalogs, Show Databases, Show Tables, Describe Table, Show Create Table, Show Jobs</td></tr>
-          <tr><td><span class="tag window">Window</span></td><td>Tumble Window, Hop Window, Session Window, Cumulate Window</td></tr>
-          <tr><td><span class="tag connector">Connector</span></td><td>Kafka Source, Datagen Source, Elasticsearch Sink, MinIO / S3 Sink, Print Sink</td></tr>
-          <tr><td><span class="tag perf">Perf</span></td><td>Enable MiniBatch, Local-Global Aggregation, Idle Source Timeout</td></tr>
-          <tr><td><span class="tag pattern">Pattern</span></td><td>Top-N per Group, Deduplication, Temporal Join, Interval Join</td></tr>
-          </tbody>
-        </table>
-      </div>
-
-      <h3 id="project-manager-s">Project Manager</h3>
-      <p>Save, load, run, and organise named Str:::lab projects via <strong>Projects</strong> in the topbar. Each project stores SQL tabs, SET config, catalog context, run count, and timestamps. Export and import as JSON files.</p>
-
-      <h3 id="udf-manager">UDF Manager</h3>
-      <p>Complete UDF lifecycle management: browse registered functions and views, upload JARs directly to the cluster, register functions (Java/Scala/Python — LANGUAGE SQL does not exist in Flink and has been removed), build SQL expressions via the View Builder, generate Maven/Gradle configs, and insert professional UDF templates. Fixes in v2: SHOW FUNCTIONS now returns all rows, library search works across Views and UDFs, View Builder Insert Expression works correctly when the form is filled.</p>
-
-      <h3 id="colour-describe">Colour Describe</h3>
-      <p>User-defined live row highlighting. Build rules (field + operator + value + color + style mode) that apply to streaming result rows in real time. Operators: <code>== != &gt; &gt;= &lt; &lt;=</code>, <code>contains</code>, <code>starts</code>, <code>ends</code>, <code>regex</code>. Style modes: row background, left border accent, text color. Rules evaluated top-to-bottom — first match wins. Color legend rendered below the table with a Turn off button. Report integration included.</p>
-    </section>
-
-    <!-- ═══════════════════════════════════════════ PIPELINE MANAGER -->
-    <section class="doc-section" id="pipeline-manager">
-      <div class="section-label">Pipeline Tools</div>
-      <h2>
-        <div class="h2-icon">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00d4aa" stroke-width="2"><circle cx="5" cy="12" r="3"/><circle cx="19" cy="5" r="3"/><circle cx="19" cy="19" r="3"/><line x1="8" y1="11.5" x2="16" y2="6.5"/><line x1="8" y1="12.5" x2="16" y2="17.5"/></svg>
-        </div>
-        Pipeline Manager <span class="badge badge-updated">v2.1</span>
-      </h2>
-      <p>Visual drag-and-drop Flink SQL pipeline builder. Drag operators from the palette onto the canvas, connect them, configure parameters inline, and get production-ready Flink SQL generated automatically. Access via Managers &rarr; Pipeline Manager.</p>
-
-      <h3>Operator Palette</h3>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Group</th><th>Operators</th></tr></thead>
-          <tbody>
-          <tr><td><strong>Sources</strong></td><td>Kafka, Datagen, JDBC, Filesystem/S3, Pulsar, Kinesis</td></tr>
-          <tr><td><strong>Transformations</strong></td><td>Filter, Project, UDF Map, Lookup Enrich, Union, Split/Route</td></tr>
-          <tr><td><strong>Windows</strong></td><td>Tumble, Hop, Session, Cumulate</td></tr>
-          <tr><td><strong>Aggregations</strong></td><td>Group Agg, Dedup, Top-N</td></tr>
-          <tr><td><strong>Joins</strong></td><td>Interval Join, Temporal Join, Regular Join</td></tr>
-          <tr><td><strong>CEP</strong></td><td>MATCH_RECOGNIZE, CEP Alert</td></tr>
-          <tr><td><strong>Sinks</strong></td><td>Kafka, JDBC, Filesystem, Elasticsearch, Print, Blackhole, MongoDB, Kinesis</td></tr>
-          <tr><td><strong>Output</strong></td><td>Results Tab, AI Model Node</td></tr>
-          <tr><td><strong>My UDFs</strong></td><td>UDF Function (dropdown populated from UDF Manager), Feature Store</td></tr>
-          </tbody>
-        </table>
-      </div>
-
-      <h3>Edge Types</h3>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Type</th><th>Description</th><th>Use When</th></tr></thead>
-          <tbody>
-          <tr><td><strong>FORWARD</strong></td><td>Same parallelism, no network shuffle. Default and most efficient.</td><td>Consecutive operators at the same parallelism</td></tr>
-          <tr><td><strong>HASH</strong></td><td>Records shuffled by key hash. All records with the same key go to the same subtask.</td><td>Before GROUP BY, JOIN, DEDUP</td></tr>
-          <tr><td><strong>REBALANCE</strong></td><td>Round-robin distribution. Breaks key affinity.</td><td>Fixing hotspots before stateless sinks</td></tr>
-          <tr><td><strong>BROADCAST</strong></td><td>Every record sent to every downstream subtask.</td><td>Small reference datasets for broadcast joins</td></tr>
-          <tr><td><strong>RESCALE</strong></td><td>Local round-robin — stays within the same TaskManager where possible.</td><td>Scaling up parallelism cheaply</td></tr>
-          </tbody>
-        </table>
-      </div>
-
-      <h3>Canvas Controls</h3>
-      <ul class="doc-ul">
-        <li><strong>Drag</strong> nodes from the palette onto the canvas. Nodes can be freely repositioned by dragging.</li>
-        <li><strong>Connect</strong> nodes by dragging from an output port (right edge) to an input port (left edge).</li>
-        <li><strong>Configure</strong> by double-clicking a node — the config modal opens pinned beside the node.</li>
-        <li><strong>Pan</strong> by dragging the canvas background. <strong>Zoom</strong> with the mouse wheel.</li>
-        <li><strong>Auto Layout</strong> arranges all nodes in a clean left-to-right topology.</li>
-        <li><strong>Animate</strong> with the Run button — particles flow along edges for RUNNING pipelines.</li>
-      </ul>
-    </section>
-
-    <!-- ═══════════════════════════════════════════ FEATURE ENGINEERING -->
-    <section class="doc-section" id="feature-engineering">
-      <h2>
-        <div class="h2-icon">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00d4aa" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
-        </div>
-        Feature Engineering Manager <span class="badge badge-new">New</span>
-      </h2>
-      <p>A six-step guided wizard for building real-time Flink SQL feature pipelines from streaming data. Supports Schema Registry integration or manual column entry. Generates production-ready Flink SQL with per-column transforms, multiple window aggregations, configurable sinks, and a fully interactive pipeline canvas. Access via Managers &rarr; Feature Engineering.</p>
-
-      <div class="callout info">
-        <i class="callout-icon">&#9670;</i>
-        <div class="callout-body">
-          <strong>FEM to Inference Manager handoff</strong>
-          Every pipeline you build in the Feature Engineering Manager is saved to history with its full output column schema. The Inference Manager reads this directly — click From FEM to auto-populate the source table and all column definitions without retyping them.
-        </div>
-      </div>
-
-      <h3>Six-Step Wizard</h3>
-      <div class="steps">
-        <div class="step">
-          <div class="step-num">1</div>
-          <div class="step-body">
-            <h4>Data Source</h4>
-            <p>Choose Manual Column Entry or Schema Registry. For Schema Registry, connect to any Confluent, Apicurio, Karapace, or AWS Glue SR endpoint, browse subjects, and import the field schema in one click. Enter the source table name and connector type (Kafka, Datagen, JDBC, Filesystem, Kinesis, Pulsar).</p>
+            </div>
           </div>
-        </div>
-        <div class="step">
-          <div class="step-num">2</div>
-          <div class="step-body">
-            <h4>Feature Column Selection</h4>
-            <p>Toggle which columns from the source schema to include. Time and timestamp columns are highlighted for watermark assignment. Configure the event time column and out-of-orderness delay. Numeric-only quick-select available.</p>
+          <div class="callout tip">
+            <span class="callout-icon">◈</span>
+            <div class="callout-body"><strong>First thing every session</strong>Open Snippets → CONFIG → Recommended Streaming Config and click Insert. Sets runtime mode, parallelism, checkpointing, state TTL, and MiniBatch in one action.</div>
           </div>
-        </div>
-        <div class="step">
-          <div class="step-num">3</div>
-          <div class="step-body">
-            <h4>Per-Column Transformations</h4>
-            <p>Configure a transformation per column. Available transforms: Pass-through, CAST, Math expression, COALESCE, UPPER/LOWER/TRIM, SUBSTRING, ROUND, ABS, LN, Bucketing / CASE WHEN, MD5 hash encode, DATE_FORMAT, UNIX_TIMESTAMP, FROM_UNIXTIME, IFNULL, LAG, Min-Max Normalise, and Custom SQL expression. Each transform produces a correctly typed output column in the generated SQL.</p>
+
+          <h3 id="connection-modes">Connection Modes <a class="anchor" href="#connection-modes">#</a></h3>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Mode</th><th>Best For</th><th>Authentication</th></tr></thead>
+              <tbody>
+              <tr><td><strong>Proxy Mode</strong></td><td>Local Docker or Kubernetes clusters. Routes through nginx — zero config required.</td><td>None</td></tr>
+              <tr><td><strong>Direct Gateway</strong></td><td>Remote clusters, Confluent Cloud, Ververica, AWS Managed Flink.</td><td>Bearer token, Basic Auth, or None</td></tr>
+              <tr><td><strong>Confluent Cloud</strong></td><td>Managed Flink SQL on Confluent. Enter Org ID, Env ID, region, API key + secret.</td><td>Basic (API key : secret)</td></tr>
+              <tr><td><strong>Ververica</strong></td><td>VVP self-managed, Ververica Cloud, or BYOC.</td><td>Bearer token</td></tr>
+              <tr><td><strong>AWS Managed Flink</strong></td><td>Amazon Managed Service for Apache Flink.</td><td>IAM / Access Keys</td></tr>
+              <tr><td><strong>Admin Session</strong></td><td>Platform operators. Full cluster visibility, cross-session oversight, advanced reports.</td><td>Admin passcode (default: <code>admin1234</code>)</td></tr>
+              </tbody>
+            </table>
           </div>
-        </div>
-        <div class="step">
-          <div class="step-num">4</div>
-          <div class="step-body">
-            <h4>Windows and Aggregations</h4>
-            <p>Add one or more window aggregations: TUMBLE (fixed), HOP (sliding), SESSION (activity-based), or CUMULATE (running total). Each window requires a time column and aggregation expressions. A keyless GROUP BY aggregation (no window) can be added separately. Multiple windows of different sizes are fully supported — common for feature stores modelling 1-min, 5-min, and 1-hour features simultaneously.</p>
+        </section>
+
+        <!-- ══════════════════════════════════════════════ ARCHITECTURE -->
+        <section class="doc-section" id="architecture">
+          <h2>Architecture <a class="anchor" href="#architecture">#</a></h2>
+          <p>Str:::lab Studio is a static HTML application served by nginx. All SQL execution happens via the Flink SQL Gateway REST API. The browser manages all session state client-side.</p>
+          <div class="mermaid-wrap">
+            <div class="mermaid">
+              flowchart TD
+              B["Browser\nlocalhost:3030"]
+              N["nginx\nflink-studio container"]
+              GW["Flink SQL Gateway :8083"]
+              JM["Flink JobManager :8081"]
+              TM1["TaskManager 1"]
+              TM2["TaskManager 2"]
+              K["Apache Kafka"]
+              S["MinIO / S3"]
+              B-->|"/flink-api/"|N
+              B-->|"/jobmanager-api/"|N
+              N-->|"proxy"|GW
+              N-->|"proxy"|JM
+              GW-->JM
+              JM-->TM1
+              JM-->TM2
+              TM1-->K
+              TM2-->S
+              style B fill:#edf5f2,stroke:#00b89c,color:#1a2e28
+              style N fill:#edf5f2,stroke:#008f79,color:#1a2e28
+              style GW fill:#edf5f2,stroke:#3d6b5e,color:#1a2e28
+              style JM fill:#edf5f2,stroke:#3d6b5e,color:#1a2e28
+              style TM1 fill:#f5faf8,stroke:#3fb950,color:#1a2e28
+              style TM2 fill:#f5faf8,stroke:#3fb950,color:#1a2e28
+              style K fill:#fffbf0,stroke:#f0a500,color:#1a2e28
+              style S fill:#fffbf0,stroke:#f0a500,color:#1a2e28
+            </div>
           </div>
-        </div>
-        <div class="step">
-          <div class="step-num">5</div>
-          <div class="step-body">
-            <h4>Output Sink</h4>
-            <p>Configure the output table name and sink connector. Supported sinks: Kafka (with SASL/SSL and Schema Registry), JDBC (PostgreSQL/MySQL/Redshift), Filesystem/S3/GCS/HDFS, Apache Iceberg, Apache Hudi, Elasticsearch/OpenSearch, Redis, Feast Feature Store, Print, Blackhole. All credentials entered in this step are emitted directly into the generated SQL — no placeholder values.</p>
+        </section>
+
+        <!-- ══════════════════════════════════════════════ PIPELINE MANAGER -->
+        <section class="doc-section" id="pipeline-manager">
+          <h2>Pipeline Manager <span class="badge badge-updated">v2.1</span> <a class="anchor" href="#pipeline-manager">#</a></h2>
+          <p>Visual drag-and-drop Flink SQL pipeline builder. Access via <strong>Managers → Pipeline Manager</strong>. Drag operators onto the canvas, connect them, configure parameters inline, and get production-ready Flink SQL generated automatically. Edges are colour-coded by type: FORWARD, HASH, REBALANCE, BROADCAST, RESCALE.</p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Group</th><th>Operators</th></tr></thead>
+              <tbody>
+              <tr><td><span class="tag tag-source">Sources</span></td><td>Kafka, Datagen, JDBC, Filesystem/S3, Pulsar, Kinesis</td></tr>
+              <tr><td><span class="tag tag-transform">Transforms</span></td><td>Filter, Project, UDF Map, Lookup Enrich, Union, Split/Route</td></tr>
+              <tr><td><span class="tag tag-window">Windows</span></td><td>Tumble, Hop, Session, Cumulate</td></tr>
+              <tr><td><span class="tag tag-agg">Aggregations</span></td><td>Group Agg, Dedup, Top-N</td></tr>
+              <tr><td><span class="tag tag-transform">Joins</span></td><td>Interval Join, Temporal Join, Regular Join</td></tr>
+              <tr><td><span class="tag tag-cep">CEP</span></td><td>MATCH_RECOGNIZE, CEP Alert</td></tr>
+              <tr><td><span class="tag tag-sink">Sinks</span></td><td>Kafka, JDBC, Filesystem, Elasticsearch, Print, Blackhole, MongoDB, Kinesis</td></tr>
+              <tr><td><span class="tag tag-ml">Output/ML</span></td><td>Results Tab, AI Model Node, Feature Store, UDF Function</td></tr>
+              </tbody>
+            </table>
           </div>
-        </div>
-        <div class="step">
-          <div class="step-num">6</div>
-          <div class="step-body">
-            <h4>Review and SQL</h4>
-            <p>Side-by-side view: an interactive pipeline canvas on the left and the complete generated Flink SQL on the right. The canvas is fully zoomable (scroll wheel), pannable (drag), and collapsible to full-screen (Maximize button). Double-click the canvas background to fit the view. The pipeline is automatically saved to history with its full output column schema for use by the Inference Manager.</p>
+        </section>
+
+        <!-- ══════════════════════════════════════════════ FEATURE ENGINEERING -->
+        <section class="doc-section" id="feature-engineering">
+          <h2>Feature Engineering Manager <span class="badge badge-updated">v0.0.25</span> <a class="anchor" href="#feature-engineering">#</a></h2>
+          <p>A six-step guided wizard for building real-time Flink SQL feature pipelines. Supports Schema Registry integration or manual column entry. Access via <strong>Managers → Feature Engineering</strong>.</p>
+          <div class="callout info">
+            <span class="callout-icon">ℹ</span>
+            <div class="callout-body"><strong>FEM → Inference Manager handoff</strong>Every pipeline built in the Feature Engineering Manager is saved to history with its full output column schema. The Inference Manager reads this directly — click <strong>From FEM</strong> to auto-populate the source table and all column definitions without retyping.</div>
           </div>
-        </div>
-      </div>
+          <h3>Six-Step Wizard</h3>
+          <div class="steps">
+            <div class="step"><div class="step-num">1</div><div class="step-body"><h4>Data Source</h4><p>Manual entry or Schema Registry. Connect to Confluent, Apicurio, Karapace, or AWS Glue SR — browse subjects and import schemas in one click.</p></div></div>
+            <div class="step"><div class="step-num">2</div><div class="step-body"><h4>Feature Column Selection</h4><p>Toggle which source columns to include. Assign watermark column and out-of-orderness delay.</p></div></div>
+            <div class="step"><div class="step-num">3</div><div class="step-body"><h4>Per-Column Transformations</h4><p>20 transform types: Pass-through, CAST, Math, COALESCE, UPPER/LOWER, SUBSTRING, ROUND, ABS, Bucketing, MD5, DATE_FORMAT, LAG, Min-Max Normalise, Custom SQL expression, and more.</p></div></div>
+            <div class="step"><div class="step-num">4</div><div class="step-body"><h4>Windows and Aggregations</h4><p>Add TUMBLE, HOP, SESSION, or CUMULATE windows. Multiple windows of different sizes fully supported — common for 1-min, 5-min, and 1-hour feature stores simultaneously.</p></div></div>
+            <div class="step"><div class="step-num">5</div><div class="step-body"><h4>Output Sink</h4><p>Kafka (with SASL/SSL and Schema Registry), JDBC, Filesystem/S3, Iceberg, Hudi, Elasticsearch, Redis, Feast, Print, Blackhole.</p></div></div>
+            <div class="step"><div class="step-num">6</div><div class="step-body"><h4>Review and SQL</h4><p>Interactive SVG pipeline canvas (zoom/pan/fit/maximize) alongside the complete generated Flink SQL. Saved to history with full output column schema.</p></div></div>
+          </div>
+        </section>
 
-      <h3>Pipeline Canvas</h3>
-      <p>The Review step renders an SVG-based pipeline canvas showing all four stages: Source feature columns, Transformations (with operator icons), Windows/Aggregations, and the Output node. The canvas supports:</p>
-      <ul class="doc-ul">
-        <li><strong>Scroll to zoom</strong> — mouse wheel zooms toward the cursor position, range 15%–400%</li>
-        <li><strong>Drag to pan</strong> — click and drag moves the viewport freely in all directions</li>
-        <li><strong>Fit to view</strong> — the Fit button (and double-click on background) auto-centres and scales all content</li>
-        <li><strong>Maximize/restore</strong> — the expand button takes the canvas to full-screen (fixed overlay) and restores it cleanly</li>
-        <li><strong>Zoom label</strong> — shows current zoom percentage in the toolbar</li>
-      </ul>
+        <!-- ══════════════════════════════════════════════ INFERENCE MANAGER -->
+        <section class="doc-section" id="inference-manager">
+          <h2>AI Model Inference Manager <span class="badge badge-updated">v0.0.25</span> <a class="anchor" href="#inference-manager">#</a></h2>
+          <p>A seven-step guided wizard for configuring real-time ML model inference on Flink streaming pipelines. 25 model server types across five categories. Access via <strong>Managers → Inference Manager</strong>.</p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Category</th><th>Servers</th></tr></thead>
+              <tbody>
+              <tr><td><strong>MLOps Platforms</strong></td><td>MLflow, AWS SageMaker, Azure ML, Google Vertex AI, Databricks</td></tr>
+              <tr><td><strong>Open-Source Serving</strong></td><td>MLflow pyfunc, BentoML, NVIDIA Triton, TorchServe, TF Serving, Ray Serve, Seldon Core, KServe</td></tr>
+              <tr><td><strong>Artifact Stores</strong></td><td>MinIO / S3 (model artifact loading)</td></tr>
+              <tr><td><strong>Hosted APIs</strong></td><td>HuggingFace, OpenAI, Anthropic Claude, Cohere, Mistral AI, Together AI, AWS Bedrock</td></tr>
+              <tr><td><strong>Custom / Bespoke</strong></td><td>OpenAI-compatible (vLLM, Ollama, LocalAI), Custom HTTP REST, Custom gRPC, Flink UDF / JAR</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="callout tip">
+            <span class="callout-icon">◈</span>
+            <div class="callout-body"><strong>Inference canvas</strong>The Review step renders an interactive SVG inference canvas: source column nodes → optional pre-process → model server hero node (with provider icon and async parallelism badge) → optional post-process → output node. Same zoom/pan/maximize controls as the Feature Engineering canvas.</div>
+          </div>
+        </section>
 
-      <h3>History</h3>
-      <p>Every completed pipeline is saved to <code>localStorage</code> with the source table name, output table name, sink type, column counts, window counts, the full generated SQL, and the complete output column schema (with correctly inferred types per transformation). The History button shows up to 20 entries with an Insert SQL button per entry. History can be cleared individually or entirely.</p>
+        <!-- ══════════════════════════════════════════════ AGENT MANAGER -->
+        <section class="doc-section" id="agent-manager">
+          <h2>Flink Agent Manager <span class="badge badge-new">v0.0.26</span> <a class="anchor" href="#agent-manager">#</a></h2>
+          <p>A full visual IDE for building event-driven AI agents on Apache Flink Agents 0.2. Access via <strong>Managers → ⚛ Agent Manager</strong>. The Agent Manager ships as two files: <code>agent-manager.js</code> (core) and <code>agent-manager-extensions.js</code> (6 extension features). Both must be loaded after <code>inference-manager.js</code>.</p>
 
-      <h3>Validation</h3>
-      <p>Each step enforces required fields before allowing progression. Required fields vary by step: source table name and at least one column are required at Step 1; window time column and aggregations are required at Step 4; output table name is required at Step 5. A red validation banner appears at the top of the wizard with the specific error. Navigation via step numbers respects the same validation rules.</p>
+          <div class="callout tip">
+            <span class="callout-icon">◈</span>
+            <div class="callout-body">
+              <strong>What are Flink Agents?</strong>
+              Apache Flink Agents 0.2 extends the Flink runtime with a native AI agent execution layer — attaching LLM reasoning loops, three-tier memory (Sensory / Short-Term RocksDB / Long-Term Vector), MCP servers, and Agent-to-Agent (A2A) coordination directly to streaming pipelines. All with exactly-once guarantees and durable execution blocks.
+            </div>
+          </div>
 
-      <h3>Generated SQL Structure</h3>
-      <div class="tab-group">
-        <div class="tab-nav">
-          <button class="tab-btn active" onclick="switchTab(this,'fem-sql1')">Kafka Source with Windows</button>
-          <button class="tab-btn" onclick="switchTab(this,'fem-sql2')">Direct Stream Transform</button>
-        </div>
-        <div id="fem-sql1" class="tab-pane active">
-      <pre><code>-- Feature Engineering Pipeline
--- Source: transactions_raw  Sink: user_features_out
--- Generated by Str:::lab Studio — Feature Engineering Manager
+          <h3 id="agent-canvas">Visual Canvas <a class="anchor" href="#agent-canvas">#</a></h3>
+          <p>Drag-and-drop operator builder with 30+ Flink Agent blocks across 11 groups. Icons follow the same convention as Pipeline Manager: brand icons use Simple Icons CDN (<code>_agSimpleIcon(slug, hex)</code>) and everything else uses clean monochrome inline SVG — no emoji anywhere in the operator catalogue.</p>
 
-SET 'execution.runtime-mode' = 'streaming';
-SET 'parallelism.default' = '4';
-SET 'execution.checkpointing.interval' = '10000';
-SET 'table.exec.state.ttl' = '3600000';
+          <div class="callout info">
+            <span class="callout-icon">ℹ</span>
+            <div class="callout-body">
+              <strong>Colour-coded gradient edges</strong>
+              Canvas edges render as smooth Bézier curves with a <code>linearGradient</code> that flows from the <em>source node's colour</em> to the <em>destination node's colour</em>. Each edge gets a matching per-edge arrowhead coloured to the destination node. A Kafka source (blue <code>#1a6fa8</code>) connecting to a WorkflowAgent (purple <code>#6a0a9a</code>) renders as a blue→purple gradient edge with a purple arrowhead tip.
+            </div>
+          </div>
 
-CREATE TEMPORARY TABLE IF NOT EXISTS transactions_raw (
-  user_id                        BIGINT,
-  merchant_id                    BIGINT,
-  amount                         DOUBLE,
-  currency                       STRING,
-  status                         STRING,
-  event_time                     TIMESTAMP(3),
-  WATERMARK FOR event_time AS event_time - INTERVAL '5 SECOND'
-) WITH (
-  'connector'                    = 'kafka',
-  'topic'                        = 'transactions',
-  'properties.bootstrap.servers' = 'kafka:9092',
-  'properties.group.id'          = 'feature-pipeline-group',
-  'scan.startup.mode'            = 'latest-offset',
-  'format'                       = 'json'
-);
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Group</th><th>Operators</th><th>Icons</th></tr></thead>
+              <tbody>
+              <tr><td><strong>Event Sources</strong></td><td>Kafka Event, Datagen Events, JDBC Events, Kinesis Events</td><td>Simple Icons CDN</td></tr>
+              <tr><td><strong>LLM Models</strong></td><td>OpenAI, Anthropic Claude, Azure AI, AWS Bedrock, Ollama, Mistral AI, Google Vertex AI</td><td>Simple Icons CDN</td></tr>
+              <tr><td><strong>Embeddings</strong></td><td>OpenAI, Ollama, HuggingFace, Azure</td><td>Simple Icons CDN</td></tr>
+              <tr><td><strong>Vector Stores</strong></td><td>Elasticsearch VSS, Redis VSS, Milvus, Qdrant</td><td>Mixed: SI + SVG</td></tr>
+              <tr><td><strong>Memory</strong></td><td>Sensory Memory, Short-Term Memory (RocksDB), Long-Term Memory (RAG)</td><td>Monochrome SVG</td></tr>
+              <tr><td><strong>Prompts</strong></td><td>Prompt Template, Few-Shot Examples</td><td>Monochrome SVG</td></tr>
+              <tr><td><strong>Tools / MCP</strong></td><td>HTTP Tool, Kafka Produce Tool, Flink SQL Tool, MCP Server</td><td>Mixed: SI + SVG</td></tr>
+              <tr><td><strong>Orchestration</strong></td><td>Workflow Agent, ReAct Agent, Multi-Agent (A2A)</td><td>Monochrome SVG</td></tr>
+              <tr><td><strong>Actions</strong></td><td>Kafka Action, JDBC Action, HTTP Webhook Action</td><td>Simple Icons CDN</td></tr>
+              <tr><td><strong>Observability</strong></td><td>Event Log, VECTOR_SEARCH (Flink 2.2)</td><td>Monochrome SVG</td></tr>
+              <tr><td><strong>Sinks</strong></td><td>Print (Debug), Blackhole</td><td>Monochrome SVG</td></tr>
+              </tbody>
+            </table>
+          </div>
 
--- Window 1: TUMBLE — 5 MINUTE feature aggregation
-INSERT INTO user_features_out
-SELECT
-  user_id,
-  window_start,
-  window_end,
-  COUNT(*) AS tx_count_5m,
-  SUM(amount) AS total_amount_5m,
-  AVG(amount) AS avg_amount_5m
-FROM TABLE(TUMBLE(TABLE transactions_raw, DESCRIPTOR(event_time), INTERVAL '5 MINUTE'))
-GROUP BY user_id, window_start, window_end;</code></pre>
-        </div>
-        <div id="fem-sql2" class="tab-pane">
-      <pre><code>-- Direct feature transformation stream (no aggregation)
-INSERT INTO user_features_out
-SELECT
-  user_id,
-  ROUND(amount, 2) AS amount,
-  MD5(CAST(user_id AS STRING)) AS user_id_hash,
-  UPPER(status) AS status,
-  CASE
-    WHEN amount < 100 THEN 'bucket_0'
-    WHEN amount < 500 THEN 'bucket_1'
-    ELSE 'bucket_2'
-  END AS amount_bucket
-FROM transactions_raw;</code></pre>
-        </div>
-      </div>
-    </section>
+          <h4>Canvas Controls</h4>
+          <ul class="doc-list">
+            <li>Drag operators from the palette — palette search box filters by label and operator ID</li>
+            <li><strong>✏ edit</strong> button on every node card (identical to Pipeline Manager) — opens a draggable config modal positioned beside the node</li>
+            <li>Drag output port (right edge) → input port (left edge) to connect nodes</li>
+            <li>Scroll to zoom (0.12× – 3×), drag canvas background to pan, <strong>⊙ Fit</strong> to auto-centre</li>
+            <li><strong>⤢</strong> expand-to-fullscreen / <strong>⤡</strong> restore — mirrors <code>_plmToggleFullscreen()</code> from Pipeline Manager</li>
+            <li><strong>▶ Simulate Flow</strong> — animated particles flow along gradient edges showing agent data paths</li>
+            <li>Delete selected node with <kbd>Delete</kbd> / <kbd>Backspace</kbd>; <kbd>Escape</kbd> cancels in-progress connections</li>
+          </ul>
 
-    <!-- ═══════════════════════════════════════════ INFERENCE MANAGER -->
-    <section class="doc-section" id="inference-manager">
-      <h2>
-        <div class="h2-icon">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00d4aa" stroke-width="2"><path d="M12 2a4 4 0 0 1 4 4 4 4 0 0 1-4 4 4 4 0 0 1-4-4 4 4 0 0 1 4-4z"/><path d="M4 20a8 8 0 0 1 16 0"/></svg>
-        </div>
-        AI Model Inference Manager <span class="badge badge-new">New</span>
-      </h2>
-      <p>A seven-step guided wizard for configuring real-time ML model inference on Flink streaming pipelines. Supports 25 model server types across five categories. Generates production-ready Flink SQL with async UDF patterns, all credentials embedded, and server-specific configuration documented as structured comments. Access via Managers &rarr; Inference Manager.</p>
+          <h3 id="agent-wizard">Guided Wizard (9 Steps) <a class="anchor" href="#agent-wizard">#</a></h3>
+          <p>A step-by-step dialog covering every Flink Agents 0.2 concept. Steps can be navigated by clicking the step numbers in the sidebar. Each step validates required fields before allowing progression.</p>
 
-      <h3>Source Table — Schema Auto-Population</h3>
-      <p>Step 1 presents a combined table selector: a dropdown listing all known tables (Feature Engineering outputs first, then session tables), quick-pill shortcuts, a manual text input, and a From FEM button. Selecting a table auto-populates the schema using three strategies in order of richness:</p>
-      <ol class="doc-ol">
-        <li>Reads <code>outputColumns</code> directly from the FEM history entry — the richest source, set by the Feature Engineering Manager with correctly typed columns per transformation</li>
-        <li>Falls back to the <code>strlabstudio_fem_state</code> snapshot written at FEM pipeline save time</li>
-        <li>Falls back to parsing the <code>CREATE TABLE</code> DDL from the stored SQL string using a regex matched against the exact table name</li>
-      </ol>
-      <p>Loaded columns are displayed as interactive tags and simultaneously populate the textarea for manual editing. If no FEM history is found for the selected table, a yellow indicator prompts the user to enter the schema manually.</p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Step</th><th>Covers</th></tr></thead>
+              <tbody>
+              <tr><td><strong>1 — Agent Profile</strong></td><td>Name, orchestration pattern (WorkflowAgent / ReActAgent / A2A), language (Java / Python), parallelism, checkpoint interval, exactly-once actions, durable execution blocks</td></tr>
+              <tr><td><strong>2 — Event Source</strong></td><td>Source type selector (Kafka JSON / <strong>Kafka + Schema Registry</strong> / Datagen / JDBC / Kinesis), Schema Registry connection, Avro schema auto-loading</td></tr>
+              <tr><td><strong>3 — LLM Model</strong></td><td>Provider, model name, API key env var, base URL override, temperature, max tokens, system prompt</td></tr>
+              <tr><td><strong>4 — Memory Config</strong></td><td>Sensory memory (max tokens, retention strategy), Short-Term memory (TTL, partition key), Long-Term memory (vector store, embedding model, recall Top-K)</td></tr>
+              <tr><td><strong>5 — Tools &amp; MCP</strong></td><td>HTTP Tool (name, URL, description for LLM), MCP Server (URL, transport, auth env), Flink SQL Tool</td></tr>
+              <tr><td><strong>6 — Orchestration</strong></td><td>Execution pattern, max ReAct iterations, A2A protocol (coordinator / sub-agent), A2A endpoint, child agent IDs</td></tr>
+              <tr><td><strong>7 — Actions &amp; Sinks</strong></td><td>Primary sink type (Kafka / JDBC / HTTP Webhook / Print), output table name, alert sink (optional secondary)</td></tr>
+              <tr><td><strong>8 — Observability</strong></td><td>Event log sink (Kafka / Elasticsearch / Print), log topic, LLM call logging, tool call logging, memory op logging, retention days</td></tr>
+              <tr><td><strong>9 — Review &amp; Build</strong></td><td>Two-column: <strong>SVG pipeline graph canvas</strong> (zoom/pan/fit) + config summary cards. Click <strong>⚛ Build Agent</strong> to generate canvas and all code artefacts.</td></tr>
+              </tbody>
+            </table>
+          </div>
 
-      <h3>Model Servers — 25 Supported</h3>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Category</th><th>Servers</th></tr></thead>
-          <tbody>
-          <tr><td><strong>MLOps Platforms</strong></td><td>MLflow, AWS SageMaker, Azure ML, Google Vertex AI, Databricks</td></tr>
-          <tr><td><strong>Open-Source Serving</strong></td><td>MLflow pyfunc serve, BentoML, NVIDIA Triton, TorchServe, TF Serving, Ray Serve, Seldon Core, KServe</td></tr>
-          <tr><td><strong>Artifact Stores</strong></td><td>MinIO / S3 (model artifact loading)</td></tr>
-          <tr><td><strong>Hosted APIs</strong></td><td>HuggingFace Hub, OpenAI, Anthropic Claude, Cohere, Mistral AI, Together AI, AWS Bedrock</td></tr>
-          <tr><td><strong>Custom / Bespoke</strong></td><td>OpenAI-compatible (vLLM, Ollama, LocalAI, LM Studio), Custom HTTP REST, Custom gRPC, Flink UDF / JAR</td></tr>
-          </tbody>
-        </table>
-      </div>
+          <h3 id="agent-schema-registry">Kafka + Schema Registry Source <a class="anchor" href="#agent-schema-registry">#</a></h3>
+          <p>When <strong>Kafka + Schema Registry</strong> is selected in Step 2, an additional card appears with full Schema Registry integration — mirroring the Feature Engineering Manager's pattern.</p>
+          <ul class="doc-list">
+            <li><strong>⟳ Load Subjects</strong> — fetches all subjects from <code>/subjects</code> on the Schema Registry REST API. Uses <code>jmApi</code> proxy if available (avoids CORS), falls back to direct fetch. Populates a subject dropdown.</li>
+            <li><strong>↓ Load Schema</strong> — fetches <code>/subjects/{name}/versions/latest</code>, runs <code>_agAvroToDDL()</code> to convert Avro field types to Flink SQL DDL types with full logical type support:</li>
+          </ul>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Avro Type</th><th>Flink SQL Type</th></tr></thead>
+              <tbody>
+              <tr><td><code>string</code></td><td><code>STRING</code></td></tr>
+              <tr><td><code>int</code></td><td><code>INT</code></td></tr>
+              <tr><td><code>long</code></td><td><code>BIGINT</code></td></tr>
+              <tr><td><code>float</code> / <code>double</code></td><td><code>FLOAT</code> / <code>DOUBLE</code></td></tr>
+              <tr><td><code>boolean</code></td><td><code>BOOLEAN</code></td></tr>
+              <tr><td><code>bytes</code></td><td><code>BYTES</code></td></tr>
+              <tr><td>Union (<code>["null","string"]</code>)</td><td>Non-null type (e.g. <code>STRING</code>)</td></tr>
+              <tr><td><code>{"type":"array","items":"float"}</code></td><td><code>ARRAY&lt;FLOAT&gt;</code></td></tr>
+              <tr><td><code>{"type":"map","values":"double"}</code></td><td><code>MAP&lt;STRING,DOUBLE&gt;</code></td></tr>
+              <tr><td><code>timestamp-millis</code> / <code>timestamp-micros</code></td><td><code>TIMESTAMP(3)</code></td></tr>
+              <tr><td><code>date</code></td><td><code>DATE</code></td></tr>
+              <tr><td><code>decimal</code></td><td><code>DECIMAL(precision, scale)</code></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>Loaded fields populate both the schema tag pills (live visual display) and the schema textarea. The tag pills also update as you type in the textarea. Schema format is auto-set to <code>avro-confluent</code> when SR is selected.</p>
 
-      <h3>Authentication Methods</h3>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Method</th><th>Header / Mechanism</th><th>Used For</th></tr></thead>
-          <tbody>
-          <tr><td>Bearer Token</td><td><code>Authorization: Bearer &lt;token&gt;</code></td><td>MLflow, Databricks, BentoML, Ray Serve, Seldon, KServe</td></tr>
-          <tr><td>API Key (header)</td><td>Configurable header name + value</td><td>OpenAI, Mistral, Together, HuggingFace, custom</td></tr>
-          <tr><td>x-api-key header</td><td><code>x-api-key: &lt;key&gt;</code></td><td>Anthropic Claude</td></tr>
-          <tr><td>Basic Auth</td><td><code>Authorization: Basic base64(user:pass)</code></td><td>MLflow self-hosted, Elasticsearch</td></tr>
-          <tr><td>Custom Header</td><td>Any header name + value</td><td>Proprietary endpoints</td></tr>
-          <tr><td>AWS SigV4</td><td>Request signing via AWS SDK</td><td>SageMaker, AWS Bedrock</td></tr>
-          <tr><td>AWS Access Keys</td><td>Access Key ID + Secret + optional session token</td><td>SageMaker, Bedrock, MinIO</td></tr>
-          <tr><td>MinIO Access Keys</td><td>MinIO access key + secret key</td><td>MinIO artifact store</td></tr>
-          <tr><td>Azure AD</td><td>OAuth2 client credentials flow</td><td>Azure ML</td></tr>
-          <tr><td>Google Service Account</td><td>SA JSON key file path</td><td>Google Vertex AI</td></tr>
-          <tr><td>mTLS Certificate</td><td>Client cert + key + CA cert paths</td><td>Custom gRPC, enterprise endpoints</td></tr>
-          </tbody>
-        </table>
-      </div>
+          <h3 id="agent-codegen">Code Generation — 7 Artefacts <a class="anchor" href="#agent-codegen">#</a></h3>
+          <p>Click <strong>⟨/⟩ Generated Code</strong> tab to access 8 code output types, switchable from a left sidebar. SQL inserts into the Studio editor with one click.</p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Artefact</th><th>Contents</th></tr></thead>
+              <tbody>
+              <tr><td><strong>Flink SQL</strong></td><td>SET statements, CREATE TABLE (Kafka source with watermark), CREATE MODEL (LLM binding), CREATE TEMPORARY FUNCTION (agent UDF), INSERT INTO pipeline</td></tr>
+              <tr><td><strong>Java (API)</strong></td><td>Full <code>WorkflowAgent</code> or <code>ReActAgent</code> skeleton with memory, tools, MCP, durable execution blocks, and <code>main()</code> with <code>StreamTableEnvironment</code></td></tr>
+              <tr><td><strong>Python (PyFlink)</strong></td><td>Full <code>WorkflowAgent</code> or <code>ReActAgent</code> skeleton with <code>async def run/reason</code>, <code>durable_block</code>, tool registration, and <code>t_env.register_function()</code></td></tr>
+              <tr><td><strong>FLIP-531 Native ✦</strong></td><td>Experimental <code>CREATE AGENT</code> / <code>RUN AGENT</code> / <code>SHOW AGENTS</code> syntax — Flink Agents 0.2 first-class SQL extension</td></tr>
+              <tr><td><strong>pom.xml</strong></td><td>Maven build with <code>flink-agents-java 0.2.0</code>, <code>flink-connector-kafka</code>, and shade plugin configured</td></tr>
+              <tr><td><strong>requirements.txt</strong></td><td>Python deps: <code>flink-agents-python</code>, <code>openai</code>, <code>anthropic</code>, <code>boto3</code>, <code>pymilvus</code>, <code>qdrant-client</code>, <code>mcp-python</code>, etc.</td></tr>
+              <tr><td><strong>docker-compose.yml</strong></td><td>Full stack: Flink 2.2, Kafka, Zookeeper, Elasticsearch, Redis with agent config properties</td></tr>
+              <tr><td><strong>Kubernetes YAML</strong></td><td><code>FlinkDeployment</code> CRD (Flink Kubernetes Operator 1.9+) with RocksDB state, checkpointing, durable execution, and secrets for LLM API keys</td></tr>
+              </tbody>
+            </table>
+          </div>
 
-      <h3>Inference I/O Configuration</h3>
-      <ul class="doc-ul">
-        <li><strong>Input feature selection</strong> — click-to-toggle column tags from the loaded schema. Primary input column or multi-feature ARRAY expression for the UDF call.</li>
-        <li><strong>Pre-processing expression</strong> — optional SQL expression applied before the model call (e.g. <code>CAST(amount AS DOUBLE) / 1000.0</code>)</li>
-        <li><strong>Passthrough columns</strong> — columns carried forward alongside the prediction result</li>
-        <li><strong>Output alias and SQL type</strong> — the name and type of the prediction column (<code>DOUBLE</code>, <code>STRING</code>, <code>ARRAY&lt;DOUBLE&gt;</code>, <code>ROW</code>, <code>MAP</code>, etc.)</li>
-        <li><strong>Post-processing expression</strong> — optional SQL expression applied to the raw model output (e.g. CASE WHEN for classifying a score)</li>
-        <li><strong>Async parallelism</strong> — number of concurrent in-flight model requests per subtask</li>
-        <li><strong>Timeout and retry</strong> — request timeout in milliseconds and retry count on failure</li>
-        <li><strong>Error default</strong> — value emitted when the model call fails (null propagates the error)</li>
-      </ul>
+          <h3 id="agent-observability">Observability Tab — Live Kafka Event Log <a class="anchor" href="#agent-observability">#</a></h3>
+          <p>The Observability tab connects directly to your agent event log Kafka topic via the Flink SQL Gateway session. <strong>No simulation or fake data</strong> — all events come from your real Kafka topic.</p>
+          <div class="steps">
+            <div class="step">
+              <div class="step-num">1</div>
+              <div class="step-body"><h4>Configure connection</h4><p>Enter bootstrap servers, topic name (auto-filled from any Event Log node on canvas), offset mode, and optional filter by event type.</p></div>
+            </div>
+            <div class="step">
+              <div class="step-num">2</div>
+              <div class="step-body"><h4>▶ Connect</h4><p>The Studio creates a <code>TEMPORARY TABLE</code> over the topic via <code>POST /sessions/{id}/statements</code>, then executes a streaming <code>SELECT *</code> statement and polls result pages every 1.5 seconds.</p></div>
+            </div>
+            <div class="step">
+              <div class="step-num">3</div>
+              <div class="step-body"><h4>Live event stream</h4><p>Events render in real time with colour-coded event types: <code>LLM_CALL</code>, <code>TOOL_INVOKE</code>, <code>MEMORY_READ/WRITE</code>, <code>DECISION</code>, <code>AGENT_START/END</code>, <code>ERROR</code>, <code>CHECKPOINT</code>. Six live metric counters, events/s rate, and a latency sparkline update continuously. Export to CSV at any time.</p></div>
+            </div>
+          </div>
 
-      <h3>Generated SQL — Credentials Included</h3>
-      <p>All values entered across the wizard are emitted into the generated SQL. No placeholder values are used for fields that have been filled in. The structure is:</p>
-      <div class="tab-group">
-        <div class="tab-nav">
-          <button class="tab-btn active" onclick="switchTab(this,'ifm-sql1')">Kafka Sink + SageMaker</button>
-          <button class="tab-btn" onclick="switchTab(this,'ifm-sql2')">JDBC Sink + Anthropic</button>
-        </div>
-        <div id="ifm-sql1" class="tab-pane active">
-      <pre><code>-- Real-time ML Inference Pipeline
--- Model Server  : AWS SageMaker
--- Auth          : aws_sigv4
--- Source Table  : user_features_out
--- Output Sink   : kafka → user_features_scored
--- Prediction    : fraud_score (DOUBLE)
+          <div class="callout warn">
+            <span class="callout-icon">⚠</span>
+            <div class="callout-body"><strong>SQL Gateway session required</strong>The Observability tab requires an active Flink SQL Gateway session. Connect to your cluster first using the Studio connection screen. The tab shows a clear "Not connected" state — it will never generate fake data to fill the screen.</div>
+          </div>
 
-SET 'execution.runtime-mode' = 'streaming';
-SET 'parallelism.default' = '4';
+          <h3 id="agent-extensions">Extension Features (agent-manager-extensions.js) <a class="anchor" href="#agent-extensions">#</a></h3>
+          <p>Six additional features are bundled in <code>agent-manager-extensions.js</code>. Load this file <em>after</em> <code>agent-manager.js</code>. The four extra tabs are injected into the tab bar automatically at runtime.</p>
 
--- Output table with actual credentials
-CREATE TEMPORARY TABLE IF NOT EXISTS user_features_scored (
-  user_id                        BIGINT,
-  amount                         DOUBLE,
-  fraud_score                    DOUBLE
-) WITH (
-  'connector'                          = 'kafka',
-  'topic'                              = 'fraud-scores-output',
-  'properties.bootstrap.servers'       = 'kafka:9092',
-  'properties.security.protocol'       = 'SASL_SSL',
-  'properties.sasl.mechanism'          = 'PLAIN',
-  'properties.sasl.jaas.config'        = 'org.apache.kafka.common.security.plain.PlainLoginModule required username="api-key-123" password="api-secret-456";',
-  'format'                             = 'json'
-);
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Feature</th><th>Tab</th><th>Description</th></tr></thead>
+              <tbody>
+              <tr><td><strong>Live Kafka Event Log Connector</strong></td><td>Observability</td><td>Extends the Observability tab with full SQL Gateway session integration: <code>CREATE TEMPORARY TABLE</code> → streaming SELECT → 1.5s poll loop → colour-coded event stream. Rate display, latency sparkline, CSV export.</td></tr>
+              <tr><td><strong>Agent Version Diff</strong></td><td>⊞ Version Diff</td><td>Load two exported agent JSON files and compare side-by-side. Annotated diff shows <code>+added</code> nodes (green), <code>−removed</code> nodes (red), <code>⟳changed</code> config keys (yellow). Export diff as JSON.</td></tr>
+              <tr><td><strong>FLIP-531 SQL Native</strong></td><td>Code tab sidebar</td><td>Patches the Generated Code tab with a <strong>FLIP-531 Native ✦</strong> entry. Generates experimental <code>CREATE AGENT / RUN AGENT / SHOW AGENTS / DESCRIBE AGENT</code> syntax using Flink Agents 0.2 first-class SQL extensions.</td></tr>
+              <tr><td><strong>Agent Test Runner</strong></td><td>▶ Test Runner</td><td>Send a JSON test event through the agent reasoning chain. Displays a step-by-step collapsible trace: Agent Start → Memory reads → LLM reasoning (real Anthropic API call optional) → Tool invocations → Memory write → Decision → Agent End. Export trace as JSON.</td></tr>
+              <tr><td><strong>A2A Topology View</strong></td><td>🤝 A2A Topology</td><td>Dedicated SVG canvas showing multi-agent communication flows. Animated particles travel along A2A edges with per-link message counters. Per-agent message totals in the status bar. Zoom/pan/fit controls. Simulate/Stop/Reset.</td></tr>
+              <tr><td><strong>LLM Cost Estimator</strong></td><td>💰 Cost Estimator</td><td>Estimates token cost across all LLM/embedding nodes on the canvas at a configurable events/sec rate. June 2026 pricing table for 18 models. Per-node per-event cost, per-day cost, totals (per-event / per-hour / per-day / per-month). Cost-vs-throughput sparkline. CSV export.</td></tr>
+              </tbody>
+            </table>
+          </div>
 
--- Model Server Configuration
--- Server   : AWS SageMaker (sagemaker)
--- Endpoint : fraud-detection-endpoint-prod
--- Auth     : aws_sigv4
---   AWS SigV4 region: us-east-1
---   AWS service    : sagemaker
--- Timeout  : 5000ms  Retries : 2  Async parallelism : 4
+          <h3>Agent Templates (6)</h3>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Template</th><th>Pattern</th><th>Components</th></tr></thead>
+              <tbody>
+              <tr><td><strong>Fraud Detection Agent</strong></td><td>ReActAgent</td><td>Kafka source → Short-term memory + Claude Scorer → FraudAgent → Score API tool + Kafka alerts + Audit log</td></tr>
+              <tr><td><strong>IoT Anomaly Agent</strong></td><td>WorkflowAgent</td><td>Kafka sensor stream → OpenAI embeddings → Elasticsearch vector memory → IoTAgent + GPT-4o → HTTP alert webhook</td></tr>
+              <tr><td><strong>Customer Support Agent</strong></td><td>ReActAgent</td><td>Kafka events → Long-term memory + Qdrant KB → GPT-4o + CRM MCP server → SupportAgent → Resolution output</td></tr>
+              <tr><td><strong>Supply Chain Optimizer</strong></td><td>WorkflowAgent + A2A</td><td>Logistics events → RouteAgent + A2A Coordinator → Bedrock Optimizer → Dispatch events + Decision log</td></tr>
+              <tr><td><strong>Log Classification Agent</strong></td><td>WorkflowAgent</td><td>App log stream → Prompt Template + Classifier LLM → LogAgent → Critical logs Kafka + Debug Print sink</td></tr>
+              <tr><td><strong>Blank Agent</strong></td><td>—</td><td>Empty canvas, build from scratch</td></tr>
+              </tbody>
+            </table>
+          </div>
 
-CREATE TEMPORARY FUNCTION IF NOT EXISTS CALL_MODEL_UDF
-  AS 'com.yourcompany.flink.udf.AWSageMakerAsyncUDF'
-  LANGUAGE JAVA;
+          <h3>Installation</h3>
+          <span class="pre-label">index.html — add after inference-manager.js</span>
+          <pre><button class="pre-copy" onclick="copyCode(this)">Copy</button><code>&lt;script src="js/agent-manager.js"&gt;&lt;/script&gt;
+&lt;script src="js/agent-manager-extensions.js"&gt;&lt;/script&gt;</code></pre>
+          <span class="pre-label">index.html — add to managers dropdown</span>
+          <pre><button class="pre-copy" onclick="copyCode(this)">Copy</button><code>&lt;option value="agent-manager"&gt;⚛ Agent Manager&lt;/option&gt;</code></pre>
+          <span class="pre-label">index.html — add to handleManagerSelect()</span>
+          <pre><button class="pre-copy" onclick="copyCode(this)">Copy</button><code>case 'agent-manager':
+  if (typeof openAgentManager === 'function') openAgentManager();
+  break;</code></pre>
 
-INSERT INTO user_features_scored
-SELECT user_id, amount, CALL_MODEL_UDF(amount, tx_count_5m, avg_amount_5m,
-  'fraud-detection-endpoint-prod', 'us-east-1') AS fraud_score
-FROM user_features_out;</code></pre>
-        </div>
-        <div id="ifm-sql2" class="tab-pane active">
-      <pre><code>-- Real-time ML Inference Pipeline
--- Model Server  : Anthropic Claude
--- Auth          : x_api_key
--- Prediction    : risk_assessment (STRING)
+          <h3>Flink Agents 0.2 Feature Coverage</h3>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Feature</th><th>Where</th></tr></thead>
+              <tbody>
+              <tr><td>WorkflowAgent API</td><td>Canvas + Wizard + Java/Python codegen</td></tr>
+              <tr><td>ReActAgent API</td><td>Canvas + Wizard + Java/Python codegen</td></tr>
+              <tr><td>Sensory Memory (context window)</td><td>Memory node + Wizard Step 4</td></tr>
+              <tr><td>Short-Term Memory (RocksDB state)</td><td>Memory node + Wizard Step 4</td></tr>
+              <tr><td>Long-Term Memory + compaction</td><td>Memory node + Wizard Step 4</td></tr>
+              <tr><td>MCP Server integration</td><td>MCP node + Java/Python codegen</td></tr>
+              <tr><td>Tool registration (HTTP, SQL, Kafka)</td><td>Tool nodes + codegen</td></tr>
+              <tr><td>A2A Protocol (Google A2A)</td><td>Multi-Agent node + A2A Topology extension</td></tr>
+              <tr><td>Exactly-Once Actions</td><td>Wizard Step 1 + codegen config</td></tr>
+              <tr><td>Durable Execution Blocks</td><td>Wizard Step 1 + Java/Python codegen</td></tr>
+              <tr><td>VECTOR_SEARCH (Flink 2.2)</td><td>Vector Search node + SQL codegen</td></tr>
+              <tr><td>FLIP-531 CREATE AGENT (experimental)</td><td>FLIP-531 code tab + extensions</td></tr>
+              <tr><td>Kubernetes deployment</td><td>K8s YAML codegen</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
 
-CREATE TEMPORARY TABLE IF NOT EXISTS transactions_scored (
-  user_id                        BIGINT,
-  amount                         DOUBLE,
-  risk_assessment                STRING
-) WITH (
-  'connector'  = 'jdbc',
-  'url'        = 'jdbc:postgresql://localhost:5432/ml_results',
-  'table-name' = 'public.fraud_assessments',
-  'driver'     = 'org.postgresql.Driver',
-  'username'   = 'flink_writer',
-  'password'   = 'db-secret-pass'
-);
+        <!-- ══════════════════════════════════════════════ OBSERVABILITY -->
+        <section class="doc-section" id="observability">
+          <h2>Observability and Diagnostics <span class="badge badge-updated">v0.0.22</span> <a class="anchor" href="#observability">#</a></h2>
+          <p>Six diagnostic tools accessible from the editor toolbar. Each opens as a modal with full interactive controls.</p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Tool</th><th>Key Capability</th></tr></thead>
+              <tbody>
+              <tr><td id="live-vis"><strong>Live Pipeline Visualiser</strong></td><td>Real-time SQL parsing → source-to-transform-to-sink DAG beside editor. Pan, zoom, streaming animation. Collapses to vertical tab (<kbd>Ctrl+`</kbd>).</td></tr>
+              <tr><td id="schema-registry-browser"><strong>Schema Registry Browser</strong></td><td>Browse subjects, compare versions (breaking vs non-breaking), validate CREATE TABLE, one-click generate DDL with <code>avro-confluent</code> and watermark.</td></tr>
+              <tr><td id="bp-analyser"><strong>Backpressure Root Cause Analyser</strong></td><td>Bottleneck identification, propagation chain, GC/checkpoint correlation, SVG heatmap, plain-English severity, live auto-refresh every 8 s.</td></tr>
+              <tr><td id="watermark-monitor"><strong>Watermark Health Monitor</strong></td><td>Per-vertex watermark lag, stall detection (5/10/30/60 s threshold), late-event rate, sparklines, cross-vertex timeline canvas.</td></tr>
+              <tr><td id="dep-graph"><strong>Multi-Pipeline Dependency Graph</strong></td><td>Cross-job topology, connector-type node colours, dead-end/shared-source/cycle detection, animated particles on RUNNING pipelines.</td></tr>
+              <tr><td id="sql-profiler"><strong>SQL Profiler / Execution Replay</strong></td><td>Ring buffer recording, time-scrubber replay, backpressure tints, anomaly badges, auto-play 1×/2×/4×, per-operator sparklines, JSON export.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
 
--- Model Server Configuration
--- Server   : Anthropic Claude (anthropic)
--- Model    : claude-sonnet-4-6
--- Auth     : x_api_key
---   Header : x-api-key: sk-ant-api03-xxxx…[KEY]
--- Timeout  : 5000ms  Retries : 2
+        <!-- ══════════════════════════════════════════════ ADMIN -->
+        <section class="doc-section" id="admin">
+          <h2>Admin Session <a class="anchor" href="#admin">#</a></h2>
+          <p>The Admin Session mode provides a privileged view of the entire Flink cluster across all users and sessions. Select <strong>Admin</strong> mode on the connect screen and enter the admin passcode.</p>
+          <div class="callout warn">
+            <span class="callout-icon">⚠</span>
+            <div class="callout-body"><strong>Default passcode</strong>The default admin passcode is <code>admin1234</code>. Change it immediately after first login via the Admin Settings modal (click the shield badge in the topbar). The new passcode is persisted in <code>localStorage</code>.</div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Capability</th><th>Regular Session</th><th>Admin Session</th></tr></thead>
+              <tbody>
+              <tr><td>Jobs visible in Job Graph</td><td>Own jobs only</td><td>All jobs on the cluster</td></tr>
+              <tr><td>Cancel job</td><td>Own jobs only</td><td>Any job on the cluster</td></tr>
+              <tr><td>Session Activity modal</td><td>Not available</td><td>Full cross-session breakdown</td></tr>
+              <tr><td>Report type</td><td>Standard session report</td><td>Technical or Business/Management</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
 
-CREATE TEMPORARY FUNCTION IF NOT EXISTS CALL_MODEL_UDF
-  AS 'com.yourcompany.flink.udf.AnthropicClaudeAsyncUDF'
-  LANGUAGE JAVA;
-
-INSERT INTO transactions_scored
-SELECT user_id, amount,
-  CALL_MODEL_UDF(CAST(amount AS STRING), 'claude-sonnet-4-6',
-    'Classify this transaction as FRAUD or LEGITIMATE.', 128) AS risk_assessment
-FROM transactions_raw;</code></pre>
-        </div>
-      </div>
-
-      <h3>Inference Pipeline Canvas</h3>
-      <p>The Review step (Step 7) renders a fully interactive SVG inference pipeline canvas showing: source feature column nodes, an optional pre-process node, the model server hero node (with provider icon, async parallelism badge, and dashed orbit ring), an optional post-process node, and the output node. Passthrough columns are annotated below the output. The canvas supports the same zoom/pan/maximize controls as the Feature Engineering canvas.</p>
-
-      <h3>History</h3>
-      <p>Every completed inference pipeline is saved to history with source table, output table, model server, output alias, and the full generated SQL. Up to 20 entries. Each entry has an Insert SQL button to reload the pipeline into the editor without going through the wizard again.</p>
-    </section>
-
-    <!-- ═══════════════════════════════════════════ OBSERVABILITY -->
-    <section class="doc-section" id="observability">
-      <div class="section-label">Observability</div>
-      <h2>
-        <div class="h2-icon">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00d4aa" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-        </div>
-        Observability and Diagnostics <span class="badge badge-updated">v0.0.22</span>
-      </h2>
-      <p>Six diagnostic tools accessible from the editor toolbar. Each opens as a modal with full interactive controls.</p>
-
-      <h3 id="live-vis">Live Pipeline Visualiser</h3>
-      <p>Embedded in the SQL editor. Parses SQL in real time and renders a source-to-transform-to-sink DAG. Pan, zoom, and streaming animation while a job runs. Collapses to a vertical tab on the right edge (<code>Ctrl+`</code>). Recognises CREATE TABLE, CREATE VIEW, CREATE FUNCTION, INSERT INTO, CTEs, JOINs, GROUP BY, and UDF/VIEW names defined in the current script.</p>
-
-      <h3 id="schema-registry">Schema Registry Browser</h3>
-      <p>Connect to Confluent Schema Registry, Apicurio, Karapace, or AWS Glue SR. Browse all subjects with live search. Compare schema versions — breaking changes (removed required fields, unsafe type changes) shown in red, non-breaking in green. Validate a CREATE TABLE in the editor against the registered schema. One-click Generate CREATE TABLE with <code>avro-confluent</code> config and auto-detected watermark.</p>
-
-      <h3 id="bp-analyser">Backpressure Root Cause Analyser</h3>
-      <p>Fetches per-vertex backpressure %, busy %, idle %, and records in/out per second. Identifies the highest-backpressure non-source vertex as the bottleneck. Traces the propagation chain. Correlates with checkpoint duration and GC pause times. Classifies root cause: slow sink, processing bottleneck, upstream starvation, GC pressure, or checkpoint slowness. Plain-English severity and per-finding actionable recommendations. SVG heatmap. Live auto-refresh every 8 seconds.</p>
-
-      <h3 id="watermark-monitor">Watermark Health Monitor</h3>
-      <p>Real-time per-vertex watermark lag, stall detection with configurable threshold (5s/10s/30s/60s), late-event rate, sparklines over ~4 minutes of history, and a cross-vertex timeline canvas showing all streams event-time positions relative to now.</p>
-
-      <h3 id="dep-graph">Multi-Pipeline Dependency Graph</h3>
-      <p>Fetches execution plans for all active jobs and builds a single cross-job topology: topics/tables as nodes, pipelines as nodes, data flow as directed edges. Detects dead-end topics, shared sources (multiple consumers), and circular dependencies. Animated particles on edges connected to RUNNING pipelines. Each pipeline node gets a unique palette color. Drag to reposition nodes. Double-click a node for detailed metrics.</p>
-
-      <h3 id="sql-profiler">SQL Profiler / Execution Replay</h3>
-      <p>Flight recorder for running Flink jobs. Captures per-operator metric snapshots (records/s, backpressure %, busy %, bytes/s, checkpoint duration) at configurable intervals (2s to 30s) into a ring buffer of up to 360 snapshots. Replay any historical moment with a time scrubber — the DAG re-renders with backpressure tints and anomaly badges. Auto-play at 1x/2x/4x. Per-operator sparklines across the full recording. Export to JSON.</p>
-
-      <h3>Reports</h3>
-      <p id="reports">PDF reports generated from the Performance tab. Standard session report covers queries, timing, jobs, cluster info, and checkpoints. Admin Technical Report adds vertex-level metrics, JVM, and per-session breakdown. Admin Business/Management Report focuses on resource utilisation percentages and throughput summaries with plain-language annotations. Job Graph Report captures a single job's DAG topology, vertex states, record counts, and checkpoint history.</p>
-    </section>
-
-    <!-- ═══════════════════════════════════════════ ADMIN -->
-    <section class="doc-section" id="admin">
-      <div class="section-label">Operations</div>
-      <h2>
-        <div class="h2-icon">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00d4aa" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-        </div>
-        Admin Session
-      </h2>
-      <p>The Admin Session mode provides a privileged view of the entire Flink cluster across all users and sessions. Select Admin mode on the connect screen and enter the admin passcode.</p>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Capability</th><th>Regular Session</th><th>Admin Session</th></tr></thead>
-          <tbody>
-          <tr><td>Jobs visible in Job Graph</td><td>Own jobs only</td><td>All jobs on the cluster</td></tr>
-          <tr><td>Cancel job</td><td>Own jobs only</td><td>Any job on the cluster</td></tr>
-          <tr><td>Session Activity modal</td><td>Not available</td><td>Full cross-session breakdown</td></tr>
-          <tr><td>Report type</td><td>Standard session report</td><td>Technical or Business/Management</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <div class="callout warn">
-        <i class="callout-icon">&#9888;</i>
-        <div class="callout-body">
-          <strong>Default passcode</strong>
-          The default admin passcode is <code>admin1234</code>. Change it immediately after first login via the Admin Settings modal (click the shield badge in the topbar). The new passcode is persisted in localStorage.
-        </div>
-      </div>
-    </section>
-
-    <!-- ═══════════════════════════════════════════ CONNECTORS -->
-    <section class="doc-section" id="connectors">
-      <h2>
-        <div class="h2-icon">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00d4aa" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-        </div>
-        Connector JARs
-      </h2>
-      <div class="callout danger">
-        <i class="callout-icon">&#9888;</i>
-        <div class="callout-body">
-          <strong>Version mismatch causes NoClassDefFoundError</strong>
-          Connector JAR versions must match your Flink runtime exactly. Every INSERT job will fail with a classloading error if the version is wrong.
-        </div>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Flink Version</th><th>Kafka Connector JAR</th></tr></thead>
-          <tbody>
-          <tr><td><code>1.20.x</code></td><td><code>flink-sql-connector-kafka-3.3.0-1.20.jar</code></td></tr>
-          <tr><td><code>1.19.x</code> — recommended</td><td><code>flink-sql-connector-kafka-3.3.0-1.19.jar</code></td></tr>
-          <tr><td><code>1.18.x</code></td><td><code>flink-sql-connector-kafka-3.3.0-1.18.jar</code></td></tr>
-          <tr><td><code>1.17.x</code></td><td><code>flink-sql-connector-kafka-3.2.0-1.17.jar</code></td></tr>
-          <tr><td><code>1.16.x</code></td><td><code>flink-sql-connector-kafka-3.1.0-1.16.jar</code></td></tr>
-          </tbody>
-        </table>
-      </div>
-      <div class="tab-group">
-        <div class="tab-nav">
-          <button class="tab-btn active" onclick="switchTab(this,'jar-sh')">Linux / macOS</button>
-          <button class="tab-btn" onclick="switchTab(this,'jar-ps1')">Windows (PowerShell)</button>
-          <button class="tab-btn" onclick="switchTab(this,'jar-docker')">Dockerfile</button>
-        </div>
-        <div id="jar-sh" class="tab-pane active">
-      <pre><code>./scripts/download-connectors.sh
-# Override: ./scripts/download-connectors.sh --flink-version 1.19.1</code></pre>
-        </div>
-        <div id="jar-ps1" class="tab-pane">
-      <pre><code>.\scripts\download-connectors.ps1
-# Override: .\scripts\download-connectors.ps1 -FlinkVersion 1.19.1</code></pre>
-        </div>
-        <div id="jar-docker" class="tab-pane">
-      <pre><code>FROM flink:1.19.1-scala_2.12-java11
-USER root
-RUN apt-get update && apt-get install -y libgomp1 && rm -rf /var/lib/apt/lists/*
+        <!-- ══════════════════════════════════════════════ CONNECTORS -->
+        <section class="doc-section" id="connectors">
+          <h2>Connector JARs <a class="anchor" href="#connectors">#</a></h2>
+          <div class="callout danger">
+            <span class="callout-icon">⚠</span>
+            <div class="callout-body"><strong>Version mismatch causes NoClassDefFoundError</strong>Connector JAR versions must match your Flink runtime exactly. Every INSERT job will fail with a classloading error if the version is wrong.</div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Flink Version</th><th>Kafka Connector JAR</th></tr></thead>
+              <tbody>
+              <tr><td><code>2.2.x</code></td><td><code>flink-sql-connector-kafka-3.3.0-1.20.jar</code></td></tr>
+              <tr><td><code>1.20.x</code></td><td><code>flink-sql-connector-kafka-3.3.0-1.20.jar</code></td></tr>
+              <tr><td><code>1.19.x</code> <span class="badge badge-current">recommended</span></td><td><code>flink-sql-connector-kafka-3.3.0-1.19.jar</code></td></tr>
+              <tr><td><code>1.18.x</code></td><td><code>flink-sql-connector-kafka-3.3.0-1.18.jar</code></td></tr>
+              <tr><td><code>1.17.x</code></td><td><code>flink-sql-connector-kafka-3.2.0-1.17.jar</code></td></tr>
+              <tr><td><code>1.16.x</code></td><td><code>flink-sql-connector-kafka-3.1.0-1.16.jar</code></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="tab-group">
+            <div class="tab-nav">
+              <button class="tab-btn active" onclick="switchTab(this,'jar-sh')">Linux / macOS</button>
+              <button class="tab-btn" onclick="switchTab(this,'jar-ps1')">Windows</button>
+              <button class="tab-btn" onclick="switchTab(this,'jar-docker')">Dockerfile</button>
+            </div>
+            <div id="jar-sh" class="tab-pane active">
+      <pre><button class="pre-copy" onclick="copyCode(this)">Copy</button><code>./scripts/download-connectors.sh
+# Override version:
+./scripts/download-connectors.sh --flink-version 1.19.1</code></pre>
+            </div>
+            <div id="jar-ps1" class="tab-pane">
+      <pre><button class="pre-copy" onclick="copyCode(this)">Copy</button><code>.\scripts\download-connectors.ps1
+# Override:
+.\scripts\download-connectors.ps1 -FlinkVersion 1.19.1</code></pre>
+            </div>
+            <div id="jar-docker" class="tab-pane">
+      <pre><button class="pre-copy" onclick="copyCode(this)">Copy</button><code>FROM flink:2.2.0-scala_2.12-java11
 COPY ./connectors/*.jar /opt/flink/lib/
-USER flink</code></pre>
-        </div>
-      </div>
-    </section>
+# Also copy Flink Agents JAR for Agent Manager:
+COPY ./agents/flink-agents-java-0.2.0.jar /opt/flink/lib/</code></pre>
+            </div>
+          </div>
+        </section>
 
-    <!-- ═══════════════════════════════════════════ KUBE OPERATOR -->
-    <section class="doc-section" id="operator">
-      <div class="section-label">Deployment</div>
-      <h2>
-        <div class="h2-icon">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00d4aa" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
-        </div>
-        Str:::lab Studio Kube Operator
-      </h2>
-      <p>Manages Studio deployments as first-class Kubernetes CRDs. Deploy and lifecycle-manage Studio instances with a single <code>kubectl apply</code>. Built with Kopf (Python). Repository: <a href="https://github.com/coded-streams/strlabstudio-operator" target="_blank">github.com/coded-streams/strlabstudio-operator</a></p>
+        <!-- ══════════════════════════════════════════════ KUBE OPERATOR -->
+        <section class="doc-section" id="operator">
+          <h2>Str:::lab Studio Kube Operator <a class="anchor" href="#operator">#</a></h2>
+          <p>Manages Studio deployments as first-class Kubernetes CRDs. Deploy and lifecycle-manage Studio instances with a single <code>kubectl apply</code>. Repository: <a href="https://github.com/coded-streams/strlabstudio-operator" target="_blank">github.com/coded-streams/strlabstudio-operator</a></p>
 
-      <h3>CRD Reference — StrlabStudio</h3>
-      <p>Short name: <code>kubectl get fss</code> &nbsp;·&nbsp; Group: <code>codedstreams.io/v1alpha1</code></p>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Default</th><th>Description</th></tr></thead>
-          <tbody>
-          <tr><td><code>spec.gateway.host</code></td><td>string</td><td>Yes</td><td>—</td><td>Flink SQL Gateway hostname</td></tr>
-          <tr><td><code>spec.gateway.port</code></td><td>integer</td><td>—</td><td><code>8083</code></td><td>SQL Gateway port</td></tr>
-          <tr><td><code>spec.jobmanager.host</code></td><td>string</td><td>—</td><td><code>localhost</code></td><td>JobManager REST hostname</td></tr>
-          <tr><td><code>spec.jobmanager.port</code></td><td>integer</td><td>—</td><td><code>8081</code></td><td>JobManager REST port</td></tr>
-          <tr><td><code>spec.image</code></td><td>string</td><td>—</td><td><code>codedstreams/strlabstudio:latest</code></td><td>IDE Docker image</td></tr>
-          <tr><td><code>spec.replicas</code></td><td>integer</td><td>—</td><td><code>1</code></td><td>Pod count (1–10)</td></tr>
-          <tr><td><code>spec.service.type</code></td><td>string</td><td>—</td><td><code>ClusterIP</code></td><td>ClusterIP, NodePort, or LoadBalancer</td></tr>
-          <tr><td><code>spec.service.nodePort</code></td><td>integer</td><td>—</td><td>—</td><td>NodePort (30000–32767)</td></tr>
-          <tr><td><code>spec.resources.limits</code></td><td>object</td><td>—</td><td><code>{cpu:200m, memory:128Mi}</code></td><td>Pod resource limits</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <div class="tab-group">
-        <div class="tab-nav">
-          <button class="tab-btn active" onclick="switchTab(this,'op-install')">Helm Install</button>
-          <button class="tab-btn" onclick="switchTab(this,'op-basic')">Basic CR</button>
-          <button class="tab-btn" onclick="switchTab(this,'op-prod')">Production</button>
-        </div>
-        <div id="op-install" class="tab-pane active">
-      <pre><code>helm repo add strlabstudio https://coded-streams.github.io/strlabstudio-operator/charts
+          <div class="tab-group">
+            <div class="tab-nav">
+              <button class="tab-btn active" onclick="switchTab(this,'op-install')">Helm Install</button>
+              <button class="tab-btn" onclick="switchTab(this,'op-basic')">Basic CR</button>
+              <button class="tab-btn" onclick="switchTab(this,'op-prod')">Production CR</button>
+            </div>
+            <div id="op-install" class="tab-pane active">
+      <pre><button class="pre-copy" onclick="copyCode(this)">Copy</button><code>helm repo add strlabstudio https://coded-streams.github.io/strlabstudio-operator/charts
 helm repo update
 helm install strlabstudio-operator strlabstudio/strlabstudio-operator \
   --namespace flinksql-system --create-namespace</code></pre>
-        </div>
-        <div id="op-basic" class="tab-pane">
-      <pre><code>apiVersion: codedstreams.io/v1alpha1
+            </div>
+            <div id="op-basic" class="tab-pane">
+      <pre><button class="pre-copy" onclick="copyCode(this)">Copy</button><code>apiVersion: codedstreams.io/v1alpha1
 kind: StrlabStudio
 metadata:
   name: dev-studio
@@ -1350,15 +1084,15 @@ spec:
   jobmanager:
     host: flink-jobmanager
     port: 8081</code></pre>
-        </div>
-        <div id="op-prod" class="tab-pane">
-      <pre><code>apiVersion: codedstreams.io/v1alpha1
+            </div>
+            <div id="op-prod" class="tab-pane">
+      <pre><button class="pre-copy" onclick="copyCode(this)">Copy</button><code>apiVersion: codedstreams.io/v1alpha1
 kind: StrlabStudio
 metadata:
   name: prod-studio
   namespace: flink
 spec:
-  image: codedstreams/strlabstudio:v0.0.23
+  image: codedstreams/strlabstudio:v0.0.26
   replicas: 2
   gateway:
     host: flink-sql-gateway
@@ -1372,157 +1106,159 @@ spec:
   resources:
     requests: {cpu: "100m", memory: "128Mi"}
     limits:   {cpu: "500m", memory: "256Mi"}</code></pre>
-        </div>
-      </div>
-
-      <h3 id="deploy">Deploy Options</h3>
-      <div class="deploy-grid">
-        <div class="deploy-card">
-          <h3>Docker Compose</h3>
-          <p>Full stack in one command — Studio, Flink cluster, SQL Gateway, Kafka.</p>
-          <pre style="margin:0"><code>docker compose up -d</code></pre>
-        </div>
-        <div class="deploy-card">
-          <h3>Standalone HTML</h3>
-          <p>Serve <code>studio/index.html</code> from any static server. Use Direct Gateway mode.</p>
-          <pre style="margin:0"><code>python3 -m http.server 8080</code></pre>
-        </div>
-        <div class="deploy-card">
-          <h3>Kube Operator</h3>
-          <p>CRD-based deployment via Helm. GitOps-friendly. No PVC required.</p>
-        </div>
-        <div class="deploy-card">
-          <h3>Cloud Managed Flink</h3>
-          <p>Connect to Confluent Cloud, Ververica Cloud, or AWS Managed Flink with Direct Gateway and bearer token auth.</p>
-        </div>
-      </div>
-
-      <h3 id="flink-compat">Flink Compatibility</h3>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Flink Version</th><th>Status</th><th>Notes</th></tr></thead>
-          <tbody>
-          <tr><td><code>2.0.x</code></td><td>Supported</td><td>Full feature parity. <code>SHOW VIEWS</code> available.</td></tr>
-          <tr><td><code>1.20.x</code></td><td>Supported</td><td>Full feature parity.</td></tr>
-          <tr><td><code>1.19.x</code></td><td>Recommended</td><td>Stable, well-tested connector ecosystem.</td></tr>
-          <tr><td><code>1.18.x</code></td><td>Supported</td><td><code>SHOW VIEWS</code> available. Cumulate window supported.</td></tr>
-          <tr><td><code>1.17.x</code></td><td>Supported</td><td>Most features work. <code>SHOW VIEWS</code> may not be available.</td></tr>
-          <tr><td><code>1.16.x</code></td><td>Supported (min)</td><td>Core features work. Some newer SQL syntax not available.</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- ═══════════════════════════════════════════ CHANGELOG -->
-    <section class="doc-section" id="changelog">
-      <div class="section-label">Reference</div>
-      <h2>
-        <div class="h2-icon">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00d4aa" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-        </div>
-        Changelog
-      </h2>
-      <div class="version-list">
-
-        <div class="version-card current" style="border-color:rgba(0,212,170,0.35);">
-          <div class="version-header">
-            <span class="ver-tag">v0.0.23|24|25</span>
-            <span class="ver-date">May 2026</span>
-            <span class="ver-label current">current</span>
+            </div>
           </div>
-          <ul>
-            <li><strong>Feature Engineering Manager</strong> — six-step guided wizard for building real-time Flink SQL feature pipelines. Schema Registry integration or manual column entry. 20 per-column transform types with correctly typed output columns. TUMBLE/HOP/SESSION/CUMULATE window support. Configurable sink with all credentials emitted. Interactive SVG canvas with zoom/pan/maximize. Full session history with output column schema. Validation on all required fields.</li>
-            <li><strong>AI Model Inference Manager</strong> — seven-step wizard for real-time ML inference on streaming pipelines. 25 model servers across five categories (MLflow, SageMaker, Azure ML, Vertex AI, Databricks, Triton, TorchServe, TF Serving, BentoML, Ray Serve, Seldon, KServe, MinIO, HuggingFace, OpenAI, Anthropic, Cohere, Mistral, Together, Bedrock, OpenAI-compatible, Custom HTTP/gRPC, Flink UDF). 11 auth methods. All credentials embedded in generated SQL. Interactive inference canvas with zoom/pan/maximize. FEM-to-IFM schema handoff: three-strategy auto-population of source columns.</li>
-            <li><strong>FEM schema persistence</strong> — Feature Engineering Manager now saves a full state snapshot (<code>strlabstudio_fem_state</code>) and enriched history entries with <code>sourceColumns</code> and <code>outputColumns</code> (correctly typed per transformation) for cross-manager schema sharing.</li>
-            <li><strong>Inference Manager source table selector</strong> — combined dropdown (FEM outputs + session tables), quick-pill shortcuts, aligned From FEM button, live column tag display, and three-strategy schema loading with fallback chain.</li>
-            <li><strong>Sink credential embedding</strong> — all sink connector fields now have stable IDs and are collected into <code>_IFM.sinkConfig</code> before SQL generation. No placeholder values for fields the user has filled in.</li>
-            <li><strong>Multi-Pipeline Dependency Graph v0.0.23 fixes</strong> — unique palette color per pipeline node, double-click node detail uses Map-based data store to avoid JSON-in-attribute encoding issues, drag unblocked in all directions, maximize/restore saves and reinstates exact original CSS.</li>
-            <li><strong>Managers dropdown</strong> — Feature Engineering and Inference Manager added to the Managers select in the topbar alongside existing Pipeline Manager, Systems, UDF, Catalog, Schema Registry, BP Analyser, Watermarks, Dep Graph, and SQL Profiler.</li>
-          </ul>
-        </div>
 
-        <div class="version-card">
-          <div class="version-header">
-            <span class="ver-tag">v0.0.22</span>
-            <span class="ver-date">April 2026</span>
+          <h3 id="deploy-options">Deploy Options <a class="anchor" href="#deploy-options">#</a></h3>
+          <div class="card-grid">
+            <div class="card">
+              <div class="card-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg></div>
+              <h3>Docker Compose</h3>
+              <p>Full stack in one command — Studio, Flink cluster, SQL Gateway, Kafka, MinIO.</p>
+            </div>
+            <div class="card">
+              <div class="card-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
+              <h3>Standalone HTML</h3>
+              <p>Serve <code>studio/index.html</code> from any static server. Use Direct Gateway mode.</p>
+            </div>
+            <div class="card">
+              <div class="card-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M1 12h4M19 12h4"/></svg></div>
+              <h3>Kube Operator</h3>
+              <p>CRD-based deployment via Helm. GitOps-friendly. No PVC required.</p>
+            </div>
+            <div class="card">
+              <div class="card-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div>
+              <h3>Cloud Managed Flink</h3>
+              <p>Connect to Confluent Cloud, Ververica Cloud, or AWS Managed Flink with Direct Gateway and bearer token auth.</p>
+            </div>
           </div>
-          <ul>
-            <li><strong>Live Pipeline Visualiser</strong> — real-time SQL parsing, DAG rendering beside editor, pan/zoom/animate, collapse to vertical tab, continuous animation for streaming jobs, UDF/VIEW name tracking.</li>
-            <li><strong>Schema Registry Browser</strong> — Confluent/Apicurio/Karapace/AWS Glue SR. Subject browsing, version diff with breaking-change detection, CREATE TABLE generation, editor SQL validation.</li>
-            <li><strong>Backpressure Root Cause Analyser</strong> — bottleneck identification, propagation chain tracing, GC/checkpoint correlation, SVG heatmap, live auto-refresh.</li>
-            <li><strong>Watermark Health Monitor</strong> — per-vertex lag, stall detection, late-event rate, sparklines, cross-vertex timeline canvas.</li>
-            <li><strong>Multi-Pipeline Dependency Graph</strong> — cross-job topology, connector-type node colours, dead-end/shared-source/cycle detection, animated particles on RUNNING pipelines.</li>
-            <li><strong>SQL Profiler / Execution Replay</strong> — ring buffer recording, time scrubber replay, backpressure tints, auto-play, per-operator sparklines, JSON export.</li>
-            <li><strong>SQL Editor keywords expanded</strong> — 109 documented keywords, expanded autocomplete, JavaDoc-style hover tooltips on 25+ keywords.</li>
-          </ul>
-        </div>
 
-        <div class="version-card">
-          <div class="version-header">
-            <span class="ver-tag">v1.3.2</span>
-            <span class="ver-date">March 2026</span>
+          <h3 id="flink-compat">Flink Compatibility <a class="anchor" href="#flink-compat">#</a></h3>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Flink Version</th><th>Status</th><th>Notes</th></tr></thead>
+              <tbody>
+              <tr><td><code>2.2.x</code></td><td><span class="badge badge-new">Flink Agents</span></td><td>Required for Flink Agents 0.2 and VECTOR_SEARCH. Full Agent Manager support.</td></tr>
+              <tr><td><code>2.0.x</code></td><td>Supported</td><td>Full feature parity. <code>SHOW VIEWS</code> available.</td></tr>
+              <tr><td><code>1.20.x</code></td><td>Supported</td><td>All features except Agent Manager codegen targets.</td></tr>
+              <tr><td><code>1.19.x</code></td><td><span class="badge badge-current">Recommended</span></td><td>Stable, well-tested connector ecosystem.</td></tr>
+              <tr><td><code>1.18.x</code></td><td>Supported</td><td><code>SHOW VIEWS</code> available. Cumulate window supported.</td></tr>
+              <tr><td><code>1.16.x</code></td><td>Supported (min)</td><td>Core IDE features only. No Agent Manager.</td></tr>
+              </tbody>
+            </table>
           </div>
-          <ul>
-            <li><strong>Pipeline Manager v2.0</strong> — inline node expand (double-click configures in-place on canvas), animation stops with error highlights preserved, My UDFs operator group populated from UDF Manager, SQL generation trailing comma fixes, edge config About tab documenting all five edge types.</li>
-            <li><strong>Documentation</strong> — separate full-length reference pages for Pipeline Manager, Systems Integration, and Catalog Management.</li>
-          </ul>
-        </div>
+        </section>
 
-        <div class="version-card">
-          <div class="version-header">
-            <span class="ver-tag">v1.0.23</span>
-            <span class="ver-date">March 2026</span>
+        <!-- ══════════════════════════════════════════════ CHANGELOG -->
+        <section class="doc-section" id="changelog">
+          <h2>Changelog <a class="anchor" href="#changelog">#</a></h2>
+          <div class="version-list">
+
+            <div class="version-card current">
+              <div class="ver-header">
+                <span class="ver-tag">v0.0.26</span>
+                <span class="ver-date">June 2026</span>
+                <span class="badge badge-current" style="margin-left:auto;">current</span>
+              </div>
+              <ul>
+                <li><strong>Flink Agent Manager</strong> — full visual IDE for Apache Flink Agents 0.2. Visual Canvas with 30+ operator blocks, 9-step Guided Wizard, 7-artefact code generation (Flink SQL, Java WorkflowAgent/ReActAgent, Python PyFlink, FLIP-531 Native, pom.xml, requirements.txt, docker-compose, Kubernetes YAML), JAR Upload tab, and Observability tab.</li>
+                <li><strong>Colour-coded gradient canvas edges</strong> — each edge renders as a Bézier curve with a <code>linearGradient</code> flowing from the source node's colour to the destination node's colour. Per-edge arrowhead matches destination colour. Particles during simulation follow the same gradient paths.</li>
+                <li><strong>Icon system (PLM-compatible)</strong> — brand icons via Simple Icons CDN (<code>_agSimpleIcon(slug, hex)</code>); all others use clean monochrome inline SVG (<code>_agSvgIcon(paths)</code>). Zero emoji in the operator catalogue.</li>
+                <li><strong>✏ edit button on node cards</strong> — identical to Pipeline Manager: teal accent, <code>pointer-events:auto</code>, opens draggable config modal positioned beside the node.</li>
+                <li><strong>⤢ expand-to-fullscreen / ⤡ restore</strong> — mirrors <code>_plmToggleFullscreen()</code>: 100vw/100vh ↔ min(1300px,97vw)/92vh.</li>
+                <li><strong>Palette search box</strong> — filters operator items by label and opId, same pattern as Pipeline Manager's <code>_plmSearchPalette()</code>.</li>
+                <li><strong>Kafka + Schema Registry source (Wizard Step 2)</strong> — browse subjects, load Avro schema, auto-convert to Flink DDL with full logical type support (timestamp-millis → TIMESTAMP(3), decimal → DECIMAL(p,s), arrays, maps, union handling). Schema tag pills update live.</li>
+                <li><strong>Pipeline graph in Wizard Step 9</strong> — SVG preview canvas with zoom/pan/fit alongside config summary cards. Source → Memory → LLM → Orchestrator → Sink topology with tool/MCP and Event Log sub-nodes.</li>
+                <li><strong>Ververica muted green theme</strong> — all purple tokens replaced: <code>#b06eff → #00c4a0</code>, <code>rgba(138,43,226,…) → rgba(0,176,143,…)</code>, <code>rgba(176,110,255,…) → rgba(0,196,160,…)</code>. Applied to both <code>agent-manager.js</code> and <code>agent-manager-extensions.js</code>.</li>
+                <li><strong>Observability tab: real Kafka only</strong> — removed simulation entirely. Connects via SQL Gateway session to the real agent event log topic. Shows explicit "Not connected" state.</li>
+                <li><strong>6 Extension features</strong> (<code>agent-manager-extensions.js</code>) — Live Kafka Event Log Connector, Agent Version Diff, FLIP-531 SQL Native codegen, Agent Test Runner (real LLM calls), A2A Topology View with animated message counters, LLM Cost Estimator with June 2026 pricing table and cost-vs-throughput chart.</li>
+                <li><strong>6 pre-built agent templates</strong> — Fraud Detection, IoT Anomaly, Customer Support, Supply Chain Optimizer (A2A), Log Classifier, Blank canvas.</li>
+              </ul>
+            </div>
+
+            <div class="version-card">
+              <div class="ver-header">
+                <span class="ver-tag">v0.0.23 — v0.0.25</span>
+                <span class="ver-date">May 2026</span>
+              </div>
+              <ul>
+                <li><strong>Feature Engineering Manager</strong> — six-step wizard for real-time Flink SQL feature pipelines. Schema Registry integration. 20 per-column transforms. TUMBLE/HOP/SESSION/CUMULATE windows. Interactive SVG canvas. Full history with output column schema for cross-manager handoff.</li>
+                <li><strong>AI Model Inference Manager</strong> — seven-step wizard. 25 model servers across five categories. 11 auth methods. All credentials embedded in generated SQL. Interactive inference canvas. FEM-to-IFM three-strategy schema auto-population.</li>
+                <li><strong>FEM schema persistence</strong> — <code>strlabstudio_fem_state</code> snapshot and enriched history with <code>sourceColumns</code> and <code>outputColumns</code>.</li>
+                <li><strong>Inference canvas</strong> — foreignObject-based server icon rendering, per-edge linearGradient, async parallelism badge, passthrough column annotation.</li>
+                <li><strong>Managers dropdown</strong> — Feature Engineering and Inference Manager added to topbar alongside Pipeline Manager, Systems, UDF, Schema Registry, BP Analyser, Watermarks, Dep Graph, SQL Profiler.</li>
+              </ul>
+            </div>
+
+            <div class="version-card">
+              <div class="ver-header">
+                <span class="ver-tag">v0.0.22</span>
+                <span class="ver-date">April 2026</span>
+              </div>
+              <ul>
+                <li><strong>Live Pipeline Visualiser</strong> — real-time SQL parsing, DAG beside editor, pan/zoom/animate.</li>
+                <li><strong>Schema Registry Browser</strong> — subject browsing, version diff with breaking-change detection, CREATE TABLE generation.</li>
+                <li><strong>Backpressure Root Cause Analyser</strong> — bottleneck identification, SVG heatmap, live auto-refresh.</li>
+                <li><strong>Watermark Health Monitor</strong> — per-vertex lag, stall detection, sparklines, cross-vertex timeline.</li>
+                <li><strong>Multi-Pipeline Dependency Graph</strong> — cross-job topology, animated particles on RUNNING pipelines.</li>
+                <li><strong>SQL Profiler / Execution Replay</strong> — ring buffer recording, time-scrubber replay, JSON export.</li>
+              </ul>
+            </div>
+
+            <div class="version-card">
+              <div class="ver-header">
+                <span class="ver-tag">v1.3.2</span>
+                <span class="ver-date">March 2026</span>
+              </div>
+              <ul>
+                <li><strong>Pipeline Manager v2.0</strong> — inline node expand, animation with error highlights, My UDFs from UDF Manager, SQL generation fixes.</li>
+                <li><strong>UDF Manager v2</strong> — SHOW FUNCTIONS 0-row bug fixed, View Builder Insert Expression fix, LANGUAGE SQL removed.</li>
+                <li><strong>Colour Describe redesigned</strong> — 10-operator rule builder, 3 style modes, PDF report integration.</li>
+              </ul>
+            </div>
+
+            <div class="version-card">
+              <div class="ver-header">
+                <span class="ver-tag">v1.0.22 and earlier</span>
+                <span class="ver-date">December 2025 – March 2026</span>
+              </div>
+              <ul>
+                <li>Brand rename from FlinkSQL Studio to Str:::lab Studio</li>
+                <li>Admin Session — cross-session job visibility, Technical and Business/Management PDF reports</li>
+                <li>Project Manager — named projects with JSON export/import</li>
+                <li>JAR upload to cluster via REST, Maven/Gradle config generation</li>
+                <li>Job Graph DAG, Vertex Timeline, Node Detail modal</li>
+                <li>Performance panel — per-query timing, checkpoint health, cluster resources, live throughput sparklines</li>
+                <li>Initial build — multi-tab editor, session management, Results/Log/Operations tabs, snippets, query history</li>
+              </ul>
+            </div>
+
           </div>
-          <ul>
-            <li><strong>UDF Manager v2</strong> — SHOW FUNCTIONS 0-row bug fixed, View Builder Insert Expression false-positive fixed, Library Views section separated, LANGUAGE SQL permanently removed, friendly error messages for registration failures.</li>
-            <li><strong>Colour Describe redesigned</strong> — professional modal with slot selector, 10-operator rule builder, 8-preset swatches + custom hex, three style modes, reorderable rules list, PDF report integration.</li>
-            <li><strong>execution.js</strong> — block comment support in splitSQL, duplicate submission guard, SHOW/SELECT always render all rows.</li>
-          </ul>
-        </div>
+        </section>
 
-        <div class="version-card">
-          <div class="version-header">
-            <span class="ver-tag">v1.0.22 and earlier</span>
-            <span class="ver-date">December 2025 – March 2026</span>
-          </div>
-          <ul>
-            <li>Brand rename from FlinkSQL Studio to Str:::lab Studio</li>
-            <li>Admin Session with full cluster visibility, cross-session job attribution, Technical and Business/Management PDF reports</li>
-            <li>Project Manager — named projects with SQL tabs, SET config, catalog context, JSON export/import, storage tracking</li>
-            <li>JAR upload directly to cluster via REST, Maven/Gradle config generation</li>
-            <li>Tips and Concepts modal, session heartbeat, load existing sessions dropdown, job tagging, cancel confirmation</li>
-            <li>Job Graph DAG with drag-to-pan, vertex timeline, node detail modal</li>
-            <li>Performance panel with per-query timing, checkpoint health, cluster resources, live throughput sparklines</li>
-            <li>Initial build: multi-tab editor, session management, Results/Log/Operations tabs, snippets, query history, catalog browser</li>
-          </ul>
-        </div>
-
-      </div>
-    </section>
-
-  </main>
-</div>
+      </div><!-- content-inner -->
+    </main>
+  </div><!-- content-wrap -->
+</div><!-- shell -->
 
 <!-- ═══ FOOTER ═══ -->
 <footer>
-  <div class="footer-logo">
-    <div class="logo-mark">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#00d4aa" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
-      </svg>
+  <div>
+    <div class="footer-logo">
+      <div class="footer-logo-mark"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
+      <span class="footer-wordmark">Str<span class="dots">:::</span>lab Studio</span>
     </div>
-    <span class="logo-text">Str<span class="dots">:::</span>lab<span class="logo-ver">Studio</span></span>
+    <p>Built for streaming engineers, by a streaming engineer.</p>
+    <p>Open source · MIT License · v0.0.26</p>
   </div>
-  <p>Built for streaming engineers, by a streaming engineer.</p>
-  <p>
-    <a href="https://github.com/coded-streams/strlabstudio" target="_blank">GitHub — Str:::lab Studio</a> &nbsp;&middot;&nbsp;
-    <a href="https://github.com/coded-streams/strlabstudio-operator" target="_blank">Kube Operator</a> &nbsp;&middot;&nbsp;
-    MIT License &nbsp;&middot;&nbsp;
-    Uses <a href="https://flink.apache.org" target="_blank">Apache Flink</a> under the Apache License 2.0
-  </p>
-  <p style="margin-top:8px;font-size:11px;color:var(--text4);">
-    Apache Flink is a trademark of the Apache Software Foundation. Str:::lab Studio is an independent project and is not affiliated with or endorsed by the Apache Software Foundation.
-  </p>
+  <div class="footer-links">
+    <a href="https://github.com/coded-streams/strlabstudio" target="_blank">GitHub — Str:::lab Studio</a>
+    <a href="https://github.com/coded-streams/strlabstudio-operator" target="_blank">Kube Operator</a>
+    <a href="https://flink.apache.org" target="_blank">Apache Flink</a>
+  </div>
+  <div>
+    <p style="font-size:11px;max-width:320px;line-height:1.7;">Apache Flink is a trademark of the Apache Software Foundation. Str:::lab Studio is an independent project and is not affiliated with or endorsed by the Apache Software Foundation.</p>
+  </div>
 </footer>
 
 <script>
@@ -1531,50 +1267,58 @@ spec:
     g.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     g.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
     btn.classList.add('active');
-    document.getElementById(paneId).classList.add('active');
+    document.getElementById(paneId)?.classList.add('active');
   }
 
-  // TOC active link tracking
-  const tocLinks = document.querySelectorAll('.toc a');
-  const sections = document.querySelectorAll('.doc-section');
+  function copyCode(btn) {
+    const code = btn.parentElement.querySelector('code')?.textContent || '';
+    navigator.clipboard.writeText(code).then(() => {
+      const orig = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = orig, 1800);
+    });
+  }
+
+  // Sidebar active link
+  const sideLinks = document.querySelectorAll('.sidebar a');
+  const sections  = document.querySelectorAll('.doc-section,[id]');
   const obs = new IntersectionObserver(entries => {
     entries.forEach(e => {
       if (e.isIntersecting) {
-        tocLinks.forEach(l => l.classList.remove('active'));
-        const link = document.querySelector(`.toc a[href="#${e.target.id}"]`);
-        if (link) link.classList.add('active');
+        sideLinks.forEach(l => l.classList.remove('active'));
+        const l = document.querySelector(`.sidebar a[href="#${e.target.id}"]`);
+        if (l) l.classList.add('active');
       }
     });
-  }, { rootMargin: '-10% 0px -70% 0px' });
-  sections.forEach(s => obs.observe(s));
+  }, { rootMargin: '-5% 0px -70% 0px' });
+  document.querySelectorAll('.doc-section').forEach(s => obs.observe(s));
 
-  // Nav tab active tracking
-  const navLinks = document.querySelectorAll('.nav-tabs a');
-  sections.forEach(s => {
-    const navLink = document.querySelector(`.nav-tabs a[href="#${s.id}"]`);
-    if (!navLink) return;
-    const sObs = new IntersectionObserver(entries => {
+  // Topbar nav active
+  const navLinks = document.querySelectorAll('.topbar-nav a');
+  document.querySelectorAll('.doc-section').forEach(s => {
+    const nl = document.querySelector(`.topbar-nav a[href="#${s.id}"]`);
+    if (!nl) return;
+    const no = new IntersectionObserver(entries => {
       entries.forEach(e => {
         if (e.isIntersecting) {
           navLinks.forEach(l => l.classList.remove('active'));
-          navLink.classList.add('active');
+          nl.classList.add('active');
         }
       });
-    }, { rootMargin: '-10% 0px -70% 0px' });
-    sObs.observe(s);
+    }, { rootMargin: '-5% 0px -70% 0px' });
+    no.observe(s);
   });
 
   mermaid.initialize({
     startOnLoad: true,
-    theme: 'dark',
+    theme: 'default',
     themeVariables: {
-      background: '#0c1018',
-      primaryColor: '#172030',
-      primaryTextColor: '#f0f6fc',
-      primaryBorderColor: '#00d4aa',
-      lineColor: '#4a5568',
-      edgeLabelBackground: '#111820',
-      tertiaryColor: '#172030',
+      background: '#f5faf8',
+      primaryColor: '#edf5f2',
+      primaryTextColor: '#1a2e28',
+      primaryBorderColor: '#00b89c',
+      lineColor: '#6b9488',
+      edgeLabelBackground: '#f5faf8',
       fontSize: '12px',
     },
     flowchart: { curve: 'basis', padding: 20 },
