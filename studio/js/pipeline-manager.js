@@ -1,24 +1,19 @@
-/* Str:::lab Studio — Pipeline Manager v2.1  (patched for v0.0.20 + Simple Icons)
+/* Str:::lab Studio — Pipeline Manager v2.2  (AI Pipeline Generation)
  * ═══════════════════════════════════════════════════════════════════════
- * FIXES IN v0.0.20 patch:
- *  - SQL tab (large view) now scrollable — overflow:auto on pre elements
- *  - Trailing commas eliminated from schema and SELECT column lists
- *  - All operator SQL generation reviewed and corrected
- *  - _plmBuildInsertSql: correct column joins, no dangling commas
- *  - _plmNodeToSql: fixed schema indentation and WITH clause formatting
+ * NEW IN v2.2:
+ *  - AI Pipeline Builder panel (_plmOpenAiPanel)
+ *  - Describe in plain English → LLM generates nodes + edges on canvas
+ *  - Supports OpenAI, Anthropic, and custom OpenAI-compatible endpoints
+ *  - API keys stored only in browser localStorage, never proxied
+ *  - ✦ AI button added to toolbar (purple accent)
+ *  - Shimmer animation on Generate button
  * ═══════════════════════════════════════════════════════════════════════
- * ICON UPDATE:
- *  - Brand icons now served from https://cdn.simpleicons.org/<slug>/<hex>
- *  - Icons without a Simple Icons equivalent keep their original inline SVG
- *  - Helper _plmSimpleIcon(slug, hex, size) builds a consistent <img> tag
+ * CARRIED FROM v2.1 / v0.0.20:
+ *  - SQL tab scrollable, no trailing commas, Simple Icons CDN
  * ═══════════════════════════════════════════════════════════════════════
  */
 
 // ── Simple Icons helper ───────────────────────────────────────────────────────
-// Returns an <img> tag pointing to cdn.simpleicons.org with a colour override.
-// slug  — the Simple Icons slug (e.g. 'apachekafka')
-// hex   — colour WITHOUT the # (e.g. 'ffffff')
-// size  — px size (default 16)
 function _plmSimpleIcon(slug, hex, size) {
   size = size || 16;
   return '<img src="https://cdn.simpleicons.org/' + slug + '/' + hex
@@ -44,44 +39,30 @@ const PLM_CONNECTOR_IDS = new Set([
 ]);
 
 // ── Operator Palette ──────────────────────────────────────────────────────────
-// Icons:
-//   ✅ Simple Icons CDN  — kafka, s3, pulsar, kinesis, elasticsearch, mongodb,
-//                          postgresql (jdbc), openai, redis, amazonwebservices
-//   ✅ Kept inline SVG   — datagen, filter, project, map_udf, enrich, union,
-//                          split, all windows, aggregate, dedup, topn, joins,
-//                          CEP, print_sink, blackhole_sink, result_output,
-//                          feature_store, udf_node
-// ─────────────────────────────────────────────────────────────────────────────
 const PM_OPERATORS = [
-  // ── SOURCES ─────────────────────────────────────────────────────────────────
-  {
-    id:'kafka_source', group:'Sources', label:'Kafka', color:'#1a6fa8', textColor:'#fff', shape:'stadium',
-    // Simple Icons: apachekafka — white on the node's dark blue background
-    icon: _plmSimpleIcon('apachekafka', 'ffffff'),
-    isSource:true, stateful:false, needsConnector:true,
+  // SOURCES
+  { id:'kafka_source', group:'Sources', label:'Kafka', color:'#1a6fa8', textColor:'#fff', shape:'stadium',
+    icon: _plmSimpleIcon('apachekafka','ffffff'), isSource:true, stateful:false, needsConnector:true,
     params:[
-      {id:'table_name',         label:'Table Name',        type:'text',   required:true,  placeholder:'kafka_src'},
-      {id:'topic',              label:'Topic',             type:'text',   required:true,  placeholder:'my-topic'},
-      {id:'bootstrap_servers',  label:'Bootstrap Servers', type:'text',   required:true,  placeholder:'kafka:9092'},
-      {id:'group_id',           label:'Consumer Group',    type:'text',   placeholder:'flink-group'},
-      {id:'format',             label:'Format',            type:'select', options:['json','avro','avro-confluent','csv','raw','protobuf'],value:'json'},
-      {id:'startup_mode',       label:'Startup Mode',      type:'select', options:['latest-offset','earliest-offset','group-offsets','timestamp'],value:'latest-offset'},
-      {id:'schema',             label:'Schema (name TYPE per line)', type:'textarea', placeholder:'id BIGINT\npayload STRING\nts TIMESTAMP(3)'},
-      {id:'watermark',          label:'Watermark Column',  type:'text',   placeholder:'ts'},
-      {id:'watermark_delay',    label:'Watermark Delay (s)',type:'text',  placeholder:'5'},
-      {id:'security_protocol',  label:'Security Protocol', type:'select', options:['','PLAINTEXT','SSL','SASL_PLAINTEXT','SASL_SSL'], value:''},
-      {id:'sasl_mechanism',     label:'SASL Mechanism',    type:'select', options:['','PLAIN','SCRAM-SHA-256','SCRAM-SHA-512','GSSAPI'], value:''},
-      {id:'sasl_username',      label:'SASL Username / API Key', type:'text', placeholder:'api-key'},
-      {id:'sasl_password',      label:'SASL Password / Secret',  type:'text', placeholder:'api-secret'},
-      {id:'ssl_truststore',     label:'SSL Truststore Path',type:'text',  placeholder:'/etc/kafka/truststore.jks'},
-      {id:'schema_registry_url',label:'Schema Registry URL', type:'text', placeholder:'http://schema-registry:8081'},
-      {id:'schema_registry_user',label:'Schema Registry User', type:'text', placeholder:'sr-api-key'},
-      {id:'schema_registry_pass',label:'Schema Registry Pass', type:'text', placeholder:'sr-api-secret'},
-    ],
-  },
-  {
-    id:'datagen_source', group:'Sources', label:'Datagen', color:'#2d8a4e', textColor:'#fff', shape:'stadium',
-    // No Simple Icons equivalent — keep original inline SVG (grid-of-squares)
+      {id:'table_name',label:'Table Name',type:'text',required:true,placeholder:'kafka_src'},
+      {id:'topic',label:'Topic',type:'text',required:true,placeholder:'my-topic'},
+      {id:'bootstrap_servers',label:'Bootstrap Servers',type:'text',required:true,placeholder:'kafka:9092'},
+      {id:'group_id',label:'Consumer Group',type:'text',placeholder:'flink-group'},
+      {id:'format',label:'Format',type:'select',options:['json','avro','avro-confluent','csv','raw','protobuf'],value:'json'},
+      {id:'startup_mode',label:'Startup Mode',type:'select',options:['latest-offset','earliest-offset','group-offsets','timestamp'],value:'latest-offset'},
+      {id:'schema',label:'Schema (name TYPE per line)',type:'textarea',placeholder:'id BIGINT\npayload STRING\nts TIMESTAMP(3)'},
+      {id:'watermark',label:'Watermark Column',type:'text',placeholder:'ts'},
+      {id:'watermark_delay',label:'Watermark Delay (s)',type:'text',placeholder:'5'},
+      {id:'security_protocol',label:'Security Protocol',type:'select',options:['','PLAINTEXT','SSL','SASL_PLAINTEXT','SASL_SSL'],value:''},
+      {id:'sasl_mechanism',label:'SASL Mechanism',type:'select',options:['','PLAIN','SCRAM-SHA-256','SCRAM-SHA-512','GSSAPI'],value:''},
+      {id:'sasl_username',label:'SASL Username / API Key',type:'text',placeholder:'api-key'},
+      {id:'sasl_password',label:'SASL Password / Secret',type:'text',placeholder:'api-secret'},
+      {id:'ssl_truststore',label:'SSL Truststore Path',type:'text',placeholder:'/etc/kafka/truststore.jks'},
+      {id:'schema_registry_url',label:'Schema Registry URL',type:'text',placeholder:'http://schema-registry:8081'},
+      {id:'schema_registry_user',label:'Schema Registry User',type:'text',placeholder:'sr-api-key'},
+      {id:'schema_registry_pass',label:'Schema Registry Pass',type:'text',placeholder:'sr-api-secret'},
+    ]},
+  { id:'datagen_source', group:'Sources', label:'Datagen', color:'#2d8a4e', textColor:'#fff', shape:'stadium',
     icon:`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>`,
     isSource:true, stateful:false, needsConnector:false,
     params:[
@@ -89,79 +70,56 @@ const PM_OPERATORS = [
       {id:'rows_per_second',label:'Rows / Second',type:'text',placeholder:'100'},
       {id:'number_of_rows',label:'Total Rows (optional)',type:'text',placeholder:'unlimited'},
       {id:'schema',label:'Schema (name TYPE per line)',type:'textarea',placeholder:'id BIGINT\nname STRING\namount DOUBLE\nts TIMESTAMP(3)'},
-    ],
-  },
-  {
-    id:'jdbc_source', group:'Sources', label:'JDBC Source', color:'#4a8fa8', textColor:'#fff', shape:'stadium',
-    // Simple Icons: postgresql — the most common JDBC source; white tint
-    icon: _plmSimpleIcon('postgresql', 'ffffff'),
-    isSource:true, stateful:false, needsConnector:true,
+    ]},
+  { id:'jdbc_source', group:'Sources', label:'JDBC Source', color:'#4a8fa8', textColor:'#fff', shape:'stadium',
+    icon: _plmSimpleIcon('postgresql','ffffff'), isSource:true, stateful:false, needsConnector:true,
     params:[
-      {id:'table_name', label:'Table Name',  type:'text', required:true, placeholder:'pg_orders'},
-      {id:'jdbc_url',   label:'JDBC URL',    type:'text', required:true, placeholder:'jdbc:postgresql://postgres:5432/mydb'},
-      {id:'db_table',   label:'DB Table',    type:'text', required:true, placeholder:'public.orders'},
-      {id:'username',   label:'Username',    type:'text', placeholder:'flink_user'},
-      {id:'password',   label:'Password',    type:'text', placeholder:'secret'},
-      {id:'schema',     label:'Schema',      type:'textarea', placeholder:'id BIGINT\nstatus STRING\namount DOUBLE'},
-      {id:'driver',     label:'Driver Class (opt)', type:'text', placeholder:'org.postgresql.Driver'},
-      {id:'scan_fetch_size', label:'Fetch Size', type:'text', placeholder:'100'},
-    ],
-  },
-  {
-    id:'filesystem_source', group:'Sources', label:'File / S3', color:'#b07820', textColor:'#fff', shape:'stadium',
-    // Simple Icons: amazons3 — white on amber background
-    icon: _plmSimpleIcon('amazons3', 'FF9900'),
-    isSource:true, stateful:false, needsConnector:true,
+      {id:'table_name',label:'Table Name',type:'text',required:true,placeholder:'pg_orders'},
+      {id:'jdbc_url',label:'JDBC URL',type:'text',required:true,placeholder:'jdbc:postgresql://postgres:5432/mydb'},
+      {id:'db_table',label:'DB Table',type:'text',required:true,placeholder:'public.orders'},
+      {id:'username',label:'Username',type:'text',placeholder:'flink_user'},
+      {id:'password',label:'Password',type:'text',placeholder:'secret'},
+      {id:'schema',label:'Schema',type:'textarea',placeholder:'id BIGINT\nstatus STRING\namount DOUBLE'},
+      {id:'driver',label:'Driver Class (opt)',type:'text',placeholder:'org.postgresql.Driver'},
+      {id:'scan_fetch_size',label:'Fetch Size',type:'text',placeholder:'100'},
+    ]},
+  { id:'filesystem_source', group:'Sources', label:'File / S3', color:'#b07820', textColor:'#fff', shape:'stadium',
+    icon: _plmSimpleIcon('amazons3','FF9900'), isSource:true, stateful:false, needsConnector:true,
     params:[
       {id:'table_name',label:'Table Name',type:'text',required:true,placeholder:'s3_source'},
       {id:'path',label:'Path',type:'text',required:true,placeholder:'s3://bucket/events/'},
       {id:'format',label:'Format',type:'select',options:['parquet','orc','json','csv','avro'],value:'parquet'},
       {id:'schema',label:'Schema',type:'textarea',placeholder:'event_date STRING\nvalue DOUBLE'},
-    ],
-  },
-  {
-    id:'pulsar_source', group:'Sources', label:'Pulsar', color:'#6a2d8a', textColor:'#fff', shape:'stadium',
-    // Simple Icons: apachepulsar — white
-    icon: _plmSimpleIcon('apachepulsar', 'ffffff'),
-    isSource:true, stateful:false, needsConnector:true,
+    ]},
+  { id:'pulsar_source', group:'Sources', label:'Pulsar', color:'#6a2d8a', textColor:'#fff', shape:'stadium',
+    icon: _plmSimpleIcon('apachepulsar','ffffff'), isSource:true, stateful:false, needsConnector:true,
     params:[
       {id:'table_name',label:'Table Name',type:'text',required:true,placeholder:'pulsar_src'},
       {id:'service_url',label:'Service URL',type:'text',required:true,placeholder:'pulsar://pulsar-broker:6650'},
       {id:'topic',label:'Topic',type:'text',required:true,placeholder:'persistent://public/default/my-topic'},
       {id:'format',label:'Format',type:'select',options:['json','avro','csv'],value:'json'},
       {id:'schema',label:'Schema',type:'textarea',placeholder:'id BIGINT\npayload STRING'},
-    ],
-  },
-  {
-    id:'kinesis_source', group:'Sources', label:'Kinesis', color:'#e8620a', textColor:'#fff', shape:'stadium',
-    // Simple Icons: amazonwebservices — white; Kinesis lives under AWS umbrella
-    icon: _plmSimpleIcon('amazonwebservices', 'FF9900'),
-    isSource:true, stateful:false, needsConnector:true,
+    ]},
+  { id:'kinesis_source', group:'Sources', label:'Kinesis', color:'#e8620a', textColor:'#fff', shape:'stadium',
+    icon: _plmSimpleIcon('amazonwebservices','FF9900'), isSource:true, stateful:false, needsConnector:true,
     params:[
       {id:'table_name',label:'Table Name',type:'text',required:true,placeholder:'kinesis_src'},
       {id:'stream',label:'Stream Name',type:'text',required:true,placeholder:'my-kinesis-stream'},
       {id:'region',label:'AWS Region',type:'text',required:true,placeholder:'us-east-1'},
       {id:'format',label:'Format',type:'select',options:['json','csv'],value:'json'},
       {id:'schema',label:'Schema',type:'textarea',placeholder:'id BIGINT\ndata STRING'},
-    ],
-  },
+    ]},
 
-  // ── TRANSFORMATIONS ──────────────────────────────────────────────────────────
-  // No Simple Icons equivalents for transform operators — all keep inline SVG
-  {
-    id:'filter', group:'Transformations', label:'Filter', color:'#2a7a3a', textColor:'#fff', shape:'diamond',
+  // TRANSFORMATIONS
+  { id:'filter', group:'Transformations', label:'Filter', color:'#2a7a3a', textColor:'#fff', shape:'diamond',
     icon:`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="22 3 2 3 10 12.5 10 19 14 21 14 12.5 22 3"/></svg>`,
     isSource:false, stateful:false,
-    params:[{id:'condition',label:'WHERE Condition',type:'text',required:true,placeholder:"amount > 100 AND status = 'ACTIVE'"}],
-  },
-  {
-    id:'project', group:'Transformations', label:'Project', color:'#2a5a8a', textColor:'#fff', shape:'parallelogram',
+    params:[{id:'condition',label:'WHERE Condition',type:'text',required:true,placeholder:"amount > 100 AND status = 'ACTIVE'"}]},
+  { id:'project', group:'Transformations', label:'Project', color:'#2a5a8a', textColor:'#fff', shape:'parallelogram',
     icon:`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="3" y1="9" x2="21" y2="9"/></svg>`,
     isSource:false, stateful:false,
-    params:[{id:'columns',label:'SELECT Expressions (one per line)',type:'textarea',placeholder:"user_id\namount * 1.1 AS adjusted\nCASE WHEN score > 0.8 THEN 'HIGH' ELSE 'LOW' END AS tier"}],
-  },
-  {
-    id:'map_udf', group:'Transformations', label:'UDF Map', color:'#5a3a8a', textColor:'#fff', shape:'parallelogram',
+    params:[{id:'columns',label:'SELECT Expressions (one per line)',type:'textarea',placeholder:"user_id\namount * 1.1 AS adjusted\nCASE WHEN score > 0.8 THEN 'HIGH' ELSE 'LOW' END AS tier"}]},
+  { id:'map_udf', group:'Transformations', label:'UDF Map', color:'#5a3a8a', textColor:'#fff', shape:'parallelogram',
     icon:`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>`,
     isSource:false, stateful:false,
     params:[
@@ -169,41 +127,33 @@ const PM_OPERATORS = [
       {id:'input_col',label:'Input Column',type:'text',required:true,placeholder:'risk_score'},
       {id:'output_alias',label:'Output Alias',type:'text',required:true,placeholder:'risk_tier'},
       {id:'extra_cols',label:'Extra passthrough columns',type:'text',placeholder:'id, ts'},
-    ],
-  },
-  {
-    id:'enrich', group:'Transformations', label:'Lookup Enrich', color:'#7a3a7a', textColor:'#fff', shape:'parallelogram',
+    ]},
+  { id:'enrich', group:'Transformations', label:'Lookup Enrich', color:'#7a3a7a', textColor:'#fff', shape:'parallelogram',
     icon:`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>`,
     isSource:false, stateful:false,
     params:[
       {id:'lookup_table',label:'Lookup Table',type:'text',required:true,placeholder:'users_dim'},
       {id:'join_key',label:'Join Key',type:'text',required:true,placeholder:'e.user_id = u.user_id'},
       {id:'columns',label:'Columns to Pull',type:'text',placeholder:'u.tier, u.region'},
-    ],
-  },
-  {
-    id:'union', group:'Transformations', label:'Union', color:'#5a7a2a', textColor:'#fff', shape:'diamond',
+    ]},
+  { id:'union', group:'Transformations', label:'Union', color:'#5a7a2a', textColor:'#fff', shape:'diamond',
     icon:`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3"/><path d="M16 3h3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-3"/><line x1="12" y1="3" x2="12" y2="21"/></svg>`,
     isSource:false, stateful:false,
     params:[
       {id:'union_type',label:'Union Type',type:'select',options:['UNION ALL','UNION'],value:'UNION ALL'},
       {id:'second_source',label:'Second Source Table',type:'text',required:true,placeholder:'events_v2'},
-    ],
-  },
-  {
-    id:'split', group:'Transformations', label:'Split / Route', color:'#7a5a2a', textColor:'#fff', shape:'diamond',
+    ]},
+  { id:'split', group:'Transformations', label:'Split / Route', color:'#7a5a2a', textColor:'#fff', shape:'diamond',
     icon:`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 3h5v5"/><path d="M8 3H3v5"/><path d="M21 3l-7 7-4-4-7 7"/></svg>`,
     isSource:false, stateful:false,
     params:[
       {id:'condition_a',label:'Route A — WHERE condition',type:'text',required:true,placeholder:"status = 'OK'"},
       {id:'condition_b',label:'Route B — WHERE condition',type:'text',placeholder:"status = 'ERROR'"},
       {id:'view_prefix',label:'Output View Prefix',type:'text',placeholder:'routed'},
-    ],
-  },
+    ]},
 
-  // ── WINDOWS ──────────────────────────────────────────────────────────────────
-  {
-    id:'tumble_window', group:'Windows', label:'Tumble', color:'#8a6a00', textColor:'#fff', shape:'hexagon',
+  // WINDOWS
+  { id:'tumble_window', group:'Windows', label:'Tumble', color:'#8a6a00', textColor:'#fff', shape:'hexagon',
     icon:`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="4" width="6" height="16"/><rect x="9" y="4" width="6" height="16"/><rect x="16" y="4" width="6" height="16"/></svg>`,
     isSource:false, stateful:true,
     params:[
@@ -211,10 +161,8 @@ const PM_OPERATORS = [
       {id:'window_size',label:'Window Size',type:'text',required:true,placeholder:'1 MINUTE'},
       {id:'group_by',label:'GROUP BY (besides window)',type:'text',placeholder:'user_id, category'},
       {id:'aggregations',label:'Aggregations (one per line)',type:'textarea',placeholder:'COUNT(*) AS cnt\nSUM(amount) AS total\nAVG(amount) AS avg_amount'},
-    ],
-  },
-  {
-    id:'hop_window', group:'Windows', label:'Hop', color:'#8a4a00', textColor:'#fff', shape:'hexagon',
+    ]},
+  { id:'hop_window', group:'Windows', label:'Hop', color:'#8a4a00', textColor:'#fff', shape:'hexagon',
     icon:`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="1" y="6" width="8" height="12" opacity="0.5"/><rect x="5" y="4" width="8" height="16"/><rect x="13" y="4" width="8" height="16" opacity="0.7"/></svg>`,
     isSource:false, stateful:true,
     params:[
@@ -223,10 +171,8 @@ const PM_OPERATORS = [
       {id:'size',label:'Window Size',type:'text',required:true,placeholder:'5 MINUTE'},
       {id:'group_by',label:'GROUP BY',type:'text',placeholder:'user_id'},
       {id:'aggregations',label:'Aggregations',type:'textarea',placeholder:'COUNT(*) AS cnt\nSUM(amount) AS total'},
-    ],
-  },
-  {
-    id:'session_window', group:'Windows', label:'Session', color:'#8a0020', textColor:'#fff', shape:'hexagon',
+    ]},
+  { id:'session_window', group:'Windows', label:'Session', color:'#8a0020', textColor:'#fff', shape:'hexagon',
     icon:`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 8h6v8H2z"/><path d="M10 4h12v16H10z" opacity="0.7"/></svg>`,
     isSource:false, stateful:true,
     params:[
@@ -234,10 +180,8 @@ const PM_OPERATORS = [
       {id:'gap',label:'Idle Gap',type:'text',required:true,placeholder:'30 SECOND'},
       {id:'partition_by',label:'PARTITION BY',type:'text',required:true,placeholder:'user_id'},
       {id:'aggregations',label:'Aggregations',type:'textarea',placeholder:'COUNT(*) AS cnt\nMAX(amount) AS max_amount'},
-    ],
-  },
-  {
-    id:'cumulate_window', group:'Windows', label:'Cumulate', color:'#4a6a00', textColor:'#fff', shape:'hexagon',
+    ]},
+  { id:'cumulate_window', group:'Windows', label:'Cumulate', color:'#4a6a00', textColor:'#fff', shape:'hexagon',
     icon:`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 20h18M3 14h12M3 8h6"/></svg>`,
     isSource:false, stateful:true,
     params:[
@@ -246,43 +190,35 @@ const PM_OPERATORS = [
       {id:'max_size',label:'Max Window Size',type:'text',required:true,placeholder:'1 HOUR'},
       {id:'group_by',label:'GROUP BY',type:'text',placeholder:'user_id'},
       {id:'aggregations',label:'Aggregations',type:'textarea',placeholder:'SUM(amount) AS running_total'},
-    ],
-  },
+    ]},
 
-  // ── AGGREGATIONS ─────────────────────────────────────────────────────────────
-  {
-    id:'aggregate', group:'Aggregations', label:'Group Agg', color:'#6a0a9a', textColor:'#fff', shape:'rect',
+  // AGGREGATIONS
+  { id:'aggregate', group:'Aggregations', label:'Group Agg', color:'#6a0a9a', textColor:'#fff', shape:'rect',
     icon:`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`,
     isSource:false, stateful:true,
     params:[
       {id:'group_by',label:'GROUP BY',type:'text',required:true,placeholder:'category, region'},
       {id:'aggregations',label:'Aggregations',type:'textarea',required:true,placeholder:'COUNT(*) AS cnt\nSUM(amount) AS total'},
       {id:'having',label:'HAVING (optional)',type:'text',placeholder:'cnt > 10'},
-    ],
-  },
-  {
-    id:'dedup', group:'Aggregations', label:'Dedup', color:'#0a6a8a', textColor:'#fff', shape:'rect',
+    ]},
+  { id:'dedup', group:'Aggregations', label:'Dedup', color:'#0a6a8a', textColor:'#fff', shape:'rect',
     icon:`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="14" height="14" rx="2"/><rect x="7" y="7" width="14" height="14" rx="2" opacity="0.5"/></svg>`,
     isSource:false, stateful:true,
     params:[
       {id:'unique_key',label:'Unique Key (PARTITION BY)',type:'text',required:true,placeholder:'order_id'},
       {id:'time_col',label:'ORDER BY Column',type:'text',required:true,placeholder:'ts ASC'},
-    ],
-  },
-  {
-    id:'topn', group:'Aggregations', label:'Top-N', color:'#0a8a4a', textColor:'#fff', shape:'rect',
+    ]},
+  { id:'topn', group:'Aggregations', label:'Top-N', color:'#0a8a4a', textColor:'#fff', shape:'rect',
     icon:`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="17 11 12 6 7 11"/><line x1="12" y1="6" x2="12" y2="18"/></svg>`,
     isSource:false, stateful:true,
     params:[
       {id:'partition_by',label:'PARTITION BY',type:'text',required:true,placeholder:'category'},
       {id:'order_by',label:'ORDER BY',type:'text',required:true,placeholder:'total_sales DESC'},
       {id:'n',label:'N (count)',type:'text',required:true,placeholder:'3'},
-    ],
-  },
+    ]},
 
-  // ── JOINS ────────────────────────────────────────────────────────────────────
-  {
-    id:'interval_join', group:'Joins', label:'Interval Join', color:'#8a4a00', textColor:'#fff', shape:'diamond',
+  // JOINS
+  { id:'interval_join', group:'Joins', label:'Interval Join', color:'#8a4a00', textColor:'#fff', shape:'diamond',
     icon:`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="8" cy="12" r="5"/><circle cx="16" cy="12" r="5"/></svg>`,
     isSource:false, stateful:true,
     params:[
@@ -290,32 +226,26 @@ const PM_OPERATORS = [
       {id:'join_condition',label:'Join Condition',type:'text',required:true,placeholder:'l.user_id = r.user_id'},
       {id:'interval',label:'Time Interval',type:'text',required:true,placeholder:"r.ts BETWEEN l.ts - INTERVAL '5' MINUTE AND l.ts"},
       {id:'join_type',label:'Join Type',type:'select',options:['INNER','LEFT','RIGHT'],value:'INNER'},
-    ],
-  },
-  {
-    id:'temporal_join', group:'Joins', label:'Temporal Join', color:'#6a2a00', textColor:'#fff', shape:'diamond',
+    ]},
+  { id:'temporal_join', group:'Joins', label:'Temporal Join', color:'#6a2a00', textColor:'#fff', shape:'diamond',
     icon:`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
     isSource:false, stateful:false,
     params:[
       {id:'dim_table',label:'Dimension Table',type:'text',required:true,placeholder:'prices'},
       {id:'time_col',label:'Event Time Column',type:'text',required:true,placeholder:'event_time'},
       {id:'join_key',label:'Join Key',type:'text',required:true,placeholder:'l.symbol = r.symbol'},
-    ],
-  },
-  {
-    id:'regular_join', group:'Joins', label:'Regular Join', color:'#4a2a6a', textColor:'#fff', shape:'diamond',
+    ]},
+  { id:'regular_join', group:'Joins', label:'Regular Join', color:'#4a2a6a', textColor:'#fff', shape:'diamond',
     icon:`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="8" cy="12" r="5" opacity="0.6"/><circle cx="16" cy="12" r="5" opacity="0.6"/></svg>`,
     isSource:false, stateful:true,
     params:[
       {id:'right_table',label:'Right Table',type:'text',required:true,placeholder:'customers'},
       {id:'join_condition',label:'ON Condition',type:'text',required:true,placeholder:'l.cust_id = r.id'},
       {id:'join_type',label:'Join Type',type:'select',options:['INNER','LEFT OUTER','RIGHT OUTER','FULL OUTER'],value:'INNER'},
-    ],
-  },
+    ]},
 
-  // ── CEP ──────────────────────────────────────────────────────────────────────
-  {
-    id:'match_recognize', group:'CEP', label:'MATCH_RECOGNIZE', color:'#3a0a6a', textColor:'#fff', shape:'hexagon',
+  // CEP
+  { id:'match_recognize', group:'CEP', label:'MATCH_RECOGNIZE', color:'#3a0a6a', textColor:'#fff', shape:'hexagon',
     icon:`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>`,
     isSource:false, stateful:true,
     params:[
@@ -325,25 +255,19 @@ const PM_OPERATORS = [
       {id:'within',label:'WITHIN Interval',type:'text',placeholder:"INTERVAL '10' MINUTE"},
       {id:'define',label:'Definitions',type:'textarea',placeholder:"A AS A.status = 'FAILED'\nB AS B.status = 'RETRY'"},
       {id:'measures',label:'MEASURES',type:'textarea',placeholder:'FIRST(A.ts) AS start_time\nCOUNT(*) AS attempts'},
-    ],
-  },
-  {
-    id:'cep_alert', group:'CEP', label:'CEP Alert', color:'#6a0a2a', textColor:'#fff', shape:'hexagon',
+    ]},
+  { id:'cep_alert', group:'CEP', label:'CEP Alert', color:'#6a0a2a', textColor:'#fff', shape:'hexagon',
     icon:`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/></svg>`,
     isSource:false, stateful:true,
     params:[
       {id:'alert_condition',label:'Alert Condition',type:'text',required:true,placeholder:'count > 5'},
       {id:'severity',label:'Severity Field',type:'text',placeholder:'CRITICAL'},
       {id:'partition_by',label:'PARTITION BY',type:'text',required:true,placeholder:'account_id'},
-    ],
-  },
+    ]},
 
-  // ── SINKS ────────────────────────────────────────────────────────────────────
-  {
-    id:'kafka_sink', group:'Sinks', label:'Kafka Sink', color:'#0a3a6a', textColor:'#fff', shape:'stadium',
-    // Simple Icons: apachekafka — white
-    icon: _plmSimpleIcon('apachekafka', 'ffffff'),
-    isSink:true, stateful:false, needsConnector:true,
+  // SINKS
+  { id:'kafka_sink', group:'Sinks', label:'Kafka Sink', color:'#0a3a6a', textColor:'#fff', shape:'stadium',
+    icon: _plmSimpleIcon('apachekafka','ffffff'), isSink:true, stateful:false, needsConnector:true,
     params:[
       {id:'table_name',label:'Table Name',type:'text',required:true,placeholder:'kafka_sink_tbl'},
       {id:'topic',label:'Topic',type:'text',required:true,placeholder:'output-topic'},
@@ -357,13 +281,9 @@ const PM_OPERATORS = [
       {id:'schema_registry_url',label:'Schema Registry URL',type:'text',placeholder:'http://schema-registry:8081'},
       {id:'schema_registry_user',label:'SR Username',type:'text',placeholder:'optional'},
       {id:'schema_registry_pass',label:'SR Password',type:'text',placeholder:'optional'},
-    ],
-  },
-  {
-    id:'jdbc_sink', group:'Sinks', label:'JDBC Sink', color:'#0a5a5a', textColor:'#fff', shape:'stadium',
-    // Simple Icons: postgresql — white on teal
-    icon: _plmSimpleIcon('postgresql', 'ffffff'),
-    isSink:true, stateful:false, needsConnector:true,
+    ]},
+  { id:'jdbc_sink', group:'Sinks', label:'JDBC Sink', color:'#0a5a5a', textColor:'#fff', shape:'stadium',
+    icon: _plmSimpleIcon('postgresql','ffffff'), isSink:true, stateful:false, needsConnector:true,
     params:[
       {id:'table_name',label:'Table Name',type:'text',required:true,placeholder:'pg_output'},
       {id:'jdbc_url',label:'JDBC URL',type:'text',required:true,placeholder:'jdbc:postgresql://postgres:5432/mydb'},
@@ -372,24 +292,17 @@ const PM_OPERATORS = [
       {id:'password',label:'Password',type:'text',placeholder:'secret'},
       {id:'schema',label:'Schema',type:'textarea',placeholder:'id BIGINT\nresult STRING'},
       {id:'driver',label:'Driver Class (opt)',type:'text',placeholder:'org.postgresql.Driver'},
-    ],
-  },
-  {
-    id:'filesystem_sink', group:'Sinks', label:'File / S3 Sink', color:'#5a4a00', textColor:'#fff', shape:'stadium',
-    icon: _plmSimpleIcon('amazons3', 'FF9900'),
-    isSink:true, stateful:false, needsConnector:true,
+    ]},
+  { id:'filesystem_sink', group:'Sinks', label:'File / S3 Sink', color:'#5a4a00', textColor:'#fff', shape:'stadium',
+    icon: _plmSimpleIcon('amazons3','FF9900'), isSink:true, stateful:false, needsConnector:true,
     params:[
       {id:'table_name',label:'Table Name',type:'text',required:true,placeholder:'s3_sink'},
       {id:'path',label:'Sink Path',type:'text',required:true,placeholder:'s3://bucket/output/'},
       {id:'format',label:'Format',type:'select',options:['parquet','orc','json','csv'],value:'parquet'},
       {id:'rolling_interval',label:'Rolling Interval',type:'text',placeholder:'10 min'},
-    ],
-  },
-  {
-    id:'elasticsearch_sink', group:'Sinks', label:'Elasticsearch', color:'#5a0a00', textColor:'#fff', shape:'stadium',
-    // Simple Icons: elasticsearch — white
-    icon: _plmSimpleIcon('elasticsearch', 'ffffff'),
-    isSink:true, stateful:false, needsConnector:true,
+    ]},
+  { id:'elasticsearch_sink', group:'Sinks', label:'Elasticsearch', color:'#5a0a00', textColor:'#fff', shape:'stadium',
+    icon: _plmSimpleIcon('elasticsearch','ffffff'), isSink:true, stateful:false, needsConnector:true,
     params:[
       {id:'table_name',label:'Table Name',type:'text',required:true,placeholder:'es_sink'},
       {id:'hosts',label:'ES Hosts',type:'text',required:true,placeholder:'http://elasticsearch:9200'},
@@ -398,53 +311,36 @@ const PM_OPERATORS = [
       {id:'username',label:'Username (opt)',type:'text',placeholder:'elastic'},
       {id:'password',label:'Password (opt)',type:'text',placeholder:'changeme'},
       {id:'schema',label:'Schema',type:'textarea',placeholder:'id BIGINT\npayload STRING'},
-    ],
-  },
-  {
-    id:'print_sink', group:'Sinks', label:'Print (Debug)', color:'#3a3a3a', textColor:'#ccc', shape:'stadium',
-    // No Simple Icons equivalent — keep original printer SVG
+    ]},
+  { id:'print_sink', group:'Sinks', label:'Print (Debug)', color:'#3a3a3a', textColor:'#ccc', shape:'stadium',
     icon:`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>`,
     isSink:true, stateful:false, needsConnector:false,
     params:[
       {id:'table_name',label:'Table Name',type:'text',required:true,placeholder:'print_sink'},
       {id:'print_identifier',label:'Print Identifier (optional)',type:'text',placeholder:'DEBUG_OUT'},
-    ],
-  },
-  {
-    id:'blackhole_sink', group:'Sinks', label:'Blackhole', color:'#1a1a2a', textColor:'#aaa', shape:'circle',
-    // No Simple Icons equivalent — keep original blackhole SVG
+    ]},
+  { id:'blackhole_sink', group:'Sinks', label:'Blackhole', color:'#1a1a2a', textColor:'#aaa', shape:'circle',
     icon:`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>`,
     isSink:true, stateful:false, needsConnector:false,
-    params:[{id:'table_name',label:'Table Name',type:'text',required:true,placeholder:'blackhole_sink'}],
-  },
-  {
-    id:'mongodb_sink', group:'Sinks', label:'MongoDB', color:'#0a5a2a', textColor:'#fff', shape:'stadium',
-    // Simple Icons: mongodb — white on dark green
-    icon: _plmSimpleIcon('mongodb', 'ffffff'),
-    isSink:true, stateful:false, needsConnector:true,
+    params:[{id:'table_name',label:'Table Name',type:'text',required:true,placeholder:'blackhole_sink'}]},
+  { id:'mongodb_sink', group:'Sinks', label:'MongoDB', color:'#0a5a2a', textColor:'#fff', shape:'stadium',
+    icon: _plmSimpleIcon('mongodb','ffffff'), isSink:true, stateful:false, needsConnector:true,
     params:[
       {id:'table_name',label:'Table Name',type:'text',required:true,placeholder:'mongo_sink'},
       {id:'uri',label:'MongoDB URI',type:'text',required:true,placeholder:'mongodb://localhost:27017/mydb'},
       {id:'collection',label:'Collection',type:'text',required:true,placeholder:'my-collection'},
-    ],
-  },
+    ]},
 
-  // ── OUTPUT ───────────────────────────────────────────────────────────────────
-  {
-    id:'result_output', group:'Output', label:'Results Tab', color:'#006a3a', textColor:'#fff', shape:'circle',
-    // No Simple Icons equivalent — keep pulse/signal SVG
+  // OUTPUT
+  { id:'result_output', group:'Output', label:'Results Tab', color:'#006a3a', textColor:'#fff', shape:'circle',
     icon:`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`,
     isSink:true, stateful:false, needsConnector:false,
     params:[
       {id:'table_name',label:'View Name',type:'text',required:true,placeholder:'results_view'},
       {id:'limit',label:'Row Limit',type:'text',placeholder:'1000'},
-    ],
-  },
-  {
-    id:'ai_model', group:'Output', label:'AI Model', color:'#5a006a', textColor:'#fff', shape:'hexagon',
-    // Simple Icons: openai — white on purple
-    icon: _plmSimpleIcon('openai', '00A67E'),
-    isSource:false, isSink:false, stateful:false, needsConnector:false,
+    ]},
+  { id:'ai_model', group:'Output', label:'AI Model', color:'#5a006a', textColor:'#fff', shape:'hexagon',
+    icon: _plmSimpleIcon('openai','00A67E'), isSource:false, isSink:false, stateful:false, needsConnector:false,
     params:[
       {id:'table_name',label:'Output View Name',type:'text',required:true,placeholder:'ai_scored'},
       {id:'provider',label:'AI Provider',type:'select',options:['OpenAI','Azure OpenAI','AWS Bedrock','Google Vertex AI','Anthropic','Hugging Face','Cohere','Custom HTTP','Otter Streams UDF'],value:'OpenAI'},
@@ -460,13 +356,10 @@ const PM_OPERATORS = [
       {id:'max_tokens',label:'Max Tokens',type:'text',placeholder:'64'},
       {id:'timeout_ms',label:'Timeout (ms)',type:'text',placeholder:'5000'},
       {id:'udf_function',label:'UDF Name (if Otter Streams)',type:'text',placeholder:'fraud_score'},
-    ],
-  },
+    ]},
 
-  // ── MY UDFs ──────────────────────────────────────────────────────────────────
-  {
-    id:'feature_store', group:'My UDFs', label:'Feature Store', color:'#1a5c7a', textColor:'#fff', shape:'hexagon',
-    // No Simple Icons equivalent for generic feature stores — keep database SVG
+  // MY UDFs
+  { id:'feature_store', group:'My UDFs', label:'Feature Store', color:'#1a5c7a', textColor:'#fff', shape:'hexagon',
     icon:`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v4c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/><path d="M4 10v4c0 1.7 3.6 3 8 3s8-1.3 8-3v-4"/></svg>`,
     isSource:false, stateful:false, needsConnector:false,
     params:[
@@ -480,11 +373,8 @@ const PM_OPERATORS = [
       {id:'lookup_timeout',label:'Lookup Timeout (ms)',type:'text',placeholder:'200'},
       {id:'cache_ttl',label:'Client-side Cache TTL (ms)',type:'text',placeholder:'60000'},
       {id:'passthrough_cols',label:'Passthrough Columns',type:'text',placeholder:'id, ts, amount'},
-    ],
-  },
-  {
-    id:'udf_node', group:'My UDFs', label:'UDF Function', color:'#3a2a6a', textColor:'#fff', shape:'parallelogram',
-    // No Simple Icons equivalent — keep terminal/code chevron SVG
+    ]},
+  { id:'udf_node', group:'My UDFs', label:'UDF Function', color:'#3a2a6a', textColor:'#fff', shape:'parallelogram',
     icon:`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 17l6-6-6-6"/><line x1="12" y1="19" x2="20" y2="19"/></svg>`,
     isSource:false, stateful:false, needsConnector:false,
     params:[
@@ -492,11 +382,10 @@ const PM_OPERATORS = [
       {id:'input_cols',label:'Input Column(s)',type:'text',required:true,placeholder:'amount, status'},
       {id:'output_alias',label:'Output Alias',type:'text',required:true,placeholder:'scored_value'},
       {id:'extra_cols',label:'Passthrough Cols',type:'text',placeholder:'id, ts'},
-    ],
-  },
+    ]},
 ];
 
-// ── Edge types (unchanged) ────────────────────────────────────────────────────
+// ── Edge types ────────────────────────────────────────────────────────────────
 const PM_EDGE_TYPES = [
   { id:'forward',   label:'FORWARD',   color:'#4e9de8', dash:'none',    desc:'Same parallelism, no shuffle' },
   { id:'hash',      label:'HASH',      color:'#57c764', dash:'none',    desc:'Shuffle by key' },
@@ -505,10 +394,7 @@ const PM_EDGE_TYPES = [
   { id:'rescale',   label:'RESCALE',   color:'#f75464', dash:'8 4 2 4', desc:'Local round-robin' },
 ];
 
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// STATE (unchanged)
-// ═══════════════════════════════════════════════════════════════════════════════
+// ── State ─────────────────────────────────────────────────────────────────────
 window._plmState = {
   pipelines:[], activePipeline:null,
   canvas:{ nodes:[], edges:[], pan:{x:0,y:0}, scale:1.0 },
@@ -516,8 +402,7 @@ window._plmState = {
   uidCounter:1, fullscreen:false, sqlCollapsed:false,
   errors:[], pipelineSettings:null,
 };
-
-(function(){try{const raw=localStorage.getItem('strlabstudio_pipelines');if(raw)window._plmState.pipelines=JSON.parse(raw);}catch(_){}})();
+(function(){try{const r=localStorage.getItem('strlabstudio_pipelines');if(r)window._plmState.pipelines=JSON.parse(r);}catch(_){}}());
 function _plmSavePipelines(){try{localStorage.setItem('strlabstudio_pipelines',JSON.stringify(window._plmState.pipelines));}catch(_){}}
 function _plmUID(){return'n'+(window._plmState.uidCounter++);}
 function _plmEdgeUID(){return'e'+(window._plmState.uidCounter++);}
@@ -534,12 +419,7 @@ function openPipelineManager(){
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// BUILD MODAL
-// NOTE: The palette renders op.icon directly into innerHTML.
-//       Simple Icons img tags are safe here — they render as <img> elements.
-//       The _plmSimpleIcon() helper returns a plain HTML string, so palette
-//       items, node headers, and config modal icons all work identically to
-//       the previous inline SVG approach.
+// BUILD MODAL  — v2.2 adds ✦ AI button to toolbar
 // ═══════════════════════════════════════════════════════════════════════════════
 function _plmBuildModal(){
   const groups=[...new Set(PM_OPERATORS.map(o=>o.group))];
@@ -566,14 +446,13 @@ function _plmBuildModal(){
   m.className='modal-overlay';
   m.innerHTML=`
 <div id="plm-modal-inner" class="modal" style="width:min(1400px,97vw);height:91vh;max-height:91vh;display:flex;flex-direction:column;background:var(--bg1);overflow:hidden;border-radius:6px;transition:width 0.2s,height 0.2s;">
-  <!-- Header -->
   <div style="display:flex;align-items:center;padding:8px 14px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;gap:10px;">
     <div>
       <div style="font-size:12px;font-weight:700;color:var(--text0);display:flex;align-items:center;gap:6px;">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><circle cx="5" cy="12" r="3"/><circle cx="19" cy="5" r="3"/><circle cx="19" cy="19" r="3"/><line x1="8" y1="11.5" x2="16" y2="6.5"/><line x1="8" y1="12.5" x2="16" y2="17.5"/></svg>
         Pipeline Manager
       </div>
-      <div style="font-size:9px;color:var(--accent);letter-spacing:1px;text-transform:uppercase;">Visual Flink SQL Builder · v2.1</div>
+      <div style="font-size:9px;color:var(--accent);letter-spacing:1px;text-transform:uppercase;">Visual Flink SQL Builder · v2.2</div>
     </div>
     <div style="display:flex;gap:0;margin-left:12px;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;flex-shrink:0;">
       <button id="plm-tab-builder"   onclick="_plmSwitchTab('builder')"   class="plm-tab-btn active-plm-tab">◈ Builder</button>
@@ -589,22 +468,26 @@ function _plmBuildModal(){
       <button class="plm-toolbar-btn" onclick="document.getElementById('plm-import-input').click()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Import</button>
       <input type="file" id="plm-import-input" accept=".json" style="display:none;" onchange="_plmImportPipeline(event)" />
       <button class="plm-toolbar-btn" onclick="_plmSaveAsProject()" style="color:var(--accent);border-color:rgba(0,212,170,0.3);"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg> Save</button>
+      <!-- ✦ AI Pipeline Builder — NEW v2.2 -->
+      <button class="plm-toolbar-btn" onclick="_plmOpenAiPanel()" id="plm-ai-btn"
+        style="color:#c084fc;border-color:rgba(192,132,252,0.4);font-weight:700;background:rgba(192,132,252,0.07);"
+        title="AI Pipeline Builder — describe your pipeline in plain English">
+        <span style="font-size:14px;line-height:1;">✦</span> AI
+      </button>
       <button id="plm-run-btn" class="plm-toolbar-btn" onclick="_plmToggleAnimation()" style="color:var(--green);border-color:rgba(57,199,80,0.3);font-weight:600;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run</button>
       <button class="plm-toolbar-btn" onclick="_plmValidateAndSubmit()" style="color:var(--blue);border-color:rgba(79,163,224,0.3);"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Submit</button>
       <button id="plm-expand-btn" class="plm-toolbar-btn" onclick="_plmToggleFullscreen()" title="Expand" style="padding:4px 8px;">
         <svg id="plm-expand-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
       </button>
-     <button onclick="modalMinimize('modal-pipeline-manager','Pipeline Manager')" style="background:none;border:1px solid var(--border);color:var(--text2);cursor:pointer;font-size:13px;padding:1px 8px;border-radius:3px;" title="Minimise to statusbar">⊟</button><button class="modal-close" onclick="closeModal('modal-pipeline-manager')" style="margin-left:2px;">×</button>
+      <button onclick="modalMinimize('modal-pipeline-manager','Pipeline Manager')" style="background:none;border:1px solid var(--border);color:var(--text2);cursor:pointer;font-size:13px;padding:1px 8px;border-radius:3px;" title="Minimise">⊟</button>
+      <button class="modal-close" onclick="closeModal('modal-pipeline-manager')" style="margin-left:2px;">×</button>
     </div>
   </div>
-  <!-- Status bar -->
   <div id="plm-status-bar" style="font-size:10px;color:var(--text3);background:var(--bg2);border-bottom:1px solid var(--border);padding:3px 12px;display:flex;gap:12px;flex-shrink:0;">
-    <span id="plm-status-nodes">0 nodes</span>
-    <span id="plm-status-edges">0 edges</span>
+    <span id="plm-status-nodes">0 nodes</span><span id="plm-status-edges">0 edges</span>
     <span id="plm-status-errors" style="color:var(--red);cursor:pointer;text-decoration:underline;" onclick="_plmShowErrorDetail()"></span>
     <span id="plm-status-msg" style="margin-left:auto;color:var(--accent);"></span>
   </div>
-  <!-- Error banner -->
   <div id="plm-error-banner" style="display:none;position:relative;z-index:20;background:rgba(20,5,5,0.97);border-bottom:2px solid rgba(255,77,109,0.6);padding:8px 14px;flex-shrink:0;">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
       <span style="font-size:11px;font-weight:700;color:var(--red);text-transform:uppercase;letter-spacing:.5px;">⚠ Pipeline Errors</span>
@@ -615,34 +498,27 @@ function _plmBuildModal(){
 
   <!-- BUILDER TAB -->
   <div id="plm-pane-builder" style="flex:1;display:flex;overflow:hidden;">
-    <!-- Palette -->
     <div id="plm-palette" style="width:172px;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--border);overflow-y:auto;padding:5px 3px;">
       <div style="font-size:9px;font-weight:700;color:var(--text3);letter-spacing:1.5px;text-transform:uppercase;padding:4px 8px 5px;">OPERATORS</div>
-      <div class="plm-search-wrap">
-        <div class="plm-search-wrap-inner">
-          <svg class="plm-search-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="22" y2="22"/></svg>
-          <input id="plm-palette-search" class="plm-search-input" type="text" placeholder="Search operators…" autocomplete="off" oninput="_plmSearchPalette(this.value)" />
-        </div>
-      </div>
+      <div class="plm-search-wrap"><div class="plm-search-wrap-inner">
+        <svg class="plm-search-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="22" y2="22"/></svg>
+        <input id="plm-palette-search" class="plm-search-input" type="text" placeholder="Search operators…" autocomplete="off" oninput="_plmSearchPalette(this.value)" />
+      </div></div>
       <div id="plm-no-results" class="plm-no-results">No operators match</div>
       ${paletteHtml}
       <div style="margin-top:10px;border-top:1px solid var(--border);padding:7px 7px 4px;">
         <div style="font-size:9px;font-weight:700;color:var(--text3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:5px;">EDGE TYPES</div>
         ${PM_EDGE_TYPES.map(e=>`
-          <div id="plm-edge-type-${e.id}" class="plm-edge-type-item ${e.id==='forward'?'selected':''}"
-            onclick="_plmSelectEdgeType('${e.id}')" title="${e.desc}">
-            <svg width="26" height="8" viewBox="0 0 26 8">
-              <line x1="0" y1="4" x2="22" y2="4" stroke="${e.color}" stroke-width="2" stroke-dasharray="${e.dash}"/>
-              <polygon points="22,1 26,4 22,7" fill="${e.color}"/>
-            </svg>
+          <div id="plm-edge-type-${e.id}" class="plm-edge-type-item ${e.id==='forward'?'selected':''}" onclick="_plmSelectEdgeType('${e.id}')" title="${e.desc}">
+            <svg width="26" height="8" viewBox="0 0 26 8"><line x1="0" y1="4" x2="22" y2="4" stroke="${e.color}" stroke-width="2" stroke-dasharray="${e.dash}"/><polygon points="22,1 26,4 22,7" fill="${e.color}"/></svg>
             <span style="font-size:9px;color:var(--text1);">${e.label}</span>
           </div>`).join('')}
       </div>
       <div style="margin-top:8px;border-top:1px solid var(--border);padding:7px;">
         <div style="font-size:9px;color:var(--text3);line-height:1.8;">
           <div>🖱 Drag to canvas</div><div>◎ Click to configure</div>
-          <div>⟳ Drag port → connect</div><div>↔ Dbl-click edge</div>
-          <div>⌦ Del to remove</div>
+          <div>⟳ Drag port → connect</div><div>↔ Dbl-click edge</div><div>⌦ Del to remove</div>
+          <div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--border);color:#c084fc;">✦ AI: describe → generate</div>
         </div>
       </div>
     </div>
@@ -660,6 +536,7 @@ function _plmBuildModal(){
       <div id="plm-canvas-empty" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;gap:10px;color:var(--text3);">
         <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity="0.2"><circle cx="5" cy="12" r="3"/><circle cx="19" cy="5" r="3"/><circle cx="19" cy="19" r="3"/><line x1="8" y1="11.5" x2="16" y2="6.5"/><line x1="8" y1="12.5" x2="16" y2="17.5"/></svg>
         <div style="font-size:13px;">Drag operators from the palette</div>
+        <div style="font-size:11px;color:#c084fc;opacity:0.75;">or click <strong>✦ AI</strong> to generate from a description</div>
       </div>
       <button id="plm-float-stop-btn" onclick="_plmForceStop()"
         style="display:none;position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:30;
@@ -675,9 +552,7 @@ function _plmBuildModal(){
       <button onclick="_plmOpenPipelineSettings()"
         style="position:absolute;left:8px;bottom:10px;z-index:10;display:flex;align-items:center;gap:5px;
           background:var(--bg2);border:1px solid var(--border);color:var(--text2);cursor:pointer;
-          padding:5px 10px;border-radius:var(--radius);font-size:10px;font-family:var(--mono);">
-        ⚙ Settings
-      </button>
+          padding:5px 10px;border-radius:var(--radius);font-size:10px;font-family:var(--mono);">⚙ Settings</button>
     </div>
     <!-- SQL side pane -->
     <div id="plm-sql-side" style="width:300px;flex-shrink:0;background:var(--bg1);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:width 0.22s ease;">
@@ -690,7 +565,7 @@ function _plmBuildModal(){
     </div>
   </div>
 
-  <!-- SQL VIEW TAB -->
+  <!-- SQL TAB -->
   <div id="plm-pane-sql" style="flex:1;display:none;flex-direction:column;overflow:hidden;">
     <div style="padding:8px 14px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-shrink:0;">
       <span style="font-size:11px;color:var(--text2);">Generated pipeline SQL:</span>
@@ -700,7 +575,7 @@ function _plmBuildModal(){
     <pre id="plm-sql-full" style="flex:1;min-height:0;overflow:auto;margin:0;padding:14px;font-size:11px;font-family:var(--mono);color:var(--text1);line-height:1.8;white-space:pre;background:var(--bg0);">-- Build a pipeline to see generated SQL</pre>
   </div>
 
-  <!-- SAVED PIPELINES TAB -->
+  <!-- SAVED TAB -->
   <div id="plm-pane-pipelines" style="flex:1;display:none;overflow-y:auto;padding:14px;">
     <div id="plm-pipelines-list"></div>
   </div>
@@ -710,8 +585,7 @@ function _plmBuildModal(){
   m.addEventListener('click',e=>{if(e.target===m)closeModal('modal-pipeline-manager');});
 
   if(!document.getElementById('plm-css')){
-    const s=document.createElement('style');
-    s.id='plm-css';
+    const s=document.createElement('style');s.id='plm-css';
     s.textContent=`
 .plm-tab-btn{padding:6px 12px;font-size:11px;font-weight:500;background:var(--bg3);border:none;color:var(--text2);cursor:pointer;border-right:1px solid var(--border);transition:all 0.12s;white-space:nowrap;}
 .plm-tab-btn:last-child{border-right:none;}
@@ -728,7 +602,7 @@ function _plmBuildModal(){
 .plm-palette-label{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;}
 .plm-stateful-badge{font-size:7px;font-weight:700;background:rgba(245,166,35,0.2);color:#f5a623;padding:0 3px;border-radius:2px;flex-shrink:0;}
 .plm-connector-badge{font-size:8px;color:#f5a623;flex-shrink:0;opacity:0.8;}
-.plm-search-wrap{padding:5px 6px 5px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.plm-search-wrap{padding:5px 6px;border-bottom:1px solid var(--border);flex-shrink:0;}
 .plm-search-wrap-inner{position:relative;}
 .plm-search-icon{position:absolute;left:7px;top:50%;transform:translateY(-50%);pointer-events:none;opacity:0.35;}
 .plm-search-input{width:100%;background:var(--bg1);border:1px solid var(--border2);border-radius:4px;padding:4px 8px 4px 26px;font-size:11px;font-family:var(--mono);color:var(--text1);outline:none;box-sizing:border-box;}
@@ -736,7 +610,7 @@ function _plmBuildModal(){
 .plm-search-input::placeholder{color:var(--text3);}
 .plm-no-results{font-size:11px;color:var(--text3);padding:12px 8px;text-align:center;display:none;}
 .plm-group-hidden{display:none!important;}
-.plm-edge-type-item{display:flex;align-items:center;gap:7px;padding:3px 3px;border-radius:3px;cursor:pointer;margin-bottom:2px;border:1px solid transparent;}
+.plm-edge-type-item{display:flex;align-items:center;gap:7px;padding:3px;border-radius:3px;cursor:pointer;margin-bottom:2px;border:1px solid transparent;}
 .plm-edge-type-item:hover{background:rgba(255,255,255,0.04);}
 .plm-edge-type-item.selected{background:rgba(255,255,255,0.06);border-color:var(--border2);}
 .plm-node{position:absolute;border-radius:6px;cursor:pointer;box-shadow:0 3px 12px rgba(0,0,0,0.45);transition:box-shadow 0.12s;user-select:none;font-family:var(--mono);font-size:11px;border:2px solid rgba(255,255,255,0.12);}
@@ -761,6 +635,10 @@ function _plmBuildModal(){
 .plm-cfg-header{padding:11px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0;}
 .plm-cfg-body{flex:1;overflow-y:auto;padding:14px;}
 .plm-cfg-footer{padding:10px 14px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;flex-shrink:0;background:var(--bg1);}
+/* AI generate button shimmer */
+@keyframes plm-ai-shimmer{0%{background-position:200% center;}100%{background-position:-200% center;}}
+#plm-ai-gen-btn:not(:disabled){background:linear-gradient(90deg,#7c3aed,#c084fc,#7c3aed);background-size:200% auto;animation:plm-ai-shimmer 3s linear infinite;color:#fff;}
+#plm-ai-gen-btn:disabled{background:#444;color:#888;cursor:not-allowed;}
 `;
     document.head.appendChild(s);
   }
@@ -768,9 +646,239 @@ function _plmBuildModal(){
   setTimeout(()=>{_plmInitPaletteGroups();const el=document.getElementById('plm-palette-search');if(el){el.value='';_plmSearchPalette('');}},50);
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// AI PIPELINE GENERATION  (v2.2 — merged from ai-pipeline-gen.js)
+// ═══════════════════════════════════════════════════════════════════════════════
 
-// ── All remaining functions identical to v2.1 ─────────────────────────────────
+function _plmAiSaveCreds(){
+  const provider=document.getElementById('plm-ai-provider')?.value||'openai';
+  const key=document.getElementById('plm-ai-key')?.value||'';
+  const model=document.getElementById('plm-ai-model')?.value||'';
+  if(key)try{localStorage.setItem('strlabstudio_ai_creds',JSON.stringify({provider,key,model}));}catch(_){}
+  return{provider,key,model};
+}
+function _plmAiLoadCreds(){try{return JSON.parse(localStorage.getItem('strlabstudio_ai_creds')||'{}');}catch(_){return{};}}
 
+function _plmAiBuildCatalogue(){
+  return JSON.stringify(PM_OPERATORS.map(op=>({
+    opId:op.id,group:op.group,label:op.label,
+    isSource:!!op.isSource,isSink:!!op.isSink,stateful:!!op.stateful,
+    params:(op.params||[]).map(p=>({id:p.id,label:p.label,required:!!p.required,type:p.type,options:p.options||undefined}))
+  })),null,2);
+}
+
+async function _plmAiGenerate(){
+  const desc=(document.getElementById('plm-ai-desc')?.value||'').trim();
+  if(!desc){toast('Describe your pipeline first','warn');return;}
+  const{provider,key,model}=_plmAiSaveCreds();
+  if(!key){toast('Enter an API key first','err');return;}
+
+  const logEl=document.getElementById('plm-ai-log');
+  const progressEl=document.getElementById('plm-ai-progress');
+  const genBtn=document.getElementById('plm-ai-gen-btn');
+  if(genBtn){genBtn.disabled=true;genBtn.textContent='⏳ Generating…';}
+  if(logEl)logEl.textContent='Sending request to '+provider+'…\n';
+  if(progressEl)progressEl.style.width='5%';
+
+  const edgeTypes=PM_EDGE_TYPES.map(e=>e.id).join(', ');
+  const systemPrompt=`You are a Flink SQL pipeline architect for Str:::lab Studio.
+Your task: given a plain-English description, generate a pipeline as JSON.
+
+RULES:
+1. Return ONLY a valid JSON object — no markdown, no prose, no code fences.
+2. Use ONLY opIds from the OPERATOR CATALOGUE below.
+3. Each node must include: opId, label, x, y, params (fill required fields from context), configured:true.
+4. Each edge must include: fromUid, toUid, edgeType (one of: ${edgeTypes}).
+5. Assign uids: "n1","n2","n3"... for nodes and "e1","e2"... for edges.
+6. Layout: sources x=80, transforms x=340, aggregations/windows x=600, sinks x=860. Vertical spacing 130px from y=80.
+7. Fill table_name, topic, bootstrap_servers, schema, condition, group_by, aggregations from context. Use sensible defaults.
+8. Use "hash" before stateful nodes, "forward" elsewhere.
+
+OPERATOR CATALOGUE:
+${_plmAiBuildCatalogue()}
+
+RESPONSE FORMAT (strict JSON, no markdown):
+{"nodes":[{"uid":"n1","opId":"kafka_source","label":"Orders","x":80,"y":80,"configured":true,"params":{"table_name":"orders_src","topic":"orders","bootstrap_servers":"kafka:9092","format":"json","schema":"order_id BIGINT\\nprice DOUBLE\\nts TIMESTAMP(3)","startup_mode":"latest-offset"},"summary":"orders · orders_src"}],"edges":[{"uid":"e1","fromUid":"n1","toUid":"n2","edgeType":"forward"}]}`;
+
+  const userMsg='Build a Flink pipeline for: '+desc;
+  try{
+    if(progressEl)progressEl.style.width='20%';
+    if(logEl)logEl.textContent+='Connected. Waiting for LLM response…\n';
+    let rawJson='';
+
+    if(provider==='anthropic'){
+      const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
+        headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01'},
+        body:JSON.stringify({model:model||'claude-sonnet-4-20250514',max_tokens:4096,system:systemPrompt,messages:[{role:'user',content:userMsg}]})});
+      if(!resp.ok){const e=await resp.text();throw new Error('Anthropic API '+resp.status+': '+e);}
+      const data=await resp.json();
+      rawJson=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
+    }else{
+      const endpoint=document.getElementById('plm-ai-endpoint')?.value||'https://api.openai.com/v1/chat/completions';
+      const resp=await fetch(endpoint,{method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
+        body:JSON.stringify({model:model||'gpt-4o',max_tokens:4096,temperature:0.2,
+          messages:[{role:'system',content:systemPrompt},{role:'user',content:userMsg}]})});
+      if(!resp.ok){const e=await resp.text();throw new Error('OpenAI API '+resp.status+': '+e);}
+      const data=await resp.json();
+      rawJson=data.choices?.[0]?.message?.content||'';
+    }
+
+    if(progressEl)progressEl.style.width='60%';
+    if(logEl)logEl.textContent+='Response received. Parsing…\n';
+    rawJson=rawJson.replace(/```json\s*/gi,'').replace(/```\s*/g,'').trim();
+    const jm=rawJson.match(/\{[\s\S]*\}/);
+    if(!jm)throw new Error('No JSON object in response: '+rawJson.slice(0,200));
+    const pipeline=JSON.parse(jm[0]);
+    if(!pipeline.nodes||!Array.isArray(pipeline.nodes))throw new Error('Missing nodes array');
+
+    if(progressEl)progressEl.style.width='80%';
+    if(logEl)logEl.textContent+='Parsed '+pipeline.nodes.length+' nodes, '+(pipeline.edges||[]).length+' edges.\nBuilding canvas…\n';
+
+    const uidMap={};
+    for(let i=0;i<pipeline.nodes.length;i++){
+      const ln=pipeline.nodes[i];
+      const opDef=PM_OPERATORS.find(o=>o.id===ln.opId);
+      if(!opDef){if(logEl)logEl.textContent+='⚠ Unknown opId "'+ln.opId+'" — skipped\n';continue;}
+      const newUid=_plmUID();
+      uidMap[ln.uid]=newUid;
+      const cfg=PLM_SHAPES[opDef.shape||'rect']||PLM_SHAPES.rect;
+      window._plmState.canvas.nodes.push({uid:newUid,opId:ln.opId,x:ln.x||80+i*220,y:ln.y||80,
+        w:cfg.w,h:cfg.h,label:ln.label||opDef.label,params:ln.params||{},configured:true,summary:ln.summary||'',selected:false});
+      if(logEl)logEl.textContent+='  + '+ln.label+' ('+ln.opId+')\n';
+      _plmRenderAll();
+      if(progressEl)progressEl.style.width=(80+Math.round(15*i/pipeline.nodes.length))+'%';
+      await new Promise(r=>setTimeout(r,220));
+    }
+    for(const le of (pipeline.edges||[])){
+      const fromUid=uidMap[le.fromUid],toUid=uidMap[le.toUid];
+      if(!fromUid||!toUid)continue;
+      window._plmState.canvas.edges.push({uid:_plmEdgeUID(),fromUid,toUid,edgeType:le.edgeType||'forward',label:'',customColor:null});
+      _plmRenderEdges();
+      await new Promise(r=>setTimeout(r,80));
+    }
+
+    if(progressEl)progressEl.style.width='100%';
+    if(logEl)logEl.textContent+='\n✓ Pipeline generated successfully!\n';
+    setTimeout(()=>{_plmAutoLayout();_plmUpdateSqlPreview();_plmUpdateStatus();
+      const emp=document.getElementById('plm-canvas-empty');if(emp)emp.style.display='none';},400);
+    toast('AI pipeline generated — '+pipeline.nodes.length+' nodes','ok');
+    setTimeout(()=>_plmSwitchTab('builder'),600);
+
+  }catch(err){
+    if(logEl)logEl.textContent+='\n❌ Error: '+err.message+'\n';
+    if(progressEl)progressEl.style.width='0%';
+    toast('AI generation failed: '+err.message,'err');
+    console.error('[PLM AI]',err);
+  }finally{
+    if(genBtn){genBtn.disabled=false;genBtn.textContent='✦ Generate Pipeline';}
+  }
+}
+
+function _plmAiProviderChanged(val){
+  const modelSel=document.getElementById('plm-ai-model');
+  const endpointRow=document.getElementById('plm-ai-endpoint-row');
+  if(!modelSel)return;
+  const models={
+    openai:['gpt-4o','gpt-4o-mini','gpt-4-turbo','gpt-3.5-turbo'],
+    anthropic:['claude-sonnet-4-20250514','claude-opus-4-20250514','claude-haiku-4-5-20251001'],
+    custom:['gpt-4o','llama-3-70b','mixtral-8x7b']
+  };
+  modelSel.innerHTML=(models[val]||models.openai).map(m=>'<option value="'+m+'">'+m+'</option>').join('');
+  if(endpointRow)endpointRow.style.display=(val==='custom')?'block':'none';
+  const saved=_plmAiLoadCreds();
+  if(saved.provider===val&&saved.model)modelSel.value=saved.model;
+}
+
+function _plmOpenAiPanel(){
+  const old=document.getElementById('plm-ai-modal');
+  if(old){old._plmDragCleanup?.();old.remove();return;}
+  const saved=_plmAiLoadCreds();
+  const modal=document.createElement('div');
+  modal.id='plm-ai-modal';
+  modal.style.cssText='position:fixed;z-index:10003;background:var(--bg2);border:1px solid rgba(192,132,252,0.35);border-radius:10px;box-shadow:0 16px 60px rgba(0,0,0,0.75);width:480px;max-height:88vh;display:flex;flex-direction:column;overflow:hidden;top:80px;left:50%;transform:translateX(-50%);';
+  const examples=['Kafka → filter → tumble window → Kafka sink','Datagen → dedup → JDBC sink','Kafka → enrich from dim → Elasticsearch sink','Kafka → interval join → S3 sink','Kafka → Top-N per category → print sink'];
+  modal.innerHTML=`
+<div class="plm-cfg-header" style="background:rgba(192,132,252,0.07);border-bottom:1px solid rgba(192,132,252,0.2);cursor:move;gap:10px;padding:13px 16px;">
+  <span style="font-size:18px;line-height:1;color:#c084fc;">✦</span>
+  <div style="flex:1;">
+    <div style="font-size:13px;font-weight:700;color:var(--text0);">AI Pipeline Builder</div>
+    <div style="font-size:9px;color:#c084fc;letter-spacing:1px;text-transform:uppercase;">Describe → Generate → Build</div>
+  </div>
+  <button id="plm-ai-modal-x" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:20px;padding:0 4px;line-height:1;">×</button>
+</div>
+<div style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:14px;">
+  <div>
+    <label style="display:block;font-size:10px;font-weight:700;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">LLM Provider</label>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;">
+      ${['openai','anthropic','custom'].map(p=>`<label style="display:flex;align-items:center;gap:6px;padding:7px 10px;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;color:var(--text1);"><input type="radio" name="plm-ai-prov" value="${p}" ${(saved.provider||'openai')===p?'checked':''} onchange="_plmAiProviderChanged('${p}');document.getElementById('plm-ai-provider').value='${p}';" style="accent-color:#c084fc;">${p==='openai'?'OpenAI':p==='anthropic'?'Anthropic':'Custom'}</label>`).join('')}
+    </div>
+    <input type="hidden" id="plm-ai-provider" value="${saved.provider||'openai'}">
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+    <div>
+      <label style="display:block;font-size:10px;color:var(--text2);margin-bottom:4px;">Model</label>
+      <select id="plm-ai-model" style="width:100%;box-sizing:border-box;background:var(--bg1);border:1px solid var(--border2);border-radius:4px;color:var(--text0);font-family:var(--mono);font-size:11px;padding:5px 8px;"><option>gpt-4o</option></select>
+    </div>
+    <div>
+      <label style="display:block;font-size:10px;color:var(--text2);margin-bottom:4px;">API Key</label>
+      <input id="plm-ai-key" type="password" value="${saved.key||''}" placeholder="sk-… or sk-ant-…" style="width:100%;box-sizing:border-box;background:var(--bg1);border:1px solid var(--border2);border-radius:4px;color:var(--text0);font-family:var(--mono);font-size:11px;padding:5px 8px;">
+    </div>
+  </div>
+  <div id="plm-ai-endpoint-row" style="display:none;">
+    <label style="display:block;font-size:10px;color:var(--text2);margin-bottom:4px;">Custom Endpoint URL</label>
+    <input id="plm-ai-endpoint" type="text" value="https://api.openai.com/v1/chat/completions" style="width:100%;box-sizing:border-box;background:var(--bg1);border:1px solid var(--border2);border-radius:4px;color:var(--text0);font-family:var(--mono);font-size:11px;padding:5px 8px;">
+  </div>
+  <div>
+    <label style="display:block;font-size:10px;font-weight:700;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">Pipeline Description</label>
+    <textarea id="plm-ai-desc" placeholder="e.g. Read orders from Kafka, filter amounts above 100, compute 1-minute tumbling window totals per user, write results to PostgreSQL JDBC sink"
+      style="width:100%;box-sizing:border-box;min-height:100px;background:var(--bg1);border:1px solid rgba(192,132,252,0.3);border-radius:6px;color:var(--text0);font-family:var(--mono);font-size:12px;padding:10px;resize:vertical;line-height:1.6;outline:none;"></textarea>
+    <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:5px;">
+      ${examples.map(ex=>`<button onclick="document.getElementById('plm-ai-desc').value='${ex}'" style="font-size:9px;padding:3px 7px;border-radius:10px;border:1px solid rgba(192,132,252,0.25);background:rgba(192,132,252,0.05);color:#c084fc;cursor:pointer;">${ex}</button>`).join('')}
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:14px;font-size:11px;color:var(--text2);">
+    <label style="display:flex;align-items:center;gap:5px;cursor:pointer;"><input type="checkbox" id="plm-ai-clear-first" checked style="accent-color:#c084fc;"> Clear canvas first</label>
+    <label style="display:flex;align-items:center;gap:5px;cursor:pointer;"><input type="checkbox" id="plm-ai-autolayout" checked style="accent-color:#c084fc;"> Auto-layout after</label>
+  </div>
+  <div style="background:var(--bg0);border:1px solid var(--border);border-radius:6px;overflow:hidden;height:6px;">
+    <div id="plm-ai-progress" style="height:100%;background:linear-gradient(90deg,#7c3aed,#c084fc);width:0%;transition:width 0.4s ease;border-radius:6px;"></div>
+  </div>
+  <div>
+    <label style="display:block;font-size:10px;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Log</label>
+    <pre id="plm-ai-log" style="background:var(--bg0);border:1px solid var(--border);border-radius:4px;padding:8px 10px;font-size:10px;font-family:var(--mono);color:var(--text2);min-height:48px;max-height:120px;overflow-y:auto;white-space:pre-wrap;margin:0;">Ready. Configure provider and describe your pipeline above.\n</pre>
+  </div>
+  <div style="padding:8px 10px;background:rgba(245,166,35,0.07);border:1px solid rgba(245,166,35,0.2);border-radius:5px;font-size:10px;color:#f5a623;line-height:1.6;">
+    ⚠ Your API key is stored only in your browser's localStorage and sent directly to the LLM provider. Str:::lab Studio never proxies or logs your credentials.
+  </div>
+</div>
+<div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:8px;background:var(--bg1);flex-shrink:0;">
+  <button onclick="document.getElementById('plm-ai-modal')._plmDragCleanup?.();document.getElementById('plm-ai-modal').remove();"
+    style="padding:7px 16px;font-size:12px;border-radius:5px;border:1px solid var(--border2);background:var(--bg3);color:var(--text1);cursor:pointer;">Cancel</button>
+  <button onclick="_plmAiGenerateWrapper()" id="plm-ai-gen-btn"
+    style="flex:1;padding:8px 20px;font-size:13px;font-weight:700;border-radius:5px;border:none;cursor:pointer;letter-spacing:0.3px;">
+    ✦ Generate Pipeline
+  </button>
+</div>`;
+  document.body.appendChild(modal);
+  _plmAiProviderChanged(saved.provider||'openai');
+  if(saved.model){const sel=document.getElementById('plm-ai-model');if(sel)sel.value=saved.model;}
+  modal.querySelector('#plm-ai-modal-x').addEventListener('click',()=>{modal._plmDragCleanup?.();modal.remove();});
+  _plmMakeDraggable(modal);
+}
+
+async function _plmAiGenerateWrapper(){
+  if(document.getElementById('plm-ai-clear-first')?.checked){
+    window._plmState.canvas.nodes=[];window._plmState.canvas.edges=[];window._plmState.errors=[];
+    _plmStopAnimation();window._plmState.animating=false;_plmRenderAll();
+  }
+  _plmSwitchTab('builder');
+  await _plmAiGenerate();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CANVAS & INTERACTION (unchanged from v2.1)
+// ═══════════════════════════════════════════════════════════════════════════════
 function _plmToggleFullscreen(){const inner=document.getElementById('plm-modal-inner'),icon=document.getElementById('plm-expand-icon');if(!inner)return;window._plmState.fullscreen=!window._plmState.fullscreen;if(window._plmState.fullscreen){inner.style.width='100vw';inner.style.height='100vh';inner.style.maxHeight='100vh';inner.style.borderRadius='0';icon.innerHTML='<polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="10" y1="14" x2="3" y2="21"/><line x1="21" y1="3" x2="14" y2="10"/>';}else{inner.style.width='min(1400px,97vw)';inner.style.height='91vh';inner.style.maxHeight='91vh';inner.style.borderRadius='6px';icon.innerHTML='<polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>';}setTimeout(()=>{_plmDrawGrid();_plmRenderAll();},220);}
 function _plmToggleSqlPanel(){const side=document.getElementById('plm-sql-side'),icon=document.getElementById('plm-sql-collapse-icon');if(!side)return;window._plmState.sqlCollapsed=!window._plmState.sqlCollapsed;if(window._plmState.sqlCollapsed){side.style.width='0';side.style.overflow='hidden';icon.innerHTML='<polyline points="15 18 9 12 15 6"/>';}else{side.style.width='300px';side.style.overflow='hidden';icon.innerHTML='<polyline points="9 18 15 12 9 6"/>';}setTimeout(()=>{_plmDrawGrid();_plmRenderEdges();},220);}
 function _plmSwitchTab(tab){['builder','sql','pipelines'].forEach(t=>{const btn=document.getElementById('plm-tab-'+t),pane=document.getElementById('plm-pane-'+t);if(btn)btn.classList.toggle('active-plm-tab',t===tab);if(pane)pane.style.display=t===tab?(t==='builder'||t==='sql'?'flex':'block'):'none';});if(tab==='sql')_plmUpdateSqlView();if(tab==='pipelines')_plmRenderPipelinesList();}
@@ -801,7 +909,7 @@ function _plmCanvasWheel(e){e.preventDefault();const wrap=document.getElementByI
 function _plmKeyDown(e){const modal=document.getElementById('modal-pipeline-manager');if(!modal||!modal.classList.contains('open'))return;if((e.key==='Delete'||e.key==='Backspace')&&_plmSelectedNode&&document.activeElement?.tagName!=='INPUT'&&document.activeElement?.tagName!=='TEXTAREA'){_plmDeleteNode(_plmSelectedNode);}if(e.key==='Escape'&&window._plmState.connecting)_plmCancelConnect();}
 function _plmDeleteNode(uid){window._plmState.canvas.nodes=window._plmState.canvas.nodes.filter(n=>n.uid!==uid);window._plmState.canvas.edges=window._plmState.canvas.edges.filter(e=>e.fromUid!==uid&&e.toUid!==uid);if(_plmSelectedNode===uid)_plmSelectedNode=null;_plmRenderAll();_plmUpdateStatus();}
 window._plmSelectedEdgeType='forward';
-function _plmSelectEdgeType(id){window._plmSelectedEdgeType=id;document.querySelectorAll('.plm-edge-type-item').forEach(el=>el.classList.toggle('selected',el.id==='plm-edge-type-'+id));const edgeConfigModal=document.getElementById('plm-edge-config-modal');if(edgeConfigModal){const typeSelect=document.getElementById('plm-ecfg-type');if(typeSelect)typeSelect.value=id;const etype=PM_EDGE_TYPES.find(e=>e.id===id);if(etype){const colorInput=document.getElementById('plm-ecfg-color');const colorHex=document.getElementById('plm-ecfg-color-hex');if(colorInput)colorInput.value=etype.color;if(colorHex)colorHex.value=etype.color;}}const selectedUid=window._plmSelectedNode;const etype=PM_EDGE_TYPES.find(e=>e.id===id);if(!etype)return;if(selectedUid){window._plmState.canvas.edges.forEach(edge=>{if(edge.fromUid===selectedUid){edge.edgeType=id;edge.customColor=null;}});}_plmRenderEdges();}
+function _plmSelectEdgeType(id){window._plmSelectedEdgeType=id;document.querySelectorAll('.plm-edge-type-item').forEach(el=>el.classList.toggle('selected',el.id==='plm-edge-type-'+id));const selectedUid=window._plmSelectedNode;const etype=PM_EDGE_TYPES.find(e=>e.id===id);if(!etype)return;if(selectedUid){window._plmState.canvas.edges.forEach(edge=>{if(edge.fromUid===selectedUid){edge.edgeType=id;edge.customColor=null;}});}_plmRenderEdges();}
 function _plmStartConnect(e,fromUid){e.stopPropagation();window._plmState.connecting={fromUid};const wrap=document.getElementById('plm-canvas-wrap');if(wrap)wrap.style.cursor='crosshair';}
 function _plmFinishConnect(toUid){const{fromUid}=window._plmState.connecting||{};if(!fromUid||fromUid===toUid){_plmCancelConnect();return;}if(window._plmState.canvas.edges.find(e=>e.fromUid===fromUid&&e.toUid===toUid)){_plmCancelConnect();return;}window._plmState.canvas.edges.push({uid:_plmEdgeUID(),fromUid,toUid,edgeType:window._plmSelectedEdgeType||'forward',label:'',customColor:null});_plmCancelConnect();_plmRenderAll();_plmUpdateStatus();}
 function _plmCancelConnect(){window._plmState.connecting=null;const wrap=document.getElementById('plm-canvas-wrap');if(wrap)wrap.style.cursor='default';const g=document.getElementById('plm-edge-draw-g');if(g)g.innerHTML='';}
@@ -848,7 +956,7 @@ function _plmCloseTerminal(){if(window._plmTerminalInterval){clearInterval(windo
 function _plmTerminalPause(){window._plmTerminalPaused=!window._plmTerminalPaused;const btn=document.getElementById('plm-term-pause-btn');if(btn)btn.textContent=window._plmTerminalPaused?'▶ Resume':'⏸ Pause';}
 function _plmTerminalStartStream(uid,node,opDef){const schema=(node.params?.schema||'id BIGINT\nvalue DOUBLE\nts TIMESTAMP(3)').split('\n').map(l=>l.trim()).filter(Boolean);const cols=schema.map(l=>l.split(/\s+/)[0]).filter(Boolean);let seq=0,startTime=Date.now();const makeRow=()=>{const vals=cols.map(c=>{if(c.toLowerCase().includes('id'))return Math.floor(Math.random()*99999);if(c.toLowerCase().includes('ts'))return new Date().toISOString();if(c.toLowerCase().includes('amount')||c.toLowerCase().includes('value'))return(Math.random()*1000).toFixed(2);if(c.toLowerCase().includes('status'))return['ACTIVE','PENDING','CLOSED'][Math.floor(Math.random()*3)];return'"row_'+seq+'"';});return'+I['+vals.join(', ')+']';};window._plmTerminalInterval=setInterval(()=>{if(window._plmTerminalPaused)return;const out=document.getElementById('plm-terminal-output');if(!out)return;seq++;window._plmTerminalEventCount++;const row=makeRow(),ts=new Date().toLocaleTimeString('en-GB',{hour12:false,fractionalSecondDigits:3});const line=document.createElement('div');line.style.cssText='border-bottom:1px solid rgba(0,80,0,0.3);padding:2px 0;';line.innerHTML='<span style="color:#0a5;margin-right:8px;">'+ts+'</span><span style="color:#0c0;">'+escHtml(row)+'</span>';out.appendChild(line);while(out.children.length>200)out.removeChild(out.firstChild);out.scrollTop=out.scrollHeight;const elapsed=((Date.now()-startTime)/1000).toFixed(1),rate=(window._plmTerminalEventCount/Math.max(1,parseFloat(elapsed))).toFixed(1);const stats=document.getElementById('plm-term-stats');if(stats)stats.textContent=window._plmTerminalEventCount+' events · '+rate+' rows/s · '+elapsed+'s';},800);}
 function _plmValidatePipeline(){const{nodes,edges}=window._plmState.canvas;const errors=[];nodes.forEach(n=>{if(!n.configured)errors.push({uid:n.uid,msg:'Node "'+n.label+'" has required fields not filled in.'});});nodes.forEach(n=>{const opDef=PM_OPERATORS.find(o=>o.id===n.opId)||{};if(!opDef.isSource&&!opDef.isSink){if(!edges.some(e=>e.toUid===n.uid))errors.push({uid:n.uid,msg:'"'+n.label+'" has no incoming connection.'});if(!edges.some(e=>e.fromUid===n.uid))errors.push({uid:n.uid,msg:'"'+n.label+'" has no outgoing connection.'});}});nodes.filter(n=>PM_OPERATORS.find(o=>o.id===n.opId)?.isSource).forEach(n=>{if(!edges.some(e=>e.fromUid===n.uid))errors.push({uid:n.uid,msg:'"'+n.label+'" source is not connected.'});});window._plmState.errors=errors;return errors;}
-function _plmSyncRunBtn(){const btn=document.getElementById('plm-run-btn'),floatBtn=document.getElementById('plm-float-stop-btn');if(window._plmState.animating){if(btn){btn.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg> Stop';btn.style.color='var(--red)';btn.style.borderColor='rgba(247,84,100,0.4)';}if(floatBtn)floatBtn.style.display='block';}else{if(btn){btn.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run';btn.style.color='var(--green)';btn.style.borderColor='rgba(87,198,100,0.3)';btn.style.background='';}if(floatBtn)floatBtn.style.display='none';}}
+function _plmSyncRunBtn(){const btn=document.getElementById('plm-run-btn'),floatBtn=document.getElementById('plm-float-stop-btn');if(window._plmState.animating){if(btn){btn.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg> Stop';btn.style.color='var(--red)';btn.style.borderColor='rgba(247,84,100,0.4)';}if(floatBtn)floatBtn.style.display='block';}else{if(btn){btn.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run';btn.style.color='var(--green)';btn.style.borderColor='rgba(87,198,80,0.3)';btn.style.background='';}if(floatBtn)floatBtn.style.display='none';}}
 function _plmForceStop(keepErrors){window._plmState.animating=false;if(!keepErrors)window._plmState.errors=[];_plmStopAnimation();_plmSyncRunBtn();_plmRenderNodes();_plmRenderEdges();if(!keepErrors){const errEl=document.getElementById('plm-status-errors');if(errEl)errEl.textContent='';const banner=document.getElementById('plm-error-banner');if(banner)banner.style.display='none';}}
 function _plmToggleAnimation(){if(!window._plmState.animating){const errs=_plmValidatePipeline();if(errs.length>0){window._plmState.animating=false;_plmForceStop(true);_plmUpdateStatus();_plmShowErrorDetail();toast(errs[0].msg,'err');return;}window._plmState.animating=true;window._plmState.errors=[];_plmSyncRunBtn();_plmStartAnimation();_plmRenderNodes();_plmRenderEdges();_plmUpdateSqlPreview();toast('Pipeline running — click Stop to halt','ok');}else{_plmForceStop();}}
 function _plmStartAnimation(){_plmStopAnimation();const particles=[];let frame=0;const animate=()=>{if(!window._plmState.animating)return;frame++;const g=document.getElementById('plm-particles-g');if(!g){window._plmState.animTimer=requestAnimationFrame(animate);return;}if(frame===1||frame%10===0){window._plmState.canvas.edges.forEach(edge=>{const etype=PM_EDGE_TYPES.find(e=>e.id===edge.edgeType)||PM_EDGE_TYPES[0];particles.push({edgeUid:edge.uid,t:Math.random(),color:edge.customColor||etype.color,r:2.5+Math.random()*2});if(particles.length>window._plmState.canvas.edges.length*8)particles.splice(0,window._plmState.canvas.edges.length);});}const container=document.getElementById('plm-nodes-container');const{pan,scale}=window._plmState.canvas;const getPos=(uid,dir)=>{const el=container?.querySelector('.plm-node[data-uid="'+uid+'"]');if(!el)return null;const nX=parseFloat(el.style.left)*scale+pan.x,nY=parseFloat(el.style.top)*scale+pan.y,nW=el.offsetWidth*scale,nH=el.offsetHeight*scale;return dir==='out'?{x:nX+nW,y:nY+nH/2}:{x:nX,y:nY+nH/2};};let pHtml='';for(let i=particles.length-1;i>=0;i--){const part=particles[i];const edge=window._plmState.canvas.edges.find(e=>e.uid===part.edgeUid);if(!edge){particles.splice(i,1);continue;}const from=getPos(edge.fromUid,'out'),to=getPos(edge.toUid,'in');if(!from||!to){continue;}part.t+=0.018;if(part.t>=1){part.t=0;continue;}const t=part.t,mt=1-t;const cx1=from.x+(to.x-from.x)*0.45,cy1=from.y,cx2=from.x+(to.x-from.x)*0.55,cy2=to.y;const px=mt*mt*mt*from.x+3*mt*mt*t*cx1+3*mt*t*t*cx2+t*t*t*to.x;const py=mt*mt*mt*from.y+3*mt*mt*t*cy1+3*mt*t*t*cy2+t*t*t*to.y;const alpha=Math.sin(t*Math.PI);pHtml+='<circle cx="'+px+'" cy="'+py+'" r="'+part.r+'" fill="'+part.color+'" opacity="'+alpha.toFixed(2)+'"/>';}g.innerHTML=pHtml;window._plmState.animTimer=requestAnimationFrame(animate);};window._plmState.animTimer=requestAnimationFrame(animate);}
@@ -856,44 +964,22 @@ function _plmStopAnimation(){if(window._plmState.animTimer){cancelAnimationFrame
 async function _plmValidateAndSubmit(){if(!state?.gateway||!state?.activeSession){toast('Not connected to a session','err');return;}const errs=_plmValidatePipeline();if(errs.length>0){const errEl=document.getElementById('plm-status-errors');if(errEl)errEl.textContent='⚠ '+errs.length+' error(s)';toast(errs[0].msg,'err');_plmRenderAll();return;}const sql=_plmGenerateSql();if(sql.startsWith('-- Add operators')){toast('Build a pipeline first','warn');return;}const ed=document.getElementById('sql-editor');if(ed){ed.value=sql;if(typeof updateLineNumbers==='function')updateLineNumbers();}const pipelineName=window._plmState.activePipeline?.name||'Untitled';closeModal('modal-pipeline-manager');toast('Pipeline SQL submitted — executing…','ok');addLog('OK','Pipeline submitted: '+pipelineName);setTimeout(()=>{if(typeof executeSQL==='function')executeSQL();else toast('SQL inserted — press Ctrl+Enter to run','info');},300);}
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// SQL GENERATION — PATCHED v0.0.20: no trailing commas, correct operator SQL
+// SQL GENERATION (patched v0.0.20 — no trailing commas)
 // ═══════════════════════════════════════════════════════════════════════════════
-function _plmGenerateSql(){const{nodes,edges}=window._plmState.canvas;if(!nodes.length)return'-- Add operators to the canvas to generate SQL';const lines=[];lines.push('-- ══════════════════════════════════════════════════════');lines.push('-- Pipeline: '+(window._plmState.activePipeline?.name||'Untitled'));lines.push('-- Generated by Str:::lab Studio Pipeline Manager v2.1');lines.push('-- ══════════════════════════════════════════════════════\n');const hasStateful=nodes.some(n=>PM_OPERATORS.find(o=>o.id===n.opId)?.stateful);const ps=window._plmState.pipelineSettings;if(ps){lines.push(_plmBuildSettingsSql(ps)+'\n');}else if(hasStateful){lines.push("SET 'execution.runtime-mode' = 'streaming';");lines.push("SET 'parallelism.default' = '2';");lines.push("SET 'execution.checkpointing.interval' = '10000';");lines.push("SET 'table.exec.state.ttl' = '3600000';\n");}const inDeg={},childMap={};nodes.forEach(n=>{inDeg[n.uid]=0;childMap[n.uid]=[];});edges.forEach(e=>{if(inDeg[e.toUid]!==undefined)inDeg[e.toUid]++;if(childMap[e.fromUid])childMap[e.fromUid].push(e.toUid);});let queue=nodes.filter(n=>inDeg[n.uid]===0).map(n=>n.uid);const order=[],tmpCount={...inDeg};while(queue.length){const uid=queue.shift();order.push(uid);(childMap[uid]||[]).forEach(cid=>{tmpCount[cid]--;if(tmpCount[cid]===0)queue.push(cid);});}const orderedNodes=order.map(uid=>nodes.find(n=>n.uid===uid)).filter(Boolean);nodes.filter(n=>!order.includes(n.uid)).forEach(n=>orderedNodes.push(n));orderedNodes.filter(n=>PM_OPERATORS.find(o=>o.id===n.opId)?.isSource).forEach(n=>{lines.push(_plmNodeToSql(n));lines.push('');});orderedNodes.filter(n=>PM_OPERATORS.find(o=>o.id===n.opId)?.isSink).forEach(n=>{lines.push(_plmNodeToSql(n));lines.push('');});const sources=nodes.filter(n=>PM_OPERATORS.find(o=>o.id===n.opId)?.isSource);const sinks=nodes.filter(n=>PM_OPERATORS.find(o=>o.id===n.opId)?.isSink);if(sources.length&&sinks.length){lines.push('-- ──────────────────────────────────────────────────────');lines.push('-- Pipeline execution');lines.push('-- ──────────────────────────────────────────────────────');const insertSql=_plmBuildInsertSql(sources,sinks,nodes,edges);if(insertSql)lines.push(insertSql);}return lines.join('\n');}
+function _plmGenerateSql(){const{nodes,edges}=window._plmState.canvas;if(!nodes.length)return'-- Add operators to the canvas to generate SQL';const lines=[];lines.push('-- ══════════════════════════════════════════════════════');lines.push('-- Pipeline: '+(window._plmState.activePipeline?.name||'Untitled'));lines.push('-- Generated by Str:::lab Studio Pipeline Manager v2.2');lines.push('-- ══════════════════════════════════════════════════════\n');const hasStateful=nodes.some(n=>PM_OPERATORS.find(o=>o.id===n.opId)?.stateful);const ps=window._plmState.pipelineSettings;if(ps){lines.push(_plmBuildSettingsSql(ps)+'\n');}else if(hasStateful){lines.push("SET 'execution.runtime-mode' = 'streaming';");lines.push("SET 'parallelism.default' = '2';");lines.push("SET 'execution.checkpointing.interval' = '10000';");lines.push("SET 'table.exec.state.ttl' = '3600000';\n");}const inDeg={},childMap={};nodes.forEach(n=>{inDeg[n.uid]=0;childMap[n.uid]=[];});edges.forEach(e=>{if(inDeg[e.toUid]!==undefined)inDeg[e.toUid]++;if(childMap[e.fromUid])childMap[e.fromUid].push(e.toUid);});let queue=nodes.filter(n=>inDeg[n.uid]===0).map(n=>n.uid);const order=[],tmpCount={...inDeg};while(queue.length){const uid=queue.shift();order.push(uid);(childMap[uid]||[]).forEach(cid=>{tmpCount[cid]--;if(tmpCount[cid]===0)queue.push(cid);});}const orderedNodes=order.map(uid=>nodes.find(n=>n.uid===uid)).filter(Boolean);nodes.filter(n=>!order.includes(n.uid)).forEach(n=>orderedNodes.push(n));orderedNodes.filter(n=>PM_OPERATORS.find(o=>o.id===n.opId)?.isSource).forEach(n=>{lines.push(_plmNodeToSql(n));lines.push('');});orderedNodes.filter(n=>PM_OPERATORS.find(o=>o.id===n.opId)?.isSink).forEach(n=>{lines.push(_plmNodeToSql(n));lines.push('');});const sources=nodes.filter(n=>PM_OPERATORS.find(o=>o.id===n.opId)?.isSource);const sinks=nodes.filter(n=>PM_OPERATORS.find(o=>o.id===n.opId)?.isSink);if(sources.length&&sinks.length){lines.push('-- ──────────────────────────────────────────────────────');lines.push('-- Pipeline execution');lines.push('-- ──────────────────────────────────────────────────────');const insertSql=_plmBuildInsertSql(sources,sinks,nodes,edges);if(insertSql)lines.push(insertSql);}return lines.join('\n');}
 
 function _plmNodeToSql(node){const opDef=PM_OPERATORS.find(o=>o.id===node.opId);if(!opDef)return'-- Node: '+node.label+' (unknown operator)';const p=node.params||{};const tbl=(p.table_name||node.label||'').toLowerCase().replace(/\s+/g,'_');const rawSchema=(p.schema||'id BIGINT\npayload STRING\nts TIMESTAMP(3)').trim();const schemaCols=rawSchema.split('\n').map(l=>l.trim()).filter(Boolean);const schemaBlock=schemaCols.map(l=>'  '+l).join(',\n');const wm=p.watermark?p.watermark.trim():'';const wmDelay=p.watermark_delay||'5';const wmLine=wm?(',\n  WATERMARK FOR '+wm+' AS '+wm+" - INTERVAL '"+wmDelay+"' SECOND"):'';const canvas=window._plmState?.canvas;const srcNode=canvas?.nodes?.find(n=>PM_OPERATORS.find(o=>o.id===n.opId)?.isSource);const srcTbl=(srcNode?.params?.table_name||srcNode?.label||'source_table').toLowerCase().replace(/\s+/g,'_');const buildSaslProps=(p)=>{const parts=[];if(p.security_protocol)parts.push("  'properties.security.protocol' = '"+p.security_protocol+"'");if(p.sasl_mechanism)parts.push("  'properties.sasl.mechanism' = '"+p.sasl_mechanism+"'");if(p.sasl_username&&p.sasl_password)parts.push("  'properties.sasl.jaas.config' = 'org.apache.kafka.common.security.plain.PlainLoginModule required username=\""+p.sasl_username+"\" password=\""+p.sasl_password+"\";'");if(p.schema_registry_url)parts.push("  'schema-registry.url' = '"+p.schema_registry_url+"'");return parts.length?',\n'+parts.join(',\n'):'';};switch(node.opId){case'kafka_source':{const withEntries=["'connector' = 'kafka'","'topic' = '"+(p.topic||'my-topic')+"'","'properties.bootstrap.servers' = '"+(p.bootstrap_servers||'kafka:9092')+"'","'properties.group.id' = '"+(p.group_id||'flink-group')+"'","'scan.startup.mode' = '"+(p.startup_mode||'latest-offset')+"'","'format' = '"+(p.format||'json')+"'"];const sasl=buildSaslProps(p);return'-- Source: '+tbl+'\nCREATE TEMPORARY TABLE IF NOT EXISTS '+tbl+' (\n'+schemaBlock+wmLine+'\n) WITH (\n'+withEntries.map(e=>'  '+e).join(',\n')+(sasl?',\n'+sasl.replace(/^,\n/,''):'')+'\n);'}case'datagen_source':{const withEntries=["'connector' = 'datagen'","'rows-per-second' = '"+(p.rows_per_second||'10')+"'"];if(p.number_of_rows)withEntries.push("'number-of-rows' = '"+p.number_of_rows+"'");return'-- Source: '+tbl+'\nCREATE TEMPORARY TABLE IF NOT EXISTS '+tbl+' (\n'+schemaBlock+'\n) WITH (\n'+withEntries.map(e=>'  '+e).join(',\n')+'\n);'}case'jdbc_source':{const withEntries=["'connector' = 'jdbc'","'url' = '"+(p.jdbc_url||'jdbc:postgresql://localhost/mydb')+"'","'table-name' = '"+(p.db_table||'your_table')+"'"];if(p.username)withEntries.push("'username' = '"+p.username+"'");if(p.password)withEntries.push("'password' = '"+p.password+"'");if(p.driver)withEntries.push("'driver' = '"+p.driver+"'");return'-- Source: '+tbl+'\nCREATE TEMPORARY TABLE IF NOT EXISTS '+tbl+' (\n'+schemaBlock+'\n) WITH (\n'+withEntries.map(e=>'  '+e).join(',\n')+'\n);'}case'filesystem_source':return'-- Source: '+tbl+'\nCREATE TEMPORARY TABLE IF NOT EXISTS '+tbl+' (\n'+schemaBlock+'\n) WITH (\n'+"  'connector' = 'filesystem',\n"+"  'path' = '"+(p.path||'s3://bucket/data/')+"',\n"+"  'format' = '"+(p.format||'parquet')+"'\n);";case'pulsar_source':return'-- Source: '+tbl+'\nCREATE TEMPORARY TABLE IF NOT EXISTS '+tbl+' (\n'+schemaBlock+'\n) WITH (\n'+"  'connector' = 'pulsar',\n"+"  'service-url' = '"+(p.service_url||'pulsar://localhost:6650')+"',\n"+"  'topic' = '"+(p.topic||'persistent://public/default/my-topic')+"',\n"+"  'format' = '"+(p.format||'json')+"'\n);";case'kinesis_source':return'-- Source: '+tbl+'\nCREATE TEMPORARY TABLE IF NOT EXISTS '+tbl+' (\n'+schemaBlock+'\n) WITH (\n'+"  'connector' = 'kinesis',\n"+"  'stream' = '"+(p.stream||'my-stream')+"',\n"+"  'aws.region' = '"+(p.region||'us-east-1')+"',\n"+"  'format' = '"+(p.format||'json')+"'\n);";case'kafka_sink':{if(p.schema&&p.schema.trim()){const sinkSchema=p.schema.split('\n').map(l=>'  '+l.trim()).filter(Boolean).join(',\n');const withEntries=["'connector' = 'kafka'","'topic' = '"+(p.topic||'output-topic')+"'","'properties.bootstrap.servers' = '"+(p.bootstrap_servers||'kafka:9092')+"'","'format' = '"+(p.format||'json')+"'"];const sasl=buildSaslProps(p);return'-- Sink: '+tbl+'\nCREATE TEMPORARY TABLE IF NOT EXISTS '+tbl+' (\n'+sinkSchema+'\n) WITH (\n'+withEntries.map(e=>'  '+e).join(',\n')+(sasl?',\n'+sasl.replace(/^,\n/,''):'')+'\n);';}const withEntries=["'connector' = 'kafka'","'topic' = '"+(p.topic||'output-topic')+"'","'properties.bootstrap.servers' = '"+(p.bootstrap_servers||'kafka:9092')+"'","'format' = '"+(p.format||'json')+"'"];const sasl=buildSaslProps(p);return'-- Sink: '+tbl+'\nCREATE TEMPORARY TABLE IF NOT EXISTS '+tbl+' WITH (\n'+withEntries.map(e=>'  '+e).join(',\n')+(sasl?',\n'+sasl.replace(/^,\n/,''):'')+'\n) LIKE '+srcTbl+' (EXCLUDING ALL);'}case'jdbc_sink':{const schemaLines=(p.schema||'').split('\n').map(l=>l.trim()).filter(Boolean);const colNames=schemaLines.map(l=>l.split(/\s+/)[0]);const hasPK=colNames.includes('id');const schemaForSink=schemaLines.map(l=>'  '+l).join(',\n');const pkLine=hasPK?'':',\n  id BIGINT';const withEntries=["'connector' = 'jdbc'","'url' = '"+(p.jdbc_url||'jdbc:postgresql://localhost/mydb')+"'","'table-name' = '"+(p.db_table||'output_table')+"'"];if(p.username)withEntries.push("'username' = '"+p.username+"'");if(p.password)withEntries.push("'password' = '"+p.password+"'");return'-- Sink: '+tbl+'\nCREATE TEMPORARY TABLE IF NOT EXISTS '+tbl+' (\n'+(schemaForSink||'  id BIGINT,\n  value STRING')+pkLine+',\n  PRIMARY KEY (id) NOT ENFORCED\n) WITH (\n'+withEntries.map(e=>'  '+e).join(',\n')+'\n);'}case'filesystem_sink':{const withEntries=["'connector' = 'filesystem'","'path' = '"+(p.path||'s3://bucket/output/')+"'","'format' = '"+(p.format||'parquet')+"'"];if(p.rolling_interval)withEntries.push("'sink.rolling-policy.rollover-interval' = '"+p.rolling_interval+"'");return'-- Sink: '+tbl+'\nCREATE TEMPORARY TABLE IF NOT EXISTS '+tbl+' (\n'+schemaBlock+'\n) WITH (\n'+withEntries.map(e=>'  '+e).join(',\n')+'\n);'}case'elasticsearch_sink':return'-- Sink: '+tbl+'\nCREATE TEMPORARY TABLE IF NOT EXISTS '+tbl+' (\n'+schemaBlock+',\n  PRIMARY KEY (id) NOT ENFORCED\n) WITH (\n'+"  'connector' = 'elasticsearch-"+(p.es_version||'7')+"',\n"+"  'hosts' = '"+(p.hosts||'http://elasticsearch:9200')+"',\n"+"  'index' = '"+(p.index||'my-index')+"'"+(p.username?",\n  'username' = '"+p.username+"'":'')+(p.password?",\n  'password' = '"+p.password+"'":'')+'\n);';case'print_sink':return'-- Sink: '+tbl+'\nCREATE TEMPORARY TABLE IF NOT EXISTS '+tbl+' WITH (\n'+"  'connector' = 'print'"+(p.print_identifier?",\n  'print-identifier' = '"+p.print_identifier+"'":'')+'\n) LIKE '+srcTbl+' (EXCLUDING ALL);';case'blackhole_sink':return'-- Sink: '+tbl+'\nCREATE TEMPORARY TABLE IF NOT EXISTS '+tbl+" WITH (\n  'connector' = 'blackhole'\n) LIKE "+srcTbl+' (EXCLUDING ALL);';case'mongodb_sink':return'-- Sink: '+tbl+'\nCREATE TEMPORARY TABLE IF NOT EXISTS '+tbl+' (\n'+schemaBlock+',\n  PRIMARY KEY (id) NOT ENFORCED\n) WITH (\n'+"  'connector' = 'mongodb',\n"+"  'uri' = '"+(p.uri||'mongodb://localhost:27017/mydb')+"',\n"+"  'collection' = '"+(p.collection||'my-collection')+"'\n);";case'result_output':return'-- Output view: '+tbl+'\nCREATE TEMPORARY VIEW '+tbl+' AS\nSELECT * FROM '+srcTbl+(p.limit?'\nLIMIT '+p.limit:'')+';';default:return'-- '+(opDef.label||node.label)+' ['+node.opId+']';}}
 
 function _plmBuildInsertSql(sources,sinks,nodes,edges){if(!sources.length||!sinks.length)return'';const src=sources[0];const sink=sinks[0];const srcName=(src.params?.table_name||src.label||'source_table').toLowerCase().replace(/\s+/g,'_');const sinkName=(sink.params?.table_name||sink.label||'sink_table').toLowerCase().replace(/\s+/g,'_');const rawSchema=src.params?.schema||'';const schemaCols=rawSchema.split('\n').map(l=>l.trim()).filter(Boolean).map(l=>l.split(/\s+/)[0]).filter(Boolean);const transforms=nodes.filter(n=>{const op=PM_OPERATORS.find(o=>o.id===n.opId);return op&&!op.isSource&&!op.isSink;});let selectItems=[],fromClause=srcName,whereClauses=[],groupByStr=null,hasWindow=false;transforms.forEach(node=>{const np=node.params||{};switch(node.opId){case'filter':if(np.condition?.trim())whereClauses.push('('+np.condition+')');break;case'project':if(np.columns?.trim()){selectItems=np.columns.split('\n').map(l=>l.trim()).filter(Boolean);}break;case'map_udf':case'udf_node':{const fn=np.function_name||np.udf_name||'';const ic=np.input_col||np.input_cols||'';const oa=np.output_alias||'result';if(fn&&ic){if(np.extra_cols?.trim()){np.extra_cols.split(',').map(c=>c.trim()).filter(Boolean).forEach(c=>{if(!selectItems.includes(c))selectItems.push(c);});}selectItems.push(fn+'('+ic+') AS '+oa);}break;}case'enrich':case'lookup_join':{const dimTable=np.dim_table||np.lookup_table||'';const joinKey=np.join_key||'';if(dimTable&&joinKey){if(np.time_col){fromClause=srcName+'\nJOIN '+dimTable+' FOR SYSTEM_TIME AS OF '+srcName+'.'+np.time_col+'\n  ON '+joinKey;}else{fromClause=srcName+'\nLEFT JOIN '+dimTable+'\n  ON '+joinKey;}}break;}case'tumble_window':if(np.time_col&&np.window_size){fromClause='TABLE(TUMBLE(TABLE '+srcName+', DESCRIPTOR('+np.time_col+"), INTERVAL '"+np.window_size+"'))";hasWindow=true;selectItems=['window_start','window_end'];if(np.group_by?.trim())np.group_by.split(',').map(c=>c.trim()).filter(Boolean).forEach(c=>selectItems.push(c));if(np.aggregations?.trim())np.aggregations.split('\n').map(l=>l.trim()).filter(Boolean).forEach(a=>selectItems.push(a));groupByStr=(np.group_by?.trim()?np.group_by+', ':'')+'window_start, window_end';}break;case'hop_window':if(np.time_col&&np.slide&&np.size){fromClause='TABLE(HOP(TABLE '+srcName+', DESCRIPTOR('+np.time_col+"), INTERVAL '"+np.slide+"', INTERVAL '"+np.size+"'))";hasWindow=true;selectItems=['window_start','window_end'];if(np.group_by?.trim())np.group_by.split(',').map(c=>c.trim()).filter(Boolean).forEach(c=>selectItems.push(c));if(np.aggregations?.trim())np.aggregations.split('\n').map(l=>l.trim()).filter(Boolean).forEach(a=>selectItems.push(a));groupByStr=(np.group_by?.trim()?np.group_by+', ':'')+' window_start, window_end';}break;case'session_window':if(np.time_col&&np.gap&&np.partition_by){fromClause='TABLE(SESSION(TABLE '+srcName+', DESCRIPTOR('+np.time_col+'), DESCRIPTOR('+np.partition_by+"), INTERVAL '"+np.gap+"'))";hasWindow=true;selectItems=['window_start','window_end',np.partition_by];if(np.aggregations?.trim())np.aggregations.split('\n').map(l=>l.trim()).filter(Boolean).forEach(a=>selectItems.push(a));groupByStr=np.partition_by+', window_start, window_end';}break;case'aggregate':if(np.aggregations?.trim()){selectItems=[];if(np.group_by?.trim())np.group_by.split(',').map(c=>c.trim()).filter(Boolean).forEach(c=>selectItems.push(c));np.aggregations.split('\n').map(l=>l.trim()).filter(Boolean).forEach(a=>selectItems.push(a));groupByStr=np.group_by||null;}break;case'dedup':if(np.unique_key&&np.time_col){fromClause='(\n  SELECT *,\n    ROW_NUMBER() OVER (PARTITION BY '+np.unique_key+' ORDER BY '+np.time_col+') AS _rn\n  FROM '+fromClause+'\n) t\nWHERE _rn = 1';if(schemaCols.length)selectItems=[...schemaCols];}break;case'topn':if(np.partition_by&&np.order_by&&np.n){fromClause='(\n  SELECT *,\n    ROW_NUMBER() OVER (PARTITION BY '+np.partition_by+' ORDER BY '+np.order_by+') AS _rn\n  FROM '+fromClause+'\n) t\nWHERE _rn <= '+np.n;if(schemaCols.length)selectItems=[...schemaCols];}break;case'interval_join':if(np.right_table&&np.join_condition){fromClause=srcName+'\n'+(np.join_type||'INNER')+' JOIN '+np.right_table+'\n  ON '+np.join_condition+(np.interval?'\n  AND '+np.interval:'');}break;case'temporal_join':if(np.dim_table&&np.time_col&&np.join_key){fromClause=srcName+'\nJOIN '+np.dim_table+' FOR SYSTEM_TIME AS OF '+srcName+'.'+np.time_col+'\n  ON '+np.join_key;}break;case'regular_join':if(np.right_table&&np.join_condition){fromClause=srcName+'\n'+(np.join_type||'INNER')+' JOIN '+np.right_table+'\n  ON '+np.join_condition;}break;}});if(!selectItems.length){selectItems=schemaCols.length?[...schemaCols]:['*'];}let sql='INSERT INTO '+sinkName+'\nSELECT\n  '+selectItems.join(',\n  ')+'\nFROM '+fromClause;if(whereClauses.length)sql+='\nWHERE '+whereClauses.join(' AND ');if(groupByStr&&!hasWindow)sql+='\nGROUP BY '+groupByStr;else if(groupByStr&&hasWindow)sql+='\nGROUP BY '+groupByStr;sql+=';';return sql;}
 
-  function _plmUpdateSqlPreview(){const sql=_plmGenerateSql();const p=document.getElementById('plm-sql-preview');if(p)p.textContent=sql;const f=document.getElementById('plm-sql-full');if(f)f.textContent=sql;}
-  function _plmUpdateSqlView(){_plmUpdateSqlPreview();}
-  function _plmCopySql(){navigator.clipboard.writeText(_plmGenerateSql()).then(()=>toast('SQL copied','ok'));}
-  function _plmInsertSql(){const sql=_plmGenerateSql();if(sql.startsWith('-- Add operators')){toast('Add operators first','warn');return;}const ed=document.getElementById('sql-editor');if(!ed)return;const s=ed.selectionStart;ed.value=ed.value.slice(0,s)+(ed.value.length?'\n\n':'')+sql+'\n'+ed.value.slice(ed.selectionEnd);ed.focus();if(typeof updateLineNumbers==='function')updateLineNumbers();closeModal('modal-pipeline-manager');toast('Pipeline SQL inserted','ok');}
-  function _plmUpdateStatus(){const{nodes,edges}=window._plmState.canvas;const nodesEl=document.getElementById('plm-status-nodes'),edgesEl=document.getElementById('plm-status-edges'),msgEl=document.getElementById('plm-status-msg'),errEl=document.getElementById('plm-status-errors');if(nodesEl)nodesEl.textContent=nodes.length+' node'+(nodes.length!==1?'s':'');if(edgesEl)edgesEl.textContent=edges.length+' edge'+(edges.length!==1?'s':'');const unc=nodes.filter(n=>!n.configured).length;if(msgEl)msgEl.textContent=unc?'⚠ '+unc+' unconfigured':(nodes.length?'✓ Ready':'');const errs=window._plmState.errors||[];if(errEl){if(errs.length>0)errEl.textContent='⚠ '+errs.length+' error'+(errs.length>1?'s':'')+' — click for details';else{errEl.textContent='';const banner=document.getElementById('plm-error-banner');if(banner)banner.style.display='none';}}}
-  function _plmShowErrorDetail(){const errs=window._plmState.errors||[];if(!errs.length)return;const banner=document.getElementById('plm-error-banner'),list=document.getElementById('plm-error-banner-list');if(!banner||!list)return;list.innerHTML=errs.map((err,i)=>{const node=err.uid?window._plmState.canvas.nodes.find(n=>n.uid===err.uid):null;return'<div style="display:flex;align-items:baseline;gap:8px;padding:3px 6px;background:rgba(255,77,109,0.07);border-radius:3px;border-left:3px solid rgba(255,77,109,0.5);"><span style="color:rgba(255,77,109,0.7);font-size:10px;">#'+(i+1)+'</span>'+(node?'<span style="font-family:var(--mono);font-size:10px;color:#ff8080;font-weight:700;">['+escHtml(node.label)+']</span>':'')+'<span style="font-size:11px;color:var(--text1);flex:1;">'+escHtml(err.msg)+'</span></div>';}).join('');banner.style.display='block';}
-  function _plmClearCanvas(){if(!confirm('Clear all nodes and edges?'))return;window._plmState.canvas.nodes=[];window._plmState.canvas.edges=[];window._plmState.canvas.pan={x:0,y:0};window._plmState.canvas.scale=1.0;window._plmState.errors=[];_plmStopAnimation();window._plmState.animating=false;_plmRenderAll();_plmUpdateStatus();}
-  function _plmAutoLayout(){const{nodes,edges}=window._plmState.canvas;if(!nodes.length)return;const inDeg={},children={};nodes.forEach(n=>{inDeg[n.uid]=0;children[n.uid]=[];});edges.forEach(e=>{if(inDeg[e.toUid]!==undefined)inDeg[e.toUid]++;if(children[e.fromUid])children[e.fromUid].push(e.toUid);});let queue=nodes.filter(n=>inDeg[n.uid]===0).map(n=>n.uid);const layers=[],visited=new Set();while(queue.length){layers.push([...queue]);const next=[];queue.forEach(id=>{visited.add(id);(children[id]||[]).forEach(cid=>{inDeg[cid]--;if(inDeg[cid]===0&&!visited.has(cid))next.push(cid);});});queue=next;}nodes.filter(n=>!visited.has(n.uid)).forEach(n=>layers.push([n.uid]));const COL_W=220,ROW_H=110,PAD_X=50,PAD_Y=50;layers.forEach((layer,li)=>{layer.forEach((uid,ri)=>{const node=nodes.find(n=>n.uid===uid);if(node){node.x=PAD_X+li*COL_W;node.y=PAD_Y+ri*ROW_H;}});});_plmRenderAll();toast('Auto-layout applied','ok');}
-  function _plmExportPipeline(){_plmSavePipeline();const active=window._plmState.activePipeline;if(!active)return;const p=window._plmState.pipelines.find(x=>x.id===active.id);if(!p)return;const json=JSON.stringify({...p,nodes:window._plmState.canvas.nodes,edges:window._plmState.canvas.edges},null,2);const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));a.download=(active.name||'pipeline').replace(/\s+/g,'_')+'.json';a.click();toast('Pipeline exported','ok');}
-  function _plmExportSpecific(id){const p=window._plmState.pipelines.find(x=>x.id===id);if(!p)return;const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(p,null,2)],{type:'application/json'}));a.download=(p.name||'pipeline').replace(/\s+/g,'_')+'.json';a.click();}
-  function _plmImportPipeline(e) {
-    const file = e.target?.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = evt => {
-      try {
-        const data = JSON.parse(evt.target.result);
-        if (!data.nodes) throw new Error('Invalid pipeline file');
-        const id = data.id || ('p' + Date.now());
-        const entry = {...data, id};
-        const idx = window._plmState.pipelines.findIndex(p => p.id === id);
-        if (idx >= 0) window._plmState.pipelines[idx] = entry; else window._plmState.pipelines.push(entry);
-        _plmSavePipelines();
-        _plmLoadPipeline(id);
-        toast('Pipeline "' + (data.name || 'imported') + '" loaded', 'ok');
-      } catch (err) {
-        toast('Import failed: ' + err.message, 'err');
-      }
-    };
-    reader.readAsText(file);
-    e.target.value = '';
-
-  }
+function _plmUpdateSqlPreview(){const sql=_plmGenerateSql();const p=document.getElementById('plm-sql-preview');if(p)p.textContent=sql;const f=document.getElementById('plm-sql-full');if(f)f.textContent=sql;}
+function _plmUpdateSqlView(){_plmUpdateSqlPreview();}
+function _plmCopySql(){navigator.clipboard.writeText(_plmGenerateSql()).then(()=>toast('SQL copied','ok'));}
+function _plmInsertSql(){const sql=_plmGenerateSql();if(sql.startsWith('-- Add operators')){toast('Add operators first','warn');return;}const ed=document.getElementById('sql-editor');if(!ed)return;const s=ed.selectionStart;ed.value=ed.value.slice(0,s)+(ed.value.length?'\n\n':'')+sql+'\n'+ed.value.slice(ed.selectionEnd);ed.focus();if(typeof updateLineNumbers==='function')updateLineNumbers();closeModal('modal-pipeline-manager');toast('Pipeline SQL inserted','ok');}
+function _plmUpdateStatus(){const{nodes,edges}=window._plmState.canvas;const nodesEl=document.getElementById('plm-status-nodes'),edgesEl=document.getElementById('plm-status-edges'),msgEl=document.getElementById('plm-status-msg'),errEl=document.getElementById('plm-status-errors');if(nodesEl)nodesEl.textContent=nodes.length+' node'+(nodes.length!==1?'s':'');if(edgesEl)edgesEl.textContent=edges.length+' edge'+(edges.length!==1?'s':'');const unc=nodes.filter(n=>!n.configured).length;if(msgEl)msgEl.textContent=unc?'⚠ '+unc+' unconfigured':(nodes.length?'✓ Ready':'');const errs=window._plmState.errors||[];if(errEl){if(errs.length>0)errEl.textContent='⚠ '+errs.length+' error'+(errs.length>1?'s':'')+' — click for details';else{errEl.textContent='';const banner=document.getElementById('plm-error-banner');if(banner)banner.style.display='none';}}}
+function _plmShowErrorDetail(){const errs=window._plmState.errors||[];if(!errs.length)return;const banner=document.getElementById('plm-error-banner'),list=document.getElementById('plm-error-banner-list');if(!banner||!list)return;list.innerHTML=errs.map((err,i)=>{const node=err.uid?window._plmState.canvas.nodes.find(n=>n.uid===err.uid):null;return'<div style="display:flex;align-items:baseline;gap:8px;padding:3px 6px;background:rgba(255,77,109,0.07);border-radius:3px;border-left:3px solid rgba(255,77,109,0.5);"><span style="color:rgba(255,77,109,0.7);font-size:10px;">#'+(i+1)+'</span>'+(node?'<span style="font-family:var(--mono);font-size:10px;color:#ff8080;font-weight:700;">['+escHtml(node.label)+']</span>':'')+'<span style="font-size:11px;color:var(--text1);flex:1;">'+escHtml(err.msg)+'</span></div>';}).join('');banner.style.display='block';}
+function _plmClearCanvas(){if(!confirm('Clear all nodes and edges?'))return;window._plmState.canvas.nodes=[];window._plmState.canvas.edges=[];window._plmState.canvas.pan={x:0,y:0};window._plmState.canvas.scale=1.0;window._plmState.errors=[];_plmStopAnimation();window._plmState.animating=false;_plmRenderAll();_plmUpdateStatus();}
+function _plmAutoLayout(){const{nodes,edges}=window._plmState.canvas;if(!nodes.length)return;const inDeg={},children={};nodes.forEach(n=>{inDeg[n.uid]=0;children[n.uid]=[];});edges.forEach(e=>{if(inDeg[e.toUid]!==undefined)inDeg[e.toUid]++;if(children[e.fromUid])children[e.fromUid].push(e.toUid);});let queue=nodes.filter(n=>inDeg[n.uid]===0).map(n=>n.uid);const layers=[],visited=new Set();while(queue.length){layers.push([...queue]);const next=[];queue.forEach(id=>{visited.add(id);(children[id]||[]).forEach(cid=>{inDeg[cid]--;if(inDeg[cid]===0&&!visited.has(cid))next.push(cid);});});queue=next;}nodes.filter(n=>!visited.has(n.uid)).forEach(n=>layers.push([n.uid]));const COL_W=220,ROW_H=110,PAD_X=50,PAD_Y=50;layers.forEach((layer,li)=>{layer.forEach((uid,ri)=>{const node=nodes.find(n=>n.uid===uid);if(node){node.x=PAD_X+li*COL_W;node.y=PAD_Y+ri*ROW_H;}});});_plmRenderAll();toast('Auto-layout applied','ok');}
+function _plmExportPipeline(){_plmSavePipeline();const active=window._plmState.activePipeline;if(!active)return;const p=window._plmState.pipelines.find(x=>x.id===active.id);if(!p)return;const json=JSON.stringify({...p,nodes:window._plmState.canvas.nodes,edges:window._plmState.canvas.edges},null,2);const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));a.download=(active.name||'pipeline').replace(/\s+/g,'_')+'.json';a.click();toast('Pipeline exported','ok');}
+function _plmExportSpecific(id){const p=window._plmState.pipelines.find(x=>x.id===id);if(!p)return;const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(p,null,2)],{type:'application/json'}));a.download=(p.name||'pipeline').replace(/\s+/g,'_')+'.json';a.click();}
+function _plmImportPipeline(e){const file=e.target?.files?.[0];if(!file)return;const reader=new FileReader();reader.onload=evt=>{try{const data=JSON.parse(evt.target.result);if(!data.nodes)throw new Error('Invalid pipeline file');const id=data.id||('p'+Date.now());const entry={...data,id};const idx=window._plmState.pipelines.findIndex(p=>p.id===id);if(idx>=0)window._plmState.pipelines[idx]=entry;else window._plmState.pipelines.push(entry);_plmSavePipelines();_plmLoadPipeline(id);toast('Pipeline "'+(data.name||'imported')+'" loaded','ok');}catch(err){toast('Import failed: '+err.message,'err');}};reader.readAsText(file);e.target.value='';}
